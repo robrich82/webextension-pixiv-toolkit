@@ -173,7 +173,13 @@ class PostParser {
     }
 
     if (response && response.body) {
-      this.context = this.standardContext(response.body);
+      /**
+       * Fanbox now nests the post data under `body.post`; older responses put it
+       * directly on `body`. Support both so the post fields line up with what
+       * standardContext expects.
+       */
+      let post = response.body.post || response.body;
+      this.context = this.standardContext(post);
     } else {
       throw new RuntimeError(`Can't fetch fanbox post ${this.context.postId} context`);
     }
