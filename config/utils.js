@@ -1,8 +1,6 @@
 'use strict'
 const path = require('path')
-// const config = require('../config')
 const MiniCssExtractPlugin = require('mini-css-extract-plugin')
-// const packageConfig = require('../package.json')
 
 exports.resolve = function (dir, subdir) {
   return path.join(__dirname, '..', dir, subdir ? subdir : '.')
@@ -17,23 +15,29 @@ exports.assetsPath = function (_path) {
 exports.cssLoaders = function (options) {
   options = options || {}
 
-  const cssLoader = {
-    loader: 'css-loader',
-    options: {
-      sourceMap: options.sourceMap
-    }
-  }
-
-  const postcssLoader = {
-    loader: 'postcss-loader',
-    options: {
-      sourceMap: options.sourceMap
-    }
-  }
-
   // generate loader string to be used with extract text plugin
   function generateLoaders (loader, loaderOptions) {
-    const loaders = options.usePostCSS ? [cssLoader, postcssLoader] : [cssLoader]
+    // css-loader needs to know how many loaders run before it so that `@import`
+    // inside a stylesheet is passed back through postcss (and sass, when there
+    // is a preprocessor in the chain) instead of being inlined verbatim.
+    const preLoaderCount = (options.usePostCSS ? 1 : 0) + (loader ? 1 : 0)
+
+    const loaders = [{
+      loader: 'css-loader',
+      options: {
+        sourceMap: options.sourceMap,
+        importLoaders: preLoaderCount
+      }
+    }]
+
+    if (options.usePostCSS) {
+      loaders.push({
+        loader: 'postcss-loader',
+        options: {
+          sourceMap: options.sourceMap
+        }
+      })
+    }
 
     if (loader) {
       loaders.push({
@@ -53,16 +57,42 @@ exports.cssLoaders = function (options) {
     }
   }
 
-  // https://vue-loader.vuejs.org/en/configurations/extract-css.html
   return {
     css: generateLoaders(),
     postcss: generateLoaders(),
-    less: generateLoaders('less'),
-    sass: generateLoaders('sass', { indentedSyntax: true }),
-    scss: generateLoaders('sass'),
-    stylus: generateLoaders('stylus'),
-    styl: generateLoaders('stylus')
+    // sass-loader 8+ takes preprocessor options under `sassOptions` rather than
+    // at the top level.
+    sass: generateLoaders('sass', { sassOptions: { indentedSyntax: true } }),
+    scss: generateLoaders('sass')
   }
+}
+
+/**
+ * Replaces the url-loader rules the page bundles used to share. webpack 5 has
+ * asset modules built in: `asset` inlines below `maxSize` and emits a file
+ * above it, which is what `url-loader` with `limit` did.
+ *
+ * Note `[ext]` already includes the leading dot, unlike url-loader's `[ext]`.
+ */
+exports.assetRules = function () {
+  const inlineBelow = 10000
+
+  const rule = (test, dir) => ({
+    test,
+    type: 'asset',
+    parser: {
+      dataUrlCondition: { maxSize: inlineBelow }
+    },
+    generator: {
+      filename: exports.assetsPath(`${dir}/[name].[hash:7][ext]`)
+    }
+  })
+
+  return [
+    rule(/\.(png|jpe?g|gif|svg)(\?.*)?$/, 'img'),
+    rule(/\.(mp4|webm|ogg|mp3|wav|flac|aac)(\?.*)?$/, 'media'),
+    rule(/\.(woff2?|eot|ttf|otf)(\?.*)?$/, 'fonts')
+  ]
 }
 
 // Generate loaders for standalone style files (outside of .vue)
@@ -80,21 +110,3 @@ exports.styleLoaders = function (options) {
 
   return output
 }
-
-// exports.createNotifierCallback = () => {
-//   const notifier = require('node-notifier')
-
-//   return (severity, errors) => {
-//     if (severity !== 'error') return
-
-//     const error = errors[0]
-//     const filename = error.file && error.file.split('!').pop()
-
-//     notifier.notify({
-//       title: packageConfig.name,
-//       message: severity + ': ' + error.name,
-//       subtitle: filename || '',
-//       icon: path.join(__dirname, 'logo.png')
-//     })
-//   }
-// }
