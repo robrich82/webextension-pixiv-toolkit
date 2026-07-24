@@ -18,6 +18,22 @@ no lockfile was committed at all — every install silently re-resolved the whol
 tree, and CI built from a dependency set nobody had reviewed. `package-lock.json`
 is now tracked, and yarn is gone (CI used yarn, the docs said npm).
 
+**Use the npm that ships with your Node.** A stale `npm install -g npm` writes
+itself into the shared global prefix, and under nvm-for-windows that one copy
+shadows the npm bundled with *every* installed Node version. That is easy to miss
+— `node --version` reports the new runtime while `npm --version` is silently
+years behind — and the two npms resolve different trees. `.npmrc` sets
+`engine-strict=true` so an out-of-range npm or Node fails with `EBADENGINE` at
+install time rather than quietly committing a lockfile nobody else reproduces.
+
+`npm ci --ignore-scripts` is used in CI. No dependency here needs a build step:
+the only two declaring install scripts are `leveldown` (pouchdb's native Node
+LevelDB binding) and `@parcel/watcher` (for `sass --watch`), and neither is
+reachable — pouchdb is a webpack external loaded from its prebuilt browser
+bundle, and watching is webpack's job. npm 11 blocks install scripts by default;
+being explicit keeps the result identical across npm versions and removes a
+well-worn supply-chain foothold.
+
 ## webpack 4 → 5 notes
 
 Things that needed changing beyond version numbers:
