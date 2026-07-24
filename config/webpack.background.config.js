@@ -77,6 +77,17 @@ module.exports = env => {
                     scripts: [json.background.service_worker]
                   };
                 }
+
+                /**
+                 * Firefox requires an explicit add-on id to install a build
+                 * permanently or to sign it through AMO. This fork uses its own
+                 * id so its signed builds stay distinct from the upstream add-on.
+                 */
+                json.browser_specific_settings = {
+                  gecko: {
+                    id: 'webextension-pixiv-toolkit-fork@robrich82'
+                  }
+                };
               }
 
               if (json.options_page && platform === 'firefox') {
