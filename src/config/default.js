@@ -250,10 +250,6 @@ export default Object.assign({}, {
     ugoiraFFmpegWEBMCliArgs: '-f concat -i input.txt -safe 0 output.webm',
     ugoiraFFmpegMP4CliArgs: '-f concat -i input.txt -safe 0 -c copy output.mp4',
 
-    /**
-     * @since 6.3.0
-     */
-    downloadMode: 1, // 1: legacy; 2: download manager
     dontCreateWorkFolder: 0,
     combinWRRuleAndIRRuleWhenDontCreateWorkFolder: 0,
 

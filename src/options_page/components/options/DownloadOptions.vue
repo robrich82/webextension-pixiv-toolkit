@@ -4,11 +4,7 @@
 
     <v-card style="margin-bottom:30px;">
       <v-list two-line>
-        <download-mode-option
-          v-model="downloadMode"
-        ></download-mode-option>
-
-        <v-list-tile v-if="downloadMode === 2">
+        <v-list-tile>
           <v-list-tile-content>
             <v-list-tile-title>{{ tl('_max_process_download_tasks') }}</v-list-tile-title>
             <v-list-tile-sub-title style="color:brown">{{ tl('_running_too_many_download_tasks_at_same_time_may_be_cause_high_CPU_usage') }}</v-list-tile-sub-title>
@@ -103,19 +99,16 @@
 <script>
 import GrantPermissionsBtn from "@@/components/options/GrantPermissionsBtn";
 import DownloadsShelfOption from "@@/components/options/DownloadsShelfOption";
-import DownloadModeOption from '@@/components/options/option-items/DownloadMode';
 import browser from '@/modules/Extension/browser';
 
 export default {
   components: {
     'grant-permissions-btn': GrantPermissionsBtn,
     'downloads-shelf-option': DownloadsShelfOption,
-    'download-mode-option': DownloadModeOption
   },
 
   data() {
     return {
-      downloadMode: 1,
       showDownloadRelativeLocationDialog: false,
       hasDownloadsPermission: false,
       downloadSaveAs: false,
@@ -193,7 +186,6 @@ export default {
      * Non-reactive property
      */
     this.locationRegex = /^([^./]+\/)*$/i;
-    this.downloadMode = this.browserItems.downloadMode || 1;
     this.downloadRelativeLocation = this.oldDownloadRelativeLocation = this.browserItems.downloadRelativeLocation;
     this.enableDownloadMetadata = !!this.browserItems.enableDownloadMetadata;
     this.downloadSaveAs = !!this.browserItems.downloadSaveAs;

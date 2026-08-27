@@ -941,15 +941,6 @@
     "_new_settings": {
         "message": "New Settings"
     },
-    "_legacy": {
-        "message": "Legacy"
-    },
-    "_download_mode": {
-        "message": "Download mode"
-    },
-    "_download_mode_desc": {
-        "message": "In legacy mode, ffmpeg and .mp4 generation isn't supported"
-    },
     "_only_if_the_work_has_multiple_images": {
         "message": "Only if the work has multiple images"
     },
