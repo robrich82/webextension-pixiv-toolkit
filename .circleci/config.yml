@@ -3,7 +3,7 @@ jobs:
   build:
     working_directory: ~/webext-pixiv-toolkit
     docker:
-      - image: cimg/node:24.11.0
+      - image: cimg/node:24.20.0
     steps:
       - checkout
       - restore_cache: # special step to restore the dependency cache
