@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24.20.0
+          cache: npm
+
+      # --ignore-scripts: no dependency needs a build step here. The only two
+      # that declare install scripts are leveldown (pouchdb's native Node
+      # LevelDB binding) and @parcel/watcher (sass --watch); neither is
+      # reachable, since pouchdb is a webpack external loaded from its prebuilt
+      # browser bundle and watching is webpack's job. npm 11 blocks these by
+      # default -- being explicit keeps the result the same across npm versions
+      # and drops a well-worn supply-chain foothold.
+      - name: Install npm packages
+        run: npm ci --ignore-scripts
+
+      # The only advisories left are the Vue 2 EOL ones, which are `low` and
+      # cannot be cleared without the Vue 3 migration. Failing at `moderate`
+      # keeps new problems from getting lost in that standing noise.
+      - name: Audit dependencies
+        run: npm audit --audit-level=moderate
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build extension for Chrome
+        run: npm run build
+
+      - name: Build extension for Firefox
+        run: npm run build:firefox
+
+      - name: Upload Chrome build
+        uses: actions/upload-artifact@v7
+        with:
+          name: chrome
+          path: dist/chrome/
+
+      - name: Upload Firefox build
+        uses: actions/upload-artifact@v7
+        with:
+          name: firefox
+          path: dist/firefox/

@@ -1,8 +1,8 @@
 /node_modules/
 /dist/
+/web-ext-artifacts/
+*.xpi
 npm-debug.log
 .vscode/*
-package-lock.json
-/yarn.lock
 /coverage
-/yarn-error.log
+/bundleAnalyzer/

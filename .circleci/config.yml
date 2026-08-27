@@ -3,34 +3,41 @@ jobs:
   build:
     working_directory: ~/webext-pixiv-toolkit
     docker:
-      - image: cimg/node:16.18.0
+      - image: cimg/node:24.20.0
     steps:
       - checkout
-      #- run:
-      #    name: update-npm
-      #    command: 'sudo npm install -g npm@latest'
-      # - run:
-      #    name: install-yarn
-      #    command: 'sudo npm install -g yarn@1.22.19'
       - restore_cache: # special step to restore the dependency cache
           # Read about caching dependencies: https://circleci.com/docs/2.0/caching/
-          key: dependency-cache-{{ checksum "yarn.lock" }}
+          key: dependency-cache-{{ checksum "package-lock.json" }}
       - run:
           name: "Install npm packages"
-          command: "yarn install"
+          # --ignore-scripts: no dependency needs a build step here. The only
+          # two that declare install scripts are leveldown (pouchdb's native
+          # Node LevelDB binding) and @parcel/watcher (sass --watch); neither is
+          # reachable, since pouchdb is a webpack external loaded from its
+          # prebuilt browser bundle and watching is webpack's job. npm 11 blocks
+          # these by default -- being explicit keeps the result the same across
+          # npm versions and drops a well-worn supply-chain foothold.
+          command: "npm ci --ignore-scripts"
       - save_cache: # special step to save the dependency cache
-          key: dependency-cache-{{ checksum "yarn.lock" }}
+          key: dependency-cache-{{ checksum "package-lock.json" }}
           paths:
             - ./node_modules
       - run:
-          name: "Rebuild node-sass"
-          command: "npm rebuild node-sass"
+          name: "Audit dependencies"
+          # The only advisories left are the Vue 2 EOL ones, which are `low` and
+          # cannot be cleared without the Vue 3 migration. Failing at `moderate`
+          # keeps new problems from getting lost in that standing noise.
+          command: "npm audit --audit-level=moderate"
+      - run:
+          name: "Run tests"
+          command: "npm test"
       - run:
           name: "Build extension for Chrome"
-          command: "yarn build"
+          command: "npm run build"
       - run:
-          name: "Build exntesion for Firefox"
-          command: "yarn build:firefox"
+          name: "Build extension for Firefox"
+          command: "npm run build:firefox"
       - run:
           name: "Create artifacts"
           command: |

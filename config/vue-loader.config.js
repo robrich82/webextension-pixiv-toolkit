@@ -1,22 +1,13 @@
 'use strict'
-const utils = require('./utils')
-const isProduction = process.env.NODE_ENV === 'production'
-const sourceMapEnabled = isProduction
-  ? !!0
-  : !0
-const cacheBusting = isProduction === 'production'
-  ? !!0
-  : !0;
-console.log(isProduction);
+
+/**
+ * vue-loader v15 resolves the loaders for a SFC's <style> block from the
+ * top-level module rules (see utils.styleLoaders), so the v14-era `loaders`,
+ * `cssSourceMap` and `cacheBusting` options that used to live here are gone.
+ * `transformToRequire` is the v14 name for `transformAssetUrls`.
+ */
 module.exports = {
-  loaders: utils.cssLoaders({
-    sourceMap: sourceMapEnabled,
-    // extract: isProduction
-    extract: true
-  }),
-  cssSourceMap: sourceMapEnabled,
-  cacheBusting: cacheBusting,
-  transformToRequire: {
+  transformAssetUrls: {
     video: ['src', 'poster'],
     source: 'src',
     img: 'src',

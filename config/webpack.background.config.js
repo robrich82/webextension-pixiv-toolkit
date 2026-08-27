@@ -7,6 +7,18 @@ const { merge } = require('webpack-merge');
 const CopyPlugin = require('copy-webpack-plugin');
 const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
 
+/**
+ * Unlike webpack 4, webpack 5 runs its minimizer over *every* emitted asset,
+ * including the ones copy-webpack-plugin passes through. That re-minified the
+ * vendored libraries under src/statics/lib (and inflated the already-minified
+ * ones, since terser cannot re-compress its own output well), while hoisting
+ * their license banners out into separate .LICENSE.txt files.
+ *
+ * Marking the copied assets as already minimized makes terser skip them, so
+ * third-party code ships byte-for-byte as vendored, attribution intact.
+ */
+const alreadyMinimized = { minimized: true };
+
 module.exports = env => {
   let platform = env ? (env.platform || 'chrome') : 'chrome';
   let isProduction = process.env.NODE_ENV === 'production';
@@ -38,22 +50,28 @@ module.exports = env => {
                 '**/manifest.json',
                 '**/remote/**/*'
               ]
-            }
+            },
+            info: alreadyMinimized
           }, {
             from: utils.resolve('node_modules/vue/dist/vue.min.js'),
-            to: utils.resolve(`dist/${platform}/lib/vue.min.js`)
+            to: utils.resolve(`dist/${platform}/lib/vue.min.js`),
+            info: alreadyMinimized
           }, {
             from: utils.resolve('node_modules/vue-i18n/dist/vue-i18n.min.js'),
-            to: utils.resolve(`dist/${platform}/lib/vue-i18n.min.js`)
+            to: utils.resolve(`dist/${platform}/lib/vue-i18n.min.js`),
+            info: alreadyMinimized
           }, {
             from: utils.resolve('node_modules/pouchdb/dist/pouchdb.min.js'),
-            to: utils.resolve(`dist/${platform}/lib/pouchdb.min.js`)
+            to: utils.resolve(`dist/${platform}/lib/pouchdb.min.js`),
+            info: alreadyMinimized
           }, {
             from: utils.resolve('node_modules/pouchdb/dist/pouchdb.find.min.js'),
-            to: utils.resolve(`dist/${platform}/lib/pouchdb.find.min.js`)
+            to: utils.resolve(`dist/${platform}/lib/pouchdb.find.min.js`),
+            info: alreadyMinimized
           }, {
             from: utils.resolve('node_modules/@ffmpeg/core/dist'),
-            to: utils.resolve(`dist/${platform}/lib/ffmpeg`)
+            to: utils.resolve(`dist/${platform}/lib/ffmpeg`),
+            info: alreadyMinimized
           }, {
             from: utils.resolve('src/statics/manifest.json'),
             to: utils.resolve(`dist/${platform}/manifest.json`),

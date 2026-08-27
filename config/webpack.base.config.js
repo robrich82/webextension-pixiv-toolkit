@@ -1,10 +1,14 @@
 const utils = require('./utils');
-const UglifyJsPlugin = require('uglifyjs-webpack-plugin');
 const webpack = require('webpack');
 
 module.exports = env => {
   let config = Object.assign({}, {
     mode: process.env.NODE_ENV === 'production' ? 'production' : 'development',
+    // webpack 5 would otherwise infer the target from the `browserslist` field
+    // in package.json. Pin it to `web` so the emitted runtime stays the same
+    // shape it had under webpack 4 in every bundle, including the background
+    // service worker.
+    target: 'web',
     output: {
       filename: '[name].js',
     },
@@ -13,6 +17,15 @@ module.exports = env => {
       alias: {
         '@': utils.resolve('src'),
         '@@': utils.resolve('src/options_page')
+      },
+      // webpack 5 no longer auto-polyfills node core modules. Nothing in src
+      // needs them, so resolve them to nothing rather than pulling in shims.
+      fallback: {
+        child_process: false,
+        dgram: false,
+        fs: false,
+        net: false,
+        tls: false
       }
     },
     module: {
@@ -43,18 +56,13 @@ module.exports = env => {
       locales: 'locales',
     },
     node: {
-      // prevent webpack from injecting useless setImmediate polyfill because Vue
-      // source contains it (although only uses it if it's native).
-      setImmediate: false,
-      // prevent webpack from injecting mocks to Node native modules
-      // that does not make sense for the client
-      dgram: 'empty',
-      fs: 'empty',
-      net: 'empty',
-      tls: 'empty',
-      child_process: 'empty',
       // prevent webpack from injecting eval / new Function through global polyfill
       global: false
+    },
+    // The bundles are extension pages, not pages served over a network. The
+    // default 244 KiB budget is meaningless here and only produces noise.
+    performance: {
+      hints: false
     }
   });
 

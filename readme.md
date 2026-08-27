@@ -81,15 +81,17 @@ If you are using Chrome, you can download it from [Chrome web store](https://chr
 ## **How to build**
 To build the extension, you need these tools below:
 
-* nodejs
-* python2
+* nodejs (>= 22.12.0)
 
 After you install these, run commands step by step:
 
 ```bash
-npm install
-npm run build # build for Chrome
+npm ci
+npm run build         # build for Chrome
+npm run build:firefox # build for Firefox
 ```
+
+See [docs/toolchain.md](docs/toolchain.md) for build tooling notes.
 
 Then you can install the extension manually.
 
@@ -175,15 +177,17 @@ FFmpeg.wasm 是一个非常强大的库，它拥有比其他库，如`gif.js`和
 ## **如何构建**
 你需要一下的工具来进行构造：
 
-* nodejs
-* python2
+* nodejs (>= 22.12.0)
 
 安装完成后，执行以下操作来进行构造：
 
 ```bash
-npm install
-npm run build # build for Chrome
+npm ci
+npm run build         # build for Chrome
+npm run build:firefox # build for Firefox
 ```
+
+构建工具链的说明请见 [docs/toolchain.md](docs/toolchain.md)。
 
 之后你可以手动安装插件
 

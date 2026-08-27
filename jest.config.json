@@ -5,5 +5,9 @@
     "\\.js$": "babel-jest"
   },
 
-  "testRegex": "((\\.|/*.)(spec))\\.js?$"
+  "testRegex": "((\\.|/*.)(spec))\\.js?$",
+
+  "modulePathIgnorePatterns": [
+    "<rootDir>/dist/"
+  ]
 }
