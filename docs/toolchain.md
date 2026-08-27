@@ -127,18 +127,16 @@ reachable here. Verify before removing them:
 
 ## CI
 
-Two providers run the same job, and both configs must be kept in step:
+`.github/workflows/ci.yml` is the only pipeline, running on every pull request
+and on pushes to `master`. It needs no third-party signup, so it covers forks
+too, and it is what puts a status check on a PR and backs the readme badge.
 
-- `.circleci/config.yml` — the upstream pipeline, and the source of the
-  readme badge. It only builds the upstream repo; forks get no CircleCI runs
-  unless the fork owner sets up the project themselves.
-- `.github/workflows/ci.yml` — GitHub Actions, on every pull request and on
-  pushes to `master`. It needs no third-party signup, so it also covers forks,
-  and it is what puts a status check on a PR.
-
-Both pin Node 24.20.0 and run the same steps: `npm ci --ignore-scripts`,
+It pins Node 24.20.0 and runs `npm ci --ignore-scripts`,
 `npm audit --audit-level=moderate`, `npm test`, then the Chrome and Firefox
-builds, keeping `dist/` as an artifact.
+builds, uploading each `dist/` directory as an artifact.
+
+CircleCI (`.circleci/config.yml`) ran the identical job and was dropped as
+duplication.
 
 ## Known remaining issues
 
