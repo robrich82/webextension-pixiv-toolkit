@@ -3,7 +3,7 @@
 <h2 align="center">Pixiv Toolkit Next (v6.0.0)</h2>
 
 <p align="center">
-  <a href="https://circleci.com/gh/leoding86/webextension-pixiv-toolkit"><img src="https://img.shields.io/circleci/build/github/leoding86/webextension-pixiv-toolkit?logo=circleci"></a>
+  <a href="https://github.com/robrich82/webextension-pixiv-toolkit/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/robrich82/webextension-pixiv-toolkit/ci.yml?branch=master&logo=github"></a>
   <a href="https://chrome.google.com/webstore/detail/ajlcnbbeidbackfknkgknjefhmbngdnj"><img src="https://img.shields.io/chrome-web-store/users/ajlcnbbeidbackfknkgknjefhmbngdnj?logo=google%20chrome&logoColor=white"></a>
   <a href="https://addons.mozilla.org/en-US/firefox/addon/pixiv-toolkit/"><img src="https://img.shields.io/amo/rating/pixiv-toolkit?logo=Firefox%20Browser&logoColor=white"></a>
 </p>
