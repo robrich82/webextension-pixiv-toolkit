@@ -125,6 +125,21 @@ reachable here. Verify before removing them:
   is also why `vue-template-compiler` is no longer a devDependency — the same
   branch sets `templateCompiler: undefined`, and it is an optional peer.
 
+## CI
+
+Two providers run the same job, and both configs must be kept in step:
+
+- `.circleci/config.yml` — the upstream pipeline, and the source of the
+  readme badge. It only builds the upstream repo; forks get no CircleCI runs
+  unless the fork owner sets up the project themselves.
+- `.github/workflows/ci.yml` — GitHub Actions, on every pull request and on
+  pushes to `master`. It needs no third-party signup, so it also covers forks,
+  and it is what puts a status check on a PR.
+
+Both pin Node 24.20.0 and run the same steps: `npm ci --ignore-scripts`,
+`npm audit --audit-level=moderate`, `npm test`, then the Chrome and Firefox
+builds, keeping `dist/` as an artifact.
+
 ## Known remaining issues
 
 - **Vue 2 is EOL** (December 2023) and carries an unfixable ReDoS advisory
