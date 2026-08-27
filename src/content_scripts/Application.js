@@ -50,22 +50,8 @@ class Application {
     });
 
     browser.storage.onChanged.addListener(changes => {
-      const oldDownloadMode = this.settings.downloadMode;
-
       for (let key in changes) {
         this.settings[key] = changes[key].newValue;
-      }
-
-      if (this.settings.downloadMode !== oldDownloadMode) {
-        if (this.UIApp) {
-          this.UIApp.unload();
-          this.UIApp = null;
-        }
-
-        /**
-         * Trigger UIApplication loading
-         */
-        this.urlchangeHandler(window.location.href);
       }
     });
   }

@@ -1,6 +1,5 @@
 import '@/core/global';
 import App from './components/App';
-import AppLegacy from './components/AppLegacy.vue';
 import browser from '@/modules/Extension/browser';
 import I18n from '@/modules/I18n';
 import SuperMixin from '@/mixins/SuperMixin';
@@ -80,7 +79,7 @@ class UIApplication {
             });
           },
 
-          render: h => h(window.$app.settings.downloadMode === 2 ? App : AppLegacy),
+          render: h => h(App),
 
           methods: {
             /**

@@ -11,7 +11,6 @@
       <p style="font-size:16px;font-weight: 500;">{{ tl('_new_settings') }}</p>
 
       <v-list two-line>
-        <download-mode></download-mode>
         <DownloadSaveMode />
         <ZipDownloads />
         <DontCreateWorkFolder />
@@ -22,7 +21,6 @@
 </template>
 
 <script>
-import DownloadMode from './options/option-items/DownloadMode.vue';
 import DownloadSaveMode from './options/option-items/DownloadSaveMode.vue';
 import ZipDownloads from './options/option-items/ZipDownloads.vue';
 import DontCreateWorkFolder from './options/option-items/DontCreateWorkFolder.vue';
@@ -32,7 +30,6 @@ export default {
   name: 'global-task-setting',
 
   components: {
-    'download-mode': DownloadMode,
     DownloadSaveMode,
     ZipDownloads,
     DontCreateWorkFolder,

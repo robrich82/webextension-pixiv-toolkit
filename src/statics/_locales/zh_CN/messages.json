@@ -947,15 +947,6 @@
     "_new_settings": {
         "message": "新选项"
     },
-    "_legacy": {
-        "message": "经典"
-    },
-    "_download_mode": {
-        "message": "下载模式"
-    },
-    "_download_mode_desc": {
-        "message": "经典模式下不支持FFmpeg以及生成MP4"
-    },
     "_only_if_the_work_has_multiple_images": {
         "message": "仅当作品有多张图时"
     },

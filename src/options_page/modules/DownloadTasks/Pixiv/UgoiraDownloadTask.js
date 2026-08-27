@@ -6,7 +6,6 @@ import FileSystem from "../../FileSystem";
 import NameFormatter from "@/modules/Util/NameFormatter";
 import MimeType from "@/modules/Util/MimeType";
 import pathjoin from "@/modules/Util/pathjoin";
-import AbstractGenerator from "@/content_scripts/modules/Legacy/UgoiraGenerator/AbstractGenerator";
 
 class ZipRepo {
   /**
@@ -87,11 +86,6 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
    * @type {import("@ffmpeg/ffmpeg").FFmpeg}
    */
   ffmpeg;
-
-  /**
-   * @type {AbstractGenerator}
-   */
-  generator;
 
   zip;
 
@@ -301,47 +295,6 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
   async onFinish() {
     this.changeState(this.PROCESSING_STATE);
 
-    if (this.generator) {
-      this.generator.addListener('progress', (progress) => {
-        this.processProgress = progress;
-        this.dispatch('progress', [progress]);
-      });
-
-      this.generator.addListener('complete', async (blob, mimeType) => {
-        /**
-         * Save file to disk
-         */
-        let animationFileUrl = URL.createObjectURL(blob);
-        let nameFormatter = NameFormatter.getFormatter({ context: this.context });
-
-        const downloadId = await browser.runtime.sendMessage({
-          to: 'ws',
-          action: 'download:saveFile',
-          args: {
-            url: animationFileUrl,
-            filename: pathjoin(GlobalSettings().downloadRelativeLocation, nameFormatter.format(
-              this.options.renameRule
-            )) + '.' + MimeType.getExtenstion(mimeType)
-          }
-        });
-
-        console.log(downloadId);
-
-        URL.revokeObjectURL(animationFileUrl);
-
-        this.dispatch('complete');
-      });
-
-      this.generator.addListener('error', (error) => {
-        this.changeState(this.FAILURE_STATE);
-        this.dispatch('error', [error]);
-      });
-
-      this.generator.generate(this);
-
-      return;
-    }
-
     await this.runFFmpeg(async ({ data, outputFilename }) => {
       /**
        * Save file to disk
@@ -437,10 +390,6 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
     if (this.ffmpeg) {
       this.ffmpeg.exit();
       this.processProgress = this.processedFramesCount = 0;
-    }
-
-    if (this.generator) {
-      this.generator.stop();
     }
   }
 
