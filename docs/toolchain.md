@@ -34,6 +34,32 @@ bundle, and watching is webpack's job. npm 11 blocks install scripts by default;
 being explicit keeps the result identical across npm versions and removes a
 well-worn supply-chain foothold.
 
+## Version ranges
+
+Every dependency sits on a caret range, and that is deliberate: caret never
+crosses a major, so a plain `npm install` cannot pull in a breaking release on
+its own. The two `0.x` pins are tighter still — caret on a `0.x` version locks
+the *minor*, so `@ffmpeg/core: ^0.11.0` resolves `>=0.11.0 <0.12.0` and holds
+the ffmpeg upgrade shut until someone does all three parts of it at once (see
+Known remaining issues).
+
+The committed lockfile is the second layer. CI installs with `npm ci`, which
+ignores the ranges entirely and reproduces the exact tree — and fails outright
+when `package.json` and `package-lock.json` disagree, so an edited range cannot
+quietly reach a build.
+
+That leaves ordinary drift *inside* the ranges, which is what `npm audit fix`
+is for: it moves the lockfile and nothing else. The security patches applied on
+2026-08-27 needed no `package.json` change at all, because every fixed version
+was already admissible — including through the `overrides` floor below.
+
+The one thing to avoid is `npm install <pkg>` with no version specifier. That
+resolves to latest and rewrites `package.json` to the new major's caret,
+updating the lockfile in the same step, so `npm ci` will not catch it. No npm
+setting prevents this: `save-exact` only changes the notation, writing `8.0.1`
+where the caret would have gone. Name the version you want, and let the
+`package.json` diff carry the decision.
+
 ## webpack 4 → 5 notes
 
 Things that needed changing beyond version numbers:
