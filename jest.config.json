@@ -1,12 +1,13 @@
 {
   "collectCoverage": true,
-
+  "collectCoverageFrom": [
+    "src/**/*.js",
+    "!src/statics/lib/**"
+  ],
   "transform": {
     "\\.js$": "babel-jest"
   },
-
-  "testRegex": "((\\.|/*.)(spec))\\.js?$",
-
+  "testRegex": "\\.spec\\.js$",
   "modulePathIgnorePatterns": [
     "<rootDir>/dist/"
   ]
