@@ -168,7 +168,7 @@ class NameFormatter {
 
     let name = subNames.filter(subName => subName.length > 0).join('/');
 
-    return name.length === 0 ? `file_${Date.now}` : name;
+    return name.length === 0 ? `file_${Date.now()}` : name;
   }
 }
 

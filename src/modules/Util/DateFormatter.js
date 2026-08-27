@@ -21,7 +21,7 @@ class DateFormatter {
    * @returns {DateFormatter}
    */
   static getDefault(date) {
-    if (Date.parse(date) === NaN) {
+    if (Number.isNaN(Date.parse(date))) {
       throw Error('Invalid date time');
     }
 
