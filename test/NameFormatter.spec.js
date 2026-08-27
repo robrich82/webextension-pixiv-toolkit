@@ -125,6 +125,21 @@ describe('fallback', () => {
     expect(format('{title}/{id}', { illustTitle: '', illustId: '1' }))
       .toBe('undefined/1');
   });
+
+  test('a rule of only separators falls back to a timestamped name', () => {
+    // Every segment is filtered out before substitution, so this reaches the
+    // last-resort branch. It used to interpolate `Date.now` without calling
+    // it, producing "file_function now() { [native code] }".
+    const before = Date.now();
+    const result = format('/');
+    const after = Date.now();
+
+    expect(result).toMatch(/^file_\d+$/);
+
+    const stamp = Number(result.slice('file_'.length));
+    expect(stamp).toBeGreaterThanOrEqual(before);
+    expect(stamp).toBeLessThanOrEqual(after);
+  });
 });
 
 describe('formatName wrapper', () => {

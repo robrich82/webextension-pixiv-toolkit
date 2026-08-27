@@ -31,3 +31,26 @@ test('handles the last day of December without rolling the year', () => {
 
   expect([d.getYear(), d.getMonth(), d.getDay()]).toEqual(['2024', '12', '31']);
 });
+
+describe('getDefault validation', () => {
+  // The guard used to read `Date.parse(date) === NaN`, which is always false,
+  // so an unparseable date reached the getters and formatted as NaN.
+  test.each([
+    ['a non-date string', 'not a date'],
+    ['an empty string', ''],
+    ['undefined', undefined],
+    ['null', null],
+  ])('rejects %s', (_name, date) => {
+    expect(() => DateFormatter.getDefault(date)).toThrow('Invalid date time');
+  });
+
+  test('accepts a valid date', () => {
+    expect(() => DateFormatter.getDefault('2024-03-07T10:20:30')).not.toThrow();
+  });
+
+  test('the constructor still accepts anything, unvalidated', () => {
+    // Fanbox's PostParser uses `new DateFormatter(...)` directly rather than
+    // getDefault, so it deliberately keeps the old, unguarded behaviour.
+    expect(() => new DateFormatter('not a date')).not.toThrow();
+  });
+});
