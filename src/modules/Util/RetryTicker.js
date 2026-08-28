@@ -5,7 +5,7 @@ function RetryTicker(max) {
 
 RetryTicker.prototype = {
   reset: function () {
-      this.retryTimes = 0;
+      this.tryTimes = 0;
   },
 
   reachLimit: function () {

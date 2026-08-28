@@ -1,6 +1,6 @@
 /**
  * The retry allowance behind `Manager/Retryer`: how many attempts a ticker
- * grants before it reports the limit, and what `reset()` actually does.
+ * grants before it reports the limit, and how `reset()` restores them.
  */
 const RetryTicker = require('../src/modules/Util/RetryTicker').default;
 
@@ -53,27 +53,36 @@ describe('the attempt allowance', () => {
 });
 
 describe('reset', () => {
-  /**
-   * `reset()` assigns to `retryTimes`, but the counter `reachLimit()` reads is
-   * `tryTimes` — so a reset ticker is still exhausted. Nothing in `src` calls
-   * `reset()`, which is why the typo has gone unnoticed; pinned here so the
-   * behaviour is visible rather than assumed.
-   */
-  test('does not restore the allowance', () => {
+  test('restores the allowance', () => {
     const ticker = new RetryTicker(1);
 
     ticker.reachLimit();
     ticker.reset();
 
-    expect(ticker.tryTimes).toBe(1);
+    expect(ticker.tryTimes).toBe(0);
+    expect(ticker.reachLimit()).toBe(false);
+  });
+
+  test('restores the full allowance, not just one attempt', () => {
+    const ticker = new RetryTicker(2);
+
+    ticker.reachLimit();
+    ticker.reachLimit();
+    expect(ticker.reachLimit()).toBe(true);
+
+    ticker.reset();
+
+    expect(ticker.reachLimit()).toBe(false);
+    expect(ticker.reachLimit()).toBe(false);
     expect(ticker.reachLimit()).toBe(true);
   });
 
-  test('writes the count to a separate retryTimes property', () => {
+  test('leaves a fresh ticker untouched', () => {
     const ticker = new RetryTicker(1);
 
     ticker.reset();
 
-    expect(ticker.retryTimes).toBe(0);
+    expect(ticker.tryTimes).toBe(0);
+    expect(ticker.maxTry).toBe(1);
   });
 });
