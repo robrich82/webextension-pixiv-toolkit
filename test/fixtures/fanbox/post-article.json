@@ -1,0 +1,61 @@
+{
+  "body": {
+    "post": {
+      "id": "60000001",
+      "title": "february sketch dump",
+      "type": "article",
+      "feeRequired": 500,
+      "publishedDatetime": "2024-02-14T21:00:00+09:00",
+      "updatedDatetime": "2024-02-14T21:00:00+09:00",
+      "coverImageUrl": "https://pixiv.pximg.net/c/1200x630_90_a2_g5/fanbox/public/images/post/60000001/cover/abcdefg.jpeg",
+      "hasAdultContent": false,
+      "isLiked": false,
+      "likeCount": 42,
+      "commentCount": 2,
+      "user": {
+        "userId": "20000007",
+        "name": "sketchbook",
+        "iconUrl": "https://pixiv.pximg.net/c/160x160_90_a2_g5/fanbox/public/images/user/20000007/icon/hijklmn.jpeg"
+      },
+      "creatorId": "sketchbook",
+      "body": {
+        "blocks": [
+          { "type": "p", "text": "Some pages from this month." },
+          { "type": "image", "imageId": "img1" },
+          { "type": "p", "text": "And the second one." },
+          { "type": "image", "imageId": "img2" },
+          { "type": "file", "fileId": "file1" }
+        ],
+        "imageMap": {
+          "img1": {
+            "id": "img1",
+            "extension": "png",
+            "width": 1400,
+            "height": 1000,
+            "originalUrl": "https://downloads.fanbox.cc/images/post/60000001/img1.png",
+            "thumbnailUrl": "https://downloads.fanbox.cc/images/post/60000001/w/1200/img1.jpeg"
+          },
+          "img2": {
+            "id": "img2",
+            "extension": "png",
+            "width": 1400,
+            "height": 1000,
+            "originalUrl": "https://downloads.fanbox.cc/images/post/60000001/img2.png",
+            "thumbnailUrl": "https://downloads.fanbox.cc/images/post/60000001/w/1200/img2.jpeg"
+          }
+        },
+        "fileMap": {
+          "file1": {
+            "id": "file1",
+            "name": "sketch-psd",
+            "extension": "psd",
+            "size": 8123456,
+            "url": "https://downloads.fanbox.cc/files/post/60000001/file1.psd"
+          }
+        },
+        "embedMap": {},
+        "urlEmbedMap": {}
+      }
+    }
+  }
+}

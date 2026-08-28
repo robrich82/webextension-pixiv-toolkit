@@ -1,0 +1,43 @@
+{
+  "error": false,
+  "message": "",
+  "body": {
+    "illustId": "10000002",
+    "illustTitle": "the lighthouse keeper, ch.2",
+    "illustComment": "chapter two of four",
+    "id": "10000002",
+    "title": "the lighthouse keeper, ch.2",
+    "description": "chapter two of four",
+    "illustType": 1,
+    "createDate": "2024-11-23T22:05:00+09:00",
+    "uploadDate": "2024-11-23T22:05:00+09:00",
+    "restrict": 0,
+    "xRestrict": 1,
+    "sl": 4,
+    "urls": {
+      "mini": "https://i.pximg.net/c/48x48/img-master/img/2024/11/23/22/05/00/10000002_p0_square1200.jpg",
+      "thumb": "https://i.pximg.net/c/250x250_80_a2/img-master/img/2024/11/23/22/05/00/10000002_p0_square1200.jpg",
+      "small": "https://i.pximg.net/c/540x540_70/img-master/img/2024/11/23/22/05/00/10000002_p0_master1200.jpg",
+      "regular": "https://i.pximg.net/img-master/img/2024/11/23/22/05/00/10000002_p0_master1200.jpg",
+      "original": "https://i.pximg.net/img-original/img/2024/11/23/22/05/00/10000002_p0.jpg"
+    },
+    "userId": "20000002",
+    "userName": "keeper of the light",
+    "userAccount": "lightkeeper",
+    "pageCount": 3,
+    "width": 1000,
+    "height": 1414,
+    "bookmarkCount": 88,
+    "likeCount": 74,
+    "responseCount": 0,
+    "viewCount": 902,
+    "isOriginal": true,
+    "seriesNavData": {
+      "seriesType": "illust",
+      "seriesId": "30000001",
+      "title": "the lighthouse keeper",
+      "order": 2,
+      "isWatched": false
+    }
+  }
+}

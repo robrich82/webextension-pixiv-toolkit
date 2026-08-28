@@ -1,0 +1,20 @@
+{
+  "error": false,
+  "message": "",
+  "body": {
+    "id": "40000003",
+    "title": "undated draft",
+    "description": "",
+    "userId": "20000006",
+    "userName": "tidewriter",
+    "coverUrl": "https://i.pximg.net/c/240x480_80/novel-cover-master/img/2024/05/09/18/30/00/tei40000003_master1200.jpg",
+    "uploadDate": "2024-05-09T18:30:00+09:00",
+    "restrict": 0,
+    "xRestrict": 0,
+    "content": "One line.",
+    "bookmarkCount": 0,
+    "likeCount": 0,
+    "viewCount": 2,
+    "seriesNavData": null
+  }
+}

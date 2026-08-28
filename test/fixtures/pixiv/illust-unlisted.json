@@ -1,0 +1,36 @@
+{
+  "error": false,
+  "message": "",
+  "body": {
+    "illustId": "10000004",
+    "illustTitle": "study, unlisted",
+    "illustComment": "",
+    "id": "10000004",
+    "title": "study, unlisted",
+    "description": "",
+    "illustType": 0,
+    "createDate": "2025-01-15T12:45:00+09:00",
+    "uploadDate": "2025-01-15T12:45:00+09:00",
+    "restrict": 0,
+    "xRestrict": 0,
+    "sl": 2,
+    "urls": {
+      "mini": "https://i.pximg.net/c/48x48/img-master/img/2025/01/15/12/45/00/10000004_p0_square1200.jpg",
+      "thumb": "https://i.pximg.net/c/250x250_80_a2/img-master/img/2025/01/15/12/45/00/10000004_p0_square1200.jpg",
+      "small": "https://i.pximg.net/c/540x540_70/img-master/img/2025/01/15/12/45/00/10000004_p0_master1200.jpg",
+      "regular": "https://i.pximg.net/img-master/img/2025/01/15/12/45/00/10000004_p0_master1200.jpg",
+      "original": "https://i.pximg.net/img-original/img/2025/01/15/12/45/00/10000004_p0.jpg"
+    },
+    "userId": "20000004",
+    "userName": "quietstudio",
+    "userAccount": "quietstudio",
+    "pageCount": 1,
+    "width": 800,
+    "height": 800,
+    "bookmarkCount": 0,
+    "likeCount": 0,
+    "responseCount": 0,
+    "viewCount": 4,
+    "isOriginal": true
+  }
+}

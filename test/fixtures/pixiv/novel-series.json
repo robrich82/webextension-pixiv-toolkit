@@ -1,0 +1,29 @@
+{
+  "error": false,
+  "message": "",
+  "body": {
+    "id": "40000002",
+    "title": "salt and rope, part 3",
+    "description": "the third part",
+    "userId": "20000006",
+    "userName": "tidewriter",
+    "coverUrl": "https://i.pximg.net/c/240x480_80/novel-cover-master/img/2024/07/18/09/00/00/tei40000002_master1200.jpg",
+    "createDate": "2024-07-18T09:00:00+09:00",
+    "uploadDate": "2024-07-18T09:00:00+09:00",
+    "restrict": 0,
+    "xRestrict": 1,
+    "content": "Page one.\n[newpage]\nPage two.\n[newpage]\nPage three.",
+    "textCount": 31,
+    "bookmarkCount": 5,
+    "likeCount": 4,
+    "viewCount": 60,
+    "seriesNavData": {
+      "seriesType": "novel",
+      "seriesId": "50000001",
+      "title": "salt and rope",
+      "order": 3,
+      "isWatched": false,
+      "isNotifying": false
+    }
+  }
+}

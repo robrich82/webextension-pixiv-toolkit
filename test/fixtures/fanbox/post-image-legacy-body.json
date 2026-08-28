@@ -1,0 +1,42 @@
+{
+  "body": {
+    "id": "60000002",
+    "title": "wallpaper pack",
+    "type": "image",
+    "feeRequired": 1000,
+    "publishedDatetime": "2023-12-31T23:59:59+09:00",
+    "updatedDatetime": "2023-12-31T23:59:59+09:00",
+    "coverImageUrl": null,
+    "hasAdultContent": true,
+    "isLiked": false,
+    "likeCount": 7,
+    "commentCount": 0,
+    "user": {
+      "userId": "20000008",
+      "name": "wallpapers",
+      "iconUrl": "https://pixiv.pximg.net/c/160x160_90_a2_g5/fanbox/public/images/user/20000008/icon/opqrstu.jpeg"
+    },
+    "creatorId": "wallpapers",
+    "body": {
+      "text": "Two sizes, as usual.",
+      "images": [
+        {
+          "id": "img1",
+          "extension": "png",
+          "width": 3840,
+          "height": 2160,
+          "originalUrl": "https://downloads.fanbox.cc/images/post/60000002/img1.png",
+          "thumbnailUrl": "https://downloads.fanbox.cc/images/post/60000002/w/1200/img1.jpeg"
+        },
+        {
+          "id": "img2",
+          "extension": "png",
+          "width": 1920,
+          "height": 1080,
+          "originalUrl": "https://downloads.fanbox.cc/images/post/60000002/img2.png",
+          "thumbnailUrl": "https://downloads.fanbox.cc/images/post/60000002/w/1200/img2.jpeg"
+        }
+      ]
+    }
+  }
+}

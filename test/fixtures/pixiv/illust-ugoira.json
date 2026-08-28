@@ -1,0 +1,36 @@
+{
+  "error": false,
+  "message": "",
+  "body": {
+    "illustId": "10000003",
+    "illustTitle": "rain loop",
+    "illustComment": "12 frames",
+    "id": "10000003",
+    "title": "rain loop",
+    "description": "12 frames",
+    "illustType": 2,
+    "createDate": "2024-06-01T08:00:00+09:00",
+    "uploadDate": "2024-06-01T08:00:00+09:00",
+    "restrict": 0,
+    "xRestrict": 0,
+    "sl": 2,
+    "urls": {
+      "mini": "https://i.pximg.net/c/48x48/img-master/img/2024/06/01/08/00/00/10000003_p0_square1200.jpg",
+      "thumb": "https://i.pximg.net/c/250x250_80_a2/img-master/img/2024/06/01/08/00/00/10000003_p0_square1200.jpg",
+      "small": "https://i.pximg.net/c/540x540_70/img-master/img/2024/06/01/08/00/00/10000003_p0_master1200.jpg",
+      "regular": "https://i.pximg.net/img-master/img/2024/06/01/08/00/00/10000003_p0_master1200.jpg",
+      "original": "https://i.pximg.net/img-original/img/2024/06/01/08/00/00/10000003_p0.jpg"
+    },
+    "userId": "20000003",
+    "userName": "loopmaker",
+    "userAccount": "loopmaker",
+    "pageCount": 1,
+    "width": 600,
+    "height": 600,
+    "bookmarkCount": 1204,
+    "likeCount": 1100,
+    "responseCount": 12,
+    "viewCount": 20033,
+    "isOriginal": true
+  }
+}
