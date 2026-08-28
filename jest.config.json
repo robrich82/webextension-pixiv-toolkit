@@ -18,5 +18,25 @@
   },
   "setupFilesAfterEnv": [
     "<rootDir>/test/setup/extensionGlobals.js"
-  ]
+  ],
+  "coverageThreshold": {
+    "global": {
+      "statements": 6.7,
+      "branches": 6.2,
+      "functions": 6.6,
+      "lines": 6.7
+    },
+    "./src/modules/Util/": {
+      "statements": 95,
+      "branches": 86,
+      "functions": 100,
+      "lines": 99
+    },
+    "./src/modules/Parser/": {
+      "statements": 77,
+      "branches": 66,
+      "functions": 67,
+      "lines": 76
+    }
+  }
 }

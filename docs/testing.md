@@ -7,6 +7,33 @@ collected from `src/**/*.js`. Configuration lives in `jest.config.json`; the
 The webpack aliases are mirrored into `moduleNameMapper`, so a spec can import
 source files by the same `@/` and `@@/` paths the source itself uses.
 
+## The coverage floor
+
+`coverageThreshold` in `jest.config.json` fails the run — and so CI, which just
+calls `npm test` — when coverage drops below where it already is. It is a
+ratchet, not a target: the numbers are set a hair under the current ones, so
+nothing can quietly regress, and they get raised whenever a change clears them
+by a useful margin.
+
+There are three groups, because one global number would let a well-tested
+directory pay for an untested one:
+
+| Group | statements | branches | functions | lines |
+| --- | --- | --- | --- | --- |
+| `src/modules/Util/` | 95 | 86 | 100 | 99 |
+| `src/modules/Parser/` | 77 | 66 | 67 | 76 |
+| everything else | 6.7 | 6.2 | 6.6 | 6.7 |
+
+`Util` and `Parser` are the parts that are actually tested, so they are held to
+a real standard; the global row is the rest of `src`, which is mostly untested
+UI, services and download tasks. Note that Jest removes a path group's files
+from the global pool, so the global row is *not* the whole-repo number — that
+currently reads around 31% statements.
+
+A PR that adds a large untested file will trip the global floor. That is the
+mechanism working: either cover the file or, if the change genuinely cannot be
+tested yet, lower the floor in the same PR and say why.
+
 ## The extension API double
 
 `src/modules/Extension/browser.js` hands back whichever `chrome`/`browser`
