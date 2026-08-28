@@ -138,6 +138,9 @@ builds, uploading each `dist/` directory as an artifact.
 CircleCI (`.circleci/config.yml`) ran the identical job and was dropped as
 duplication.
 
+The `npm test` step is the Jest suite; see `docs/testing.md` for how it is
+configured and for the extension API double the specs run against.
+
 ## Known remaining issues
 
 - **Vue 2 is EOL** (December 2023) and carries an unfixable ReDoS advisory

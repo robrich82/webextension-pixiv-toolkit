@@ -10,5 +10,13 @@
   "testRegex": "\\.spec\\.js$",
   "modulePathIgnorePatterns": [
     "<rootDir>/dist/"
+  ],
+  "moduleNameMapper": {
+    "^@/modules/Extension/browser$": "<rootDir>/test/doubles/browser.js",
+    "^@@/(.*)$": "<rootDir>/src/options_page/$1",
+    "^@/(.*)$": "<rootDir>/src/$1"
+  },
+  "setupFilesAfterEnv": [
+    "<rootDir>/test/setup/extensionGlobals.js"
   ]
 }
