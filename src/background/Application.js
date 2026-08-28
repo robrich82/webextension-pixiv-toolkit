@@ -94,8 +94,6 @@ class Application {
   }
 
   onBooted() {
-    // this.getService('webRequest');
-    // browser.declarativeNetRequest.onRuleMatchedDebug.addListener(info => console.log(info));
   }
 
   /**

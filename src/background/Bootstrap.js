@@ -38,7 +38,9 @@ class Bootstrap {
   }
 
   static boot(application) {
-    application.onBooted.call(application);
+    if (typeof application.onBooted === 'function') {
+      application.onBooted.call(application);
+    }
   }
 }
 
