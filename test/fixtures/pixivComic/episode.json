@@ -1,0 +1,37 @@
+{
+  "data": {
+    "reading_episode": {
+      "id": 70000001,
+      "numbering_title": "#12",
+      "title": "the long walk home",
+      "sub_title": "part two",
+      "work_id": 80000001,
+      "work_title": "the long walk",
+      "thumbnail_image_url": "https://public-img-comic.pximg.net/c/f240_320_a2_g2/episode/70000001/thumbnail.jpg",
+      "read_start_position": "right",
+      "pages": [
+        {
+          "url": "https://comic-image.pximg.net/episode/70000001/000.jpg",
+          "width": 764,
+          "height": 1080,
+          "gridsize": 32,
+          "key": "aaaaaaaaaaaaaaaa"
+        },
+        {
+          "url": "https://comic-image.pximg.net/episode/70000001/001.jpg",
+          "width": 764,
+          "height": 1080,
+          "gridsize": 32,
+          "key": "bbbbbbbbbbbbbbbb"
+        },
+        {
+          "url": "https://comic-image.pximg.net/episode/70000001/002.jpg",
+          "width": 764,
+          "height": 1080,
+          "gridsize": 32,
+          "key": "cccccccccccccccc"
+        }
+      ]
+    }
+  }
+}
