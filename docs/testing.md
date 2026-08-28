@@ -105,3 +105,30 @@ callbacks where `DownloadService` awaits the same kind of call, so both
 conventions have to work on one call. Adding those on top means re-implementing
 most of this file anyway, over a storage implementation we would then be half
 overriding — so the fake is hand-rolled and adds no dependency.
+
+## DOM and binary code, without jsdom
+
+Everything runs under the `node` test environment. The modules in
+`src/modules/Util` that reach for the DOM — `CopyStr`, `getImageSize`,
+`getCanvasFromDataURI` — are covered with small doubles declared in their own
+specs (`document`, `Image`, a 2d context, `FileReader` for
+`PackageFileReader`), assigned to `globalThis` in `beforeEach` and deleted
+again afterwards.
+
+jsdom was considered and skipped. It implements none of what those three
+actually depend on: `execCommand('copy')` is absent, images never load, and
+`canvas.getContext('2d')` returns `null` without `node-canvas` — a compiled
+dependency — behind it. A jsdom run would still be asserting against stubs,
+only stubs someone else wrote and this project would then be carrying.
+
+So the specs assert the sequence rather than the result: that the copy node is
+still in the document when `execCommand` runs, that `getImageSize` reads
+`width`/`height` on `load` and not before, that `getCanvasFromDataURI` sizes the
+canvas and draws over the whole of it. Each of those is a real regression this
+codebase could suffer; none of them needs a browser to catch.
+
+`APNG` needs no doubles at all. It is UPNG plus pako, working on RGBA
+`ArrayBuffer`s with no canvas anywhere, so `APNG.spec.js` encodes frames and
+decodes them again through UPNG's own decoder and compares pixels. Frames there
+are 32x32 for a reason the spec records: the encoder sizes its scratch buffer
+from the pixel data alone, and a 4x4 animation overflows it.
