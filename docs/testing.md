@@ -78,8 +78,30 @@ beforeEach(() => {
 
 ### Why not an off-the-shelf mock
 
-`jest-webextension-mock` and `sinon-chrome` both model the callback-style
-`chrome.*` surface. This codebase mixes callback and promise styles freely and
-leans on live `onChanged` events and connected port pairs, none of which those
-packages provide without wrapping anyway — so the fake is hand-rolled and adds
-no dependency.
+Both candidates were installed and probed against what this codebase actually
+needs. Results, `jest-webextension-mock` 4.2.0 and `sinon-chrome` 3.0.1 via its
+`sinon-chrome/webextensions` entry:
+
+| | `jest-webextension-mock` | `sinon-chrome/webextensions` |
+| --- | --- | --- |
+| `get` after `set` | returns what was stored | `undefined` — no state |
+| promise **and** callback on one call | one or the other: a callback makes the call return `undefined` | neither; stubs return `undefined` |
+| `storage.onChanged` fires on a write | no — spy only, and no trigger helper | no — but `.trigger()` fires it by hand |
+| `runtime.connect` port pairs | port object, but unpaired: `onConnect` never fires and `postMessage` delivers nothing | `connect()` returns `undefined` |
+| `runtime.sendMessage` reaches `onMessage` | yes | no |
+| `downloads.download` | spy, records the request | stub, records the request |
+| `tabs.get` | yields `{}` — no tab store | `undefined` |
+
+`sinon-chrome` is a stub library by design: you script each call with
+`.returns`/`.yields` and fire events with `.trigger()`, so an assertion mostly
+checks what the stub was told to say.
+
+`jest-webextension-mock` gets further — its storage is genuinely stateful and
+`sendMessage` is routed — but the three things this codebase leans on hardest
+are the ones it does not do. `SettingService` mirrors settings into the
+application through a live `onChanged` listener; `AbstractPortService` and
+`DownloadRecordPort` need a connected port pair; and `SettingService` passes
+callbacks where `DownloadService` awaits the same kind of call, so both
+conventions have to work on one call. Adding those on top means re-implementing
+most of this file anyway, over a storage implementation we would then be half
+overriding — so the fake is hand-rolled and adds no dependency.
