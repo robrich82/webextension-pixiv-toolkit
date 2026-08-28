@@ -1,9 +1,7 @@
 import PackageFileReader from './PackageFileReader';
-import Updater from './Updater';
 
 export {
-  PackageFileReader,
-  Updater
+  PackageFileReader
 }
 
 export * from './fixFilename';
