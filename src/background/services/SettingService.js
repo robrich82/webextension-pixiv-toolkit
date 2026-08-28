@@ -44,6 +44,18 @@ class SettingService extends AbstractService {
       });
     });
   }
+
+  /**
+   * Drop settings entirely, rather than writing them back as undefined.
+   * @param {string|string[]} keys
+   */
+  removeSettings(keys) {
+    return new Promise(resolve => {
+      browser.storage.local.remove(keys, () => {
+        resolve();
+      });
+    });
+  }
 }
 
 export default SettingService;

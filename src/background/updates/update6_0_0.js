@@ -11,72 +11,65 @@ import defaultSettings from "@/config/default";
 
 /**
  * Update to 6.0.0
+ *
+ * Folds the v5 "relative location + rename format" settings into the single
+ * rename-rule strings 6.x reads.
  */
 export default async () => {
   let settings = await app().getService('setting').getSettings();
   let updateSettings = Object.assign({}, defaultSettings, settings, {
-    version: '6.4.2',
+    version: '6.0.0',
   });
 
   /**
-   * Update `ugoiraRenameRule`
+   * Write a migrated rule, but only when the v5 settings it is derived from
+   * had something in them. With nothing to migrate, whatever is already on
+   * `updateSettings` stands — the user's own 6.x rule if they have one, the
+   * default otherwise. Overwriting unconditionally would replace a rule the
+   * user had edited with a default the moment this ran a second time.
    */
-  updateSettings.ugoiraRenameRule = !settings.ugoiraRenameFormat ?
-                                    defaultSettings.ugoiraRenameRule :
-                                    settings.ugoiraRenameFormat;
+  const migrateRule = (name, ...parts) => {
+    const rule = pathjoin(...parts);
+
+    if (rule) {
+      updateSettings[name] = rule;
+    }
+  };
 
   /**
-   * Update `mangaRenameRule`
+   * `ugoiraRenameRule` has no location part, so the format carries over
+   * whole rather than being joined.
    */
-  updateSettings.mangaRenameRule = pathjoin(
+  migrateRule('ugoiraRenameRule', settings.ugoiraRenameFormat);
+
+  migrateRule(
+    'mangaRenameRule',
     settings.mangaRelativeLocation,
     settings.mangaRenameFormat,
     settings.mangaImageRenameFormat
   );
 
-  if (!updateSettings.mangaRenameRule) {
-    updateSettings.mangaRenameRule = defaultSettings.mangaRenameRule;
-  }
-
-  /**
-   * Update `illustRenameRule`
-   */
-  updateSettings.illustRenameRule = pathjoin(
+  migrateRule(
+    'illustRenameRule',
     settings.illustrationRelativeLocation,
     settings.illustrationRenameFormat,
     settings.illustrationImageRenameFormat
   );
 
-  if (!updateSettings.illustRenameRule) {
-    updateSettings.illustRenameRule = defaultSettings.illustRenameRule;
-  }
-
-  /**
-  * Update `novelRenameRule`
-  */
-  updateSettings.novelRenameRule = pathjoin(
+  migrateRule(
+    'novelRenameRule',
     settings.novelRelativeLocation,
     settings.novelRenameFormat
   );
 
-  if (!updateSettings.novelRenameRule) {
-    updateSettings.novelRenameRule = defaultSettings.novelRenameRule;
-  }
-
-  /**
-   * Update `pixivComicEpisodeRenameRule`
-   */
-  updateSettings.pixivComicEpisodeRenameRule = pathjoin(
+  migrateRule(
+    'pixivComicEpisodeRenameRule',
     settings.pixivComicRelativeLocation,
     settings.pixivComicImageRenameFormat
   );
 
-  if (!updateSettings.pixivComicEpisodeRenameRule) {
-    updateSettings.pixivComicEpisodeRenameRule = defaultSettings.pixivComicEpisodeRenameRule;
-  }
-
   updateSettings.illustrationPageNumberStartWithOne = settings.illustrationPageNumberStartWithOne ? 1 : 0;
-  updateSettings.mangaPageNumberStartWithOne = settings.MangaPageNumberStartWithOne ? 1 : 0;
+  updateSettings.mangaPageNumberStartWithOne = settings.mangaPageNumberStartWithOne ? 1 : 0;
   updateSettings.pixivComicPageNumberStartWithOne = settings.pixivComicPageNumberStartWithOne ? 1 : 0;
 
   if (updateSettings.globalZipMultipleImages === 0) {
@@ -84,8 +77,7 @@ export default async () => {
     updateSettings.downloadSaveMode = 1;
   }
 
-  app().getService('setting').updateSettings(updateSettings);
+  await app().getService('setting').updateSettings(updateSettings);
 
-  console.log(updateSettings);
   console.log(`update patched, target: 6.0.0`);
 }

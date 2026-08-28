@@ -34,7 +34,7 @@ class Application {
     }
 
     this.serviceContainer = new Map();
-    this.settings = defaultSettings;
+    this.settings = Object.assign({}, defaultSettings);
   }
 
   /**
@@ -120,7 +120,7 @@ class Application {
    * @param {string} [previousVersion]
    * @param {string} reason [install, update, chrome_update, shared_module_updated]
    */
-  async onInstalled({ id = undefined, previousVersion = undefined, reason }) {console.log(arguments);
+  async onInstalled({ id = undefined, previousVersion = undefined, reason }) {
     if (reason === 'install' || reason === 'update') {
       let settings = await this.getService('setting').getSettings();
       let previousVersion = settings.version;
@@ -140,6 +140,14 @@ class Application {
          */
         let updater = new Updater(installVersion, previousVersion, updates());
         await updater.update();
+
+        /**
+         * Stamp the version the updates have now brought settings up to.
+         * Without this the stored version stays wherever the last update left
+         * it, and every subsequent extension update re-runs anything keyed
+         * above that.
+         */
+        await this.getService('setting').updateSettings({ version: installVersion });
 
         browser.action.setBadgeText({ text: 'NEW' });
         browser.action.setBadgeBackgroundColor({ color: '#FF0000' });
