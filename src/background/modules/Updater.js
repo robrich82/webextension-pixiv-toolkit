@@ -29,14 +29,17 @@ class Updater {
   }
 
   /**
-   * Execute update
+   * Run every update the previous version hasn't seen yet, in the order the
+   * map was built. Sequentially and awaited: the updates share settings
+   * storage, so a later one must see what an earlier one wrote, and the
+   * caller stamps the new version once this resolves.
    */
   async update() {
-    Array.from(this.updates).forEach(async item => {
-      if (versionCompare(this.previousVersion, item[0]) < 0) {
-        await item[1]();
+    for (let [version, update] of this.updates) {
+      if (versionCompare(this.previousVersion, version) < 0) {
+        await update();
       }
-    });
+    }
   }
 }
 
