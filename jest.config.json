@@ -21,10 +21,10 @@
   ],
   "coverageThreshold": {
     "global": {
-      "statements": 6.7,
-      "branches": 6.2,
-      "functions": 6.6,
-      "lines": 6.7
+      "statements": 7.1,
+      "branches": 6.5,
+      "functions": 7.0,
+      "lines": 7.0
     },
     "./src/modules/Util/": {
       "statements": 95,
