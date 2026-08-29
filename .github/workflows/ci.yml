@@ -18,35 +18,49 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      # No `version` input: pnpm/action-setup reads the exact version and
+      # integrity hash from the `packageManager` field in package.json, so
+      # there is only one place to bump it. Must run before setup-node, which
+      # needs pnpm on PATH to resolve the store for `cache: pnpm`.
+      - uses: pnpm/action-setup@v6
+
+      # `.nvmrc` is the single Node pin, shared with local development. It is
+      # not checked against `engines.node` by a separate step because it does
+      # not need to be: pnpm enforces the root project's `engines` on every
+      # install, so a `.nvmrc` outside the range fails the next step outright.
       - uses: actions/setup-node@v5
         with:
-          node-version: 24.20.0
-          cache: npm
+          node-version-file: .nvmrc
+          cache: pnpm
 
-      # --ignore-scripts: no dependency needs a build step here. The only two
-      # that declare install scripts are leveldown (pouchdb's native Node
-      # LevelDB binding) and @parcel/watcher (sass --watch); neither is
-      # reachable, since pouchdb is a webpack external loaded from its prebuilt
-      # browser bundle and watching is webpack's job. npm 11 blocks these by
-      # default -- being explicit keeps the result the same across npm versions
-      # and drops a well-worn supply-chain foothold.
-      - name: Install npm packages
-        run: npm ci --ignore-scripts
+      # pnpm denies dependency lifecycle scripts by default and fails the
+      # install if a package wants to build without an entry in `allowBuilds`
+      # (see pnpm-workspace.yaml, where all three such packages are denied).
+      # That replaces the old `npm ci --ignore-scripts` flag with a default
+      # that also protects local installs, not just this line of YAML.
+      #
+      # --frozen-lockfile is the `npm ci` equivalent: install exactly the
+      # locked tree and fail if package.json and pnpm-lock.yaml disagree. It
+      # also re-checks the locked versions against the supply-chain policies,
+      # so the cooldown and trust settings still apply even though no
+      # resolution happens here.
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
-      # The only advisories left are the Vue 2 EOL ones, which are `low` and
+      # The only advisory left is the Vue 2 EOL ReDoS one, which is `low` and
       # cannot be cleared without the Vue 3 migration. Failing at `moderate`
       # keeps new problems from getting lost in that standing noise.
       - name: Audit dependencies
-        run: npm audit --audit-level=moderate
+        run: pnpm audit --audit-level=moderate
 
       - name: Run tests
-        run: npm test
+        run: pnpm test
 
       - name: Build extension for Chrome
-        run: npm run build
+        run: pnpm run build
 
       - name: Build extension for Firefox
-        run: npm run build:firefox
+        run: pnpm run build:firefox
 
       - name: Upload Chrome build
         uses: actions/upload-artifact@v7
