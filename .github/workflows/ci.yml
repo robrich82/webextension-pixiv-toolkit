@@ -22,7 +22,7 @@ jobs:
       # integrity hash from the `packageManager` field in package.json, so
       # there is only one place to bump it. Must run before setup-node, which
       # needs pnpm on PATH to resolve the store for `cache: pnpm`.
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
 
       # `.nvmrc` is the single Node pin, shared with local development. It is
       # not checked against `engines.node` by a separate step because it does
