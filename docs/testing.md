@@ -1,6 +1,6 @@
 # Tests
 
-`npm test` runs Jest over every `*.spec.js` under `test/`, with coverage
+`pnpm test` runs Jest over every `*.spec.js` under `test/`, with coverage
 collected from `src/**/*.js`. Configuration lives in `jest.config.json`; the
 `test` block of `.babelrc` compiles to CommonJS for the current Node.
 
@@ -10,7 +10,7 @@ source files by the same `@/` and `@@/` paths the source itself uses.
 ## The coverage floor
 
 `coverageThreshold` in `jest.config.json` fails the run — and so CI, which just
-calls `npm test` — when coverage drops below where it already is. It is a
+calls `pnpm test` — when coverage drops below where it already is. It is a
 ratchet, not a target: the numbers are set a hair under the current ones, so
 nothing can quietly regress, and they get raised whenever a change clears them
 by a useful margin.

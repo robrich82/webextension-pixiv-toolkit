@@ -7,8 +7,9 @@ here is done — the toolchain branch deliberately stopped short of it.
 
 Vue 2.7 reached end of life in December 2023. `GHSA-5j4c-8p2g-v4jx` (ReDoS in
 `parseHTML`) has no Vue 2 fix and never will. It is the sole remaining finding in
-`npm audit`, reported four times over: directly against `vue`, and transitively
-via `vuetify`, `vue-virtual-scroller` and `vue-resize`.
+`pnpm audit`, reported over six dependency paths: directly against `vue`, and
+transitively via `vue-i18n`, `vue-router`, `vuetify`, `vue-virtual-scroller` and
+`vue-resize`.
 
 **Practical exposure is low.** The advisory needs an attacker-controlled
 *template*, and templates here are compiled at build time. The full Vue build
