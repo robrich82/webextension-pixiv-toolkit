@@ -2,7 +2,7 @@
 
 ------
 
-# Help Information <span id="en_us></span>
+# Help Information <span id="en_us"></span>
 
 ## About `FFmpeg custom convert command` setting <span id="about-ffmpeg-custom-convert-command-en_us"></span>
 
