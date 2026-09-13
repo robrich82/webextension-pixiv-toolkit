@@ -3,6 +3,7 @@
 /web-ext-artifacts/
 *.xpi
 npm-debug.log
+package-lock.json
 .vscode/*
 /coverage
 /bundleAnalyzer/

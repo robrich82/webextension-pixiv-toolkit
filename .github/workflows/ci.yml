@@ -47,9 +47,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # The only advisory left is the Vue 2 EOL ReDoS one, which is `low` and
-      # cannot be cleared without the Vue 3 migration. Failing at `moderate`
-      # keeps new problems from getting lost in that standing noise.
+      # The only advisory that reaches the shipped bundle (`pnpm audit -P`) is
+      # the Vue 2 EOL ReDoS one, which is `low` and cannot be cleared without
+      # the Vue 3 migration. This step runs the full audit including dev
+      # dependencies, though, so a build-toolchain advisory can and does fail
+      # it too -- see docs/toolchain.md. Failing at `moderate` keeps new
+      # problems from getting lost in the standing Vue 2 noise.
       - name: Audit dependencies
         run: pnpm audit --audit-level=moderate
 

@@ -6,10 +6,12 @@ here is done — the toolchain branch deliberately stopped short of it.
 ## Why it is still outstanding
 
 Vue 2.7 reached end of life in December 2023. `GHSA-5j4c-8p2g-v4jx` (ReDoS in
-`parseHTML`) has no Vue 2 fix and never will. It is the sole remaining finding in
-`pnpm audit`, reported over six dependency paths: directly against `vue`, and
-transitively via `vue-i18n`, `vue-router`, `vuetify`, `vue-virtual-scroller` and
-`vue-resize`.
+`parseHTML`) has no Vue 2 fix and never will. It is the sole remaining finding
+that reaches the shipped bundle (`pnpm audit -P`), reported over six dependency
+paths: directly against `vue`, and transitively via `vue-i18n`, `vue-router`,
+`vuetify`, `vue-virtual-scroller` and `vue-resize`. The plain `pnpm audit` may
+also show build-toolchain advisories at any given moment; those are unrelated
+tooling chores, not part of what this migration clears.
 
 **Practical exposure is low.** The advisory needs an attacker-controlled
 *template*, and templates here are compiled at build time. The full Vue build
@@ -83,7 +85,7 @@ just renamed.
 ## Build-side changes this unlocks
 
 - `vue-loader` 15 → 17, and `@vue/compiler-sfc` replaces `vue/compiler-sfc`.
-- Both dependency `overrides` in `package.json` can be deleted — the
+- Both dependency `overrides` in `pnpm-workspace.yaml` can be deleted — the
   `@vue/component-compiler-utils` one becomes moot once vue-loader 17 is in, and
   it should be re-checked whether the `uuid` pin is still wanted.
 - `vue-style-loader` can go; vue-loader 17 uses `style-loader`.
@@ -91,10 +93,10 @@ just renamed.
 ## Suggested sequencing
 
 1. Land the toolchain branch first (done) so the build is not a moving target.
-2. Add component tests before touching anything — there is currently **one** test
-   file (`test/pathjoin.spec.js`, 7 assertions) and it covers a path utility, not
-   UI. A 51-component rewrite with no UI test coverage is the main risk in this
-   whole plan and should be addressed before, not after.
+2. Add component tests before touching anything — there are 23 test files today
+   (`test/*.spec.js`) but none exercise a `.vue` component; they cover utilities
+   and non-UI logic. A 51-component rewrite with no UI test coverage is the main
+   risk in this whole plan and should be addressed before, not after.
 3. Migrate the leaf `option-items` (5 files) first to establish the patterns.
 4. Then `options_page/components/options` (20), then the rest of the options page.
 5. `content_scripts/components` (6) last — those render into Pixiv's own pages and

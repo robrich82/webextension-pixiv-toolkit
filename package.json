@@ -5,6 +5,7 @@
   "author": "leoding86 <leoding86@msn.com>",
   "private": false,
   "scripts": {
+    "preinstall": "npx --yes only-allow pnpm",
     "dev": "cross-env PLATFORM_ENV=chrome webpack --watch --progress --config webpack.config.js",
     "dev:firefox": "cross-env PLATFORM_ENV=firefox webpack --watch --progress --config webpack.config.js --env platform=firefox",
     "dev:cs": "webpack --watch --progress --config config/webpack.content-scripts.config.js",
@@ -65,7 +66,7 @@
     "worker-loader": "^3.0.8"
   },
   "engines": {
-    "node": ">=22.12.0 <25.0.0",
+    "node": ">=22.13.0 <25.0.0",
     "pnpm": ">=11.0.0 <12.0.0"
   },
   "browserslist": [

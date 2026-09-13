@@ -2,11 +2,13 @@
 # settings; `.npmrc` now only carries the one key npm itself reads.
 
 # --- Install-time toolchain check -------------------------------------------
-# The root project's `engines` field is enforced unconditionally, so this
-# extends the same check to dependencies: nothing installs that declares
-# itself incompatible with the running Node. Combined with the bounded ranges
-# in `engines`, an out-of-range Node fails here rather than producing a tree
-# nobody has tested.
+# `engines.pnpm` is enforced unconditionally, but `engines.node` is only
+# enforced because this is set to true -- drop it and an out-of-range Node
+# installs anyway (verified: pnpm 11.24.0, no engineStrict, out-of-range Node
+# still exits 0). This also extends the check to dependencies: nothing
+# installs that declares itself incompatible with the running Node. Combined
+# with the bounded ranges in `engines`, an out-of-range Node fails here rather
+# than producing a tree nobody has tested.
 engineStrict: true
 
 # --- Supply chain -----------------------------------------------------------
@@ -20,6 +22,12 @@ engineStrict: true
 #
 # A deliberate urgent security bump WILL appear to fail against this. The fix
 # is `minimumReleaseAgeExclude`, not lowering the window -- see docs/toolchain.md.
+#
+# Setting this at all also turns on `minimumReleaseAgeStrict` (pnpm's default
+# when the key is present, even at a value equal to the default): if nothing
+# in range is old enough, the install fails loudly instead of silently taking
+# an immature version. That is the wanted behaviour; ordinary fall-back to an
+# older mature version is unaffected.
 minimumReleaseAge: 10080
 
 # Lifecycle scripts are denied by default in pnpm, and pnpm fails the install
@@ -40,6 +48,10 @@ minimumReleaseAge: 10080
 # Adding `true` here is a security decision, not a way to clear a failed
 # install. A new entry means a dependency started wanting to execute code on
 # every machine that installs this project.
+#
+# A failed install over a missing entry does not just error -- it edits this
+# file, merging a `<name>: set this to true or false` placeholder into the
+# block below. Decide and replace that line; do not just re-run the install.
 allowBuilds:
   leveldown: false
   '@parcel/watcher': false
@@ -65,11 +77,19 @@ trustPolicyExclude:
   - 'semver@6.3.1'
 
 # --- Overrides --------------------------------------------------------------
-# Both entries keep `pnpm audit` clean rather than fixing a live exposure; see
-# docs/toolchain.md for why neither advisory is reachable here.
+# The first two entries keep `pnpm audit` clean rather than fixing a live
+# exposure; see docs/toolchain.md for why neither advisory is reachable here.
+# The `js-yaml`/`fast-uri` floors below fix an actual advisory each, floored at
+# the advisory's own first-patched version so the resolved version sitting
+# above the floor is the `^` working, not a weaker guard. `js-yaml` is split
+# per major because 4.x dropped `safeLoad`/`safeDump`, so 3.x consumers cannot
+# cross, and this tree carries both lines.
 #
 # pnpm does not read npm's top-level `overrides` field, so these live here.
 # Drop them and the advisories come back.
 overrides:
   uuid: ^11.1.1
   '@vue/component-compiler-utils>postcss': ^8.5.22
+  'js-yaml@>=4.0.0 <4.3.2': ^4.3.2
+  'js-yaml@<3.15.2': ^3.15.2
+  'fast-uri@<3.1.6': ^3.1.6

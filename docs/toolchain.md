@@ -44,8 +44,11 @@ nvm use $(cat .nvmrc)
 ```
 
 CI has no such gap: `actions/setup-node` takes `node-version-file: .nvmrc`
-directly. fnm, nodenv and asdf read it too; it is nvm-for-windows specifically
-that needs the argument.
+directly, and fnm reads `.nvmrc` natively too. asdf's nodejs plugin lists
+`.nvmrc` as a legacy filename, but only picks it up with
+`legacy_version_file = yes` set in `~/.asdfrc` (off by default); nodenv's
+native pin file is `.node-version`, so `.nvmrc` needs a plugin there. It is
+nvm-for-windows specifically that needs the argument above.
 
 Getting the Node version wrong is at least loud now rather than silent: an
 out-of-range Node fails the install against `engines.node` instead of quietly
@@ -58,28 +61,38 @@ the previous state and it was wrong in both directions: it admits an untested
 future major silently, and it makes the strict-engines check weaker than it
 looks, since the only thing an open range can enforce is a floor.
 
-- **`engines.node`** — `>=22.12.0 <25.0.0`. The floor is what the code needs;
-  the ceiling sits below the next unvalidated major.
+- **`engines.node`** — `>=22.13.0 <25.0.0`. The floor is one patch above what
+  the code strictly needs, because pnpm 11.24.0 itself declares
+  `engines.node: ">=22.13"`; a lower floor would pass this project's own gate
+  and then fail to run the pinned pnpm. The ceiling sits below the next
+  unvalidated major.
 - **`engines.pnpm`** — `>=11.0.0 <12.0.0`. The settings in
   `pnpm-workspace.yaml` are pnpm v11 semantics. pnpm v10 would apply a
   *different* security posture from the same file — `minimumReleaseAge`
-  defaults to `0` there rather than `1440`, and `allowBuilds` did not exist —
-  and v12 may change it again.
+  defaults to `0` there rather than `1440`, and `strictDepBuilds` defaults to
+  `false` rather than `true`, so an undeclared build script degrades to a
+  silent warning instead of failing the install — and v12 may change it again.
 - **`packageManager`** — the exact version plus integrity hash. Exact by
   construction, so it is the effective upper *and* lower bound for corepack
   users.
 - `engineStrict: true` in `pnpm-workspace.yaml` extends the same check to
-  dependencies. The root project's own `engines` is enforced regardless of that
-  setting, so an out-of-range Node or pnpm fails at install time with a clear
-  error rather than producing an unreproducible tree.
+  dependencies. `engines.pnpm` is enforced unconditionally either way, but
+  `engines.node` is only enforced *because* this is set — drop the flag
+  thinking it only governs dependencies, and the Node ceiling silently stops
+  being checked too, since it is the same setting doing both jobs.
 
 **Raise a ceiling deliberately, after a green CI run on the new major — never
 to get unblocked.** Deleting a ceiling converts a loud, early failure into a
 silent, late one.
 
-This is also why CI needs no step asserting its Node pin sits inside
+This is also why CI needs no step asserting its Node pin sits *inside*
 `engines.node`: pnpm enforces `engines` on every install, so a `.nvmrc` outside
-the range fails the install step outright. One pin, checked structurally.
+the range fails the install step outright. That only catches the pin drifting
+out of the range, though — it does not catch the range being widened around an
+untested pin. Raising the ceiling to admit a new major while leaving `.nvmrc`
+where it is passes this check having never run on that major, which is exactly
+the case the rule above asks a human to gate deliberately. Nothing currently
+enforces that structurally; it depends on someone reading the rule.
 
 ## Lockfile
 
@@ -313,10 +326,14 @@ The job then runs `pnpm install --frozen-lockfile`,
 `pnpm audit --audit-level=moderate`, `pnpm test`, and the Chrome and Firefox
 builds, uploading each `dist/` directory as an artifact.
 
-The audit gate is set at `moderate` because the Vue 2 EOL advisory is `low` and
-standing; failing at `moderate` keeps a new problem from being lost in that
-noise. pnpm reports that advisory at the same severity npm did, so the gate
-behaves as it always has.
+The audit gate is set at `moderate` because the Vue 2 EOL advisory — the only
+one that reaches the shipped bundle (`pnpm audit -P`) — is `low` and standing;
+failing at `moderate` keeps a new problem from being lost in that noise. pnpm
+reports that advisory at the same severity npm did, so the gate behaves as it
+always has. The plain `pnpm audit` (dev dependencies included) can and does
+report other advisories from the build toolchain from time to time; those are
+tooling chores, not shipped exposure, but they still fail this gate and need
+clearing (`pnpm update`, or an `overrides` floor — see `pnpm-workspace.yaml`).
 
 CircleCI (`.circleci/config.yml`) ran the identical job and was dropped as
 duplication.
@@ -327,8 +344,11 @@ configured and for the extension API double the specs run against.
 ## Known remaining issues
 
 - **Vue 2 is EOL** (December 2023) and carries an unfixable ReDoS advisory
-  (GHSA-5j4c-8p2g-v4jx). This is the only advisory `pnpm audit` still reports, via
-  `vue`, `vuetify` and `vue-virtual-scroller`. See `docs/vue3-migration.md`.
+  (GHSA-5j4c-8p2g-v4jx). This is the only advisory that reaches the shipped
+  bundle (`pnpm audit -P`), via `vue`, `vuetify` and `vue-virtual-scroller`. The
+  plain `pnpm audit` may show more from the build toolchain at any given
+  moment — see `pnpm-workspace.yaml` and the CI section above. See
+  `docs/vue3-migration.md`.
 - **ffmpeg is pinned to 0.11.** `@ffmpeg/core` is copied into `lib/ffmpeg`, but
   the code loads a *vendored* `src/statics/lib/ffmpeg/ffmpeg.min.js` (0.11.6) as
   a `FFmpeg` global and uses the 0.11 API (`createFFmpeg`, `.FS()`,
