@@ -1,0 +1,95 @@
+# pnpm configuration. This file is the single source of truth for pnpm's
+# settings; `.npmrc` now only carries the one key npm itself reads.
+
+# --- Install-time toolchain check -------------------------------------------
+# `engines.pnpm` is enforced unconditionally, but `engines.node` is only
+# enforced because this is set to true -- drop it and an out-of-range Node
+# installs anyway (verified: pnpm 11.24.0, no engineStrict, out-of-range Node
+# still exits 0). This also extends the check to dependencies: nothing
+# installs that declares itself incompatible with the running Node. Combined
+# with the bounded ranges in `engines`, an out-of-range Node fails here rather
+# than producing a tree nobody has tested.
+engineStrict: true
+
+# --- Supply chain -----------------------------------------------------------
+# Refuse packages published less than this many minutes ago. Caret ranges stop
+# a plain install crossing a major, but they happily take a malicious patch the
+# hour it lands -- which is the shape almost every compromised-maintainer
+# incident has had. pnpm v11 defaults to 1440 (one day); this project is not
+# release-driven and has no reason to be an early adopter of anything, so the
+# window is a week. Set explicitly rather than inherited, so a future change to
+# pnpm's default cannot quietly shorten it.
+#
+# A deliberate urgent security bump WILL appear to fail against this. The fix
+# is `minimumReleaseAgeExclude`, not lowering the window -- see docs/toolchain.md.
+#
+# Setting this at all also turns on `minimumReleaseAgeStrict` (pnpm's default
+# when the key is present, even at a value equal to the default): if nothing
+# in range is old enough, the install fails loudly instead of silently taking
+# an immature version. That is the wanted behaviour; ordinary fall-back to an
+# older mature version is unaffected.
+minimumReleaseAge: 10080
+
+# Lifecycle scripts are denied by default in pnpm, and pnpm fails the install
+# outright if a package wants to build and this map does not mention it. So the
+# allowlist is really a decision log: every package in the tree that declares an
+# install script is named here, and every one of them is denied.
+#
+#   leveldown        pouchdb's native LevelDB binding. Unreachable -- pouchdb is
+#                    a webpack external loaded from its prebuilt browser bundle.
+#   @parcel/watcher  native file watching for `sass --watch`. Unreachable --
+#                    watching is webpack's job here.
+#   unrs-resolver    jest-resolve's native resolver. Its script only verifies
+#                    that the right `@unrs/resolver-binding-*` optional
+#                    dependency got installed; the binary itself arrives
+#                    prebuilt, so skipping the check costs nothing. Verified by
+#                    running the suite with the script denied.
+#
+# Adding `true` here is a security decision, not a way to clear a failed
+# install. A new entry means a dependency started wanting to execute code on
+# every machine that installs this project.
+#
+# A failed install over a missing entry does not just error -- it edits this
+# file, merging a `<name>: set this to true or false` placeholder into the
+# block below. Decide and replace that line; do not just re-run the install.
+allowBuilds:
+  leveldown: false
+  '@parcel/watcher': false
+  unrs-resolver: false
+
+# Transitive dependencies must come from the registry -- no git repositories,
+# no tarball URLs. This is pnpm's default; pinned so it survives a default flip.
+blockExoticSubdeps: true
+
+# Fail the install when a package's trust level drops relative to earlier
+# releases (a maintainer losing 2FA, a publish from an unattested source).
+trustPolicy: no-downgrade
+
+# One exclusion, and it is a false positive rather than a waived risk.
+# `semver@6.3.1` (2023-07-10) is a maintenance backport to the v6 line, published
+# three days after `semver@7.5.4` (2023-07-07) -- which *does* carry a SLSA
+# provenance attestation. Trust level is judged by publish date, not by semver
+# line, so the older major looks like a regression from the newer one. Same
+# repository (npm's own node-semver), same maintainers, and it reaches us only
+# through the Babel toolchain, which is build-time-only. Pinned to the exact
+# version so a genuinely regressed semver 6.x would still fail the install.
+trustPolicyExclude:
+  - 'semver@6.3.1'
+
+# --- Overrides --------------------------------------------------------------
+# The first two entries keep `pnpm audit` clean rather than fixing a live
+# exposure; see docs/toolchain.md for why neither advisory is reachable here.
+# The `js-yaml`/`fast-uri` floors below fix an actual advisory each, floored at
+# the advisory's own first-patched version so the resolved version sitting
+# above the floor is the `^` working, not a weaker guard. `js-yaml` is split
+# per major because 4.x dropped `safeLoad`/`safeDump`, so 3.x consumers cannot
+# cross, and this tree carries both lines.
+#
+# pnpm does not read npm's top-level `overrides` field, so these live here.
+# Drop them and the advisories come back.
+overrides:
+  uuid: ^11.1.1
+  '@vue/component-compiler-utils>postcss': ^8.5.22
+  'js-yaml@>=4.0.0 <4.3.2': ^4.3.2
+  'js-yaml@<3.15.2': ^3.15.2
+  'fast-uri@<3.1.6': ^3.1.6
