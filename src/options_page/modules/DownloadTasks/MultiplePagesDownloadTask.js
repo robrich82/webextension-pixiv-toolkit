@@ -153,6 +153,28 @@ class MultipleDownloadTask extends AbstractDownloadTask {
     return this.downloader.files.length === 1 && MimeType.getExtenstion(mimeType) === 'zip';
   }
 
+  /**
+   * A rename rule can contain a `{pageNum}` path segment - the shipped
+   * `fanboxPostRenameRule` default is `{id}_{title}/{pageNum}` - meant for
+   * the per-page "work folder" branch below, where each item is formatted
+   * with its own page number in context. When naming something that stands
+   * for the whole post instead (the single zip archive, or a lone page
+   * that's already an archive and is saved as-is), there is no page number
+   * to plug in, so that segment is dropped rather than left as a literal,
+   * unresolved `{pageNum}` token - which, since the rule contains a `/`,
+   * would otherwise split into a bogus subfolder around it.
+   * @returns {string}
+   */
+  formatPostName() {
+    const rule = (this.options.renameRule || '')
+      .split(/[/\\]/)
+      .filter(segment => !/\{pageNum\}/i.test(segment))
+      .join('/');
+
+    return NameFormattor.getFormatter({ context: Object.assign({}, this.context) })
+      .format(rule, this.context.id);
+  }
+
   dontCreateWorkFolder() {
     if (GlobalSettings().downloadSaveMode !== 1) {
       return false;
@@ -178,10 +200,9 @@ class MultipleDownloadTask extends AbstractDownloadTask {
     });
 
     if (this.isSingleArchivePage(mimeType)) {
-      const postNameFormatter = NameFormattor.getFormatter({ context: Object.assign({}, this.context) });
       const filename = pathjoin(
         GlobalSettings().downloadRelativeLocation,
-        postNameFormatter.format(this.options.renameRule, this.context.id)
+        this.formatPostName()
       ) + `.${MimeType.getExtenstion(mimeType)}`;
 
       this.lastDownloadId = await browser.runtime.sendMessage({
@@ -277,10 +298,9 @@ class MultipleDownloadTask extends AbstractDownloadTask {
     }
 
     if (this.shouldZipFile()) {
-      const nameFormatter = NameFormattor.getFormatter({ context: Object.assign({}, this.context) });
       let filename = pathjoin(
         GlobalSettings().downloadRelativeLocation,
-        nameFormatter.format(this.options.renameRule, this.context.id)
+        this.formatPostName()
       );
       filename = fixFilename(filename);
 

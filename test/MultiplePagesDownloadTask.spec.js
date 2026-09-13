@@ -1,9 +1,19 @@
 /**
- * A Fanbox (and generally any multi-page) post whose sole page is already an
- * archive - e.g. an artist-uploaded .zip attachment - shouldn't be re-zipped
- * into an outer wrapper, nor dropped into a per-post work folder alongside a
- * page-numbered copy. It should just be saved as `<post name>.zip` directly.
- * See MultiplePagesDownloadTask.isSingleArchivePage / onItemFinish / onFinish.
+ * Two related MultiplePagesDownloadTask bugs, both covered here:
+ *
+ * 1. The shipped `fanboxPostRenameRule` default is `{id}_{title}/{pageNum}` -
+ *    a `{pageNum}` path segment meant for the per-page "work folder" branch.
+ *    Reusing that same rule to name the *whole* zipped post (which has no
+ *    single page number) used to leave `{pageNum}` unresolved and, because
+ *    the rule contains a `/`, split into a bogus `id_title/{pageNum}.zip`
+ *    subfolder - exactly what a default-settings Fanbox download produced.
+ *    See `formatPostName`.
+ *
+ * 2. A post whose sole page is already an archive - e.g. an artist-uploaded
+ *    .zip attachment - shouldn't be re-zipped into an outer wrapper, nor
+ *    dropped into a per-post work folder alongside a page-numbered copy. It
+ *    should just be saved as `<post name>.<ext>` directly. See
+ *    `isSingleArchivePage`.
  */
 import browser from './doubles/browser';
 import MultipleDownloadTask from '../src/options_page/modules/DownloadTasks/MultiplePagesDownloadTask';
@@ -34,7 +44,8 @@ const buildTask = (pages, settingsOverrides = {}) => {
     selectedIndexes: [],
     pageNumberStartWithOne: 1,
     pageNumberLength: -1,
-    renameRule: '{id}_{title}',
+    // The real shipped default (src/config/default.js `fanboxPostRenameRule`).
+    renameRule: '{id}_{title}/{pageNum}',
     renameImageRule: 'p{pageNum}',
     context: buildContext()
   });
@@ -102,4 +113,13 @@ test('a single image page (not an archive) still gets zipped as before', async (
   expect(saveFileCalls).toHaveLength(1);
   expect(saveFileCalls[0][0].args.filename).toBe('12148167_いろいろなえっち絵.zip');
   expect(task.isComplete()).toBe(true);
+});
+
+test('formatPostName drops the {pageNum} segment rather than leaving it unresolved', () => {
+  const task = buildTask(['https://example.fanbox.cc/images/1.png']);
+
+  // Before the fix this returned "12148167_いろいろなえっち絵/{pageNum}", which
+  // - joined with a `.zip` extension - Chrome's downloads API splits into a
+  // "12148167_いろいろなえっち絵" folder containing a literal "{pageNum}.zip".
+  expect(task.formatPostName()).toBe('12148167_いろいろなえっち絵');
 });
