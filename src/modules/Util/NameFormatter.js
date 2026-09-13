@@ -103,6 +103,14 @@ class NameFormatter {
 
     name = name.replace(/\u{200B}/ug, ' ');
 
+    /**
+     * Windows (and Chrome's downloads API, regardless of OS) rejects a
+     * filename that ends with a dot or a space. `downloads.download()` fails
+     * silently in that case - no thrown error, just a missing download - so a
+     * title ending in "..." would otherwise produce a save that never happens.
+     */
+    name = name.replace(/[.\s]+$/u, '');
+
     return name;
   }
 

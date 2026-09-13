@@ -79,6 +79,25 @@ describe('illegal characters', () => {
     expect(format('{title}', { illustTitle: '../../etc/passwd' }))
       .toBe('.._.._etc_passwd');
   });
+
+  test('strips trailing dots from a title', () => {
+    // Windows (and Chrome's downloads API on any OS) rejects a filename
+    // ending in a dot or space, failing the save with no visible error.
+    expect(format('{title}', { illustTitle: 'クリスマスのJ〇ちゃん達は...' }))
+      .toBe('クリスマスのJ〇ちゃん達は');
+  });
+
+  test('strips trailing whitespace from a title', () => {
+    expect(format('{title}', { illustTitle: 'sunset  ' })).toBe('sunset');
+  });
+
+  test('strips a mix of trailing dots and whitespace', () => {
+    expect(format('{title}', { illustTitle: 'sunset. . ' })).toBe('sunset');
+  });
+
+  test('a title of only dots falls back like any other empty segment', () => {
+    expect(format('{title}', { illustTitle: '...' })).toBe('undefined');
+  });
 });
 
 describe('directory rules', () => {
