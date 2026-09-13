@@ -141,6 +141,40 @@ class MultipleDownloadTask extends AbstractDownloadTask {
       (this.zipMultipleImages === 3 && this.downloader.files.length > 1 );
   }
 
+  /**
+   * True when the post has exactly one page and that page is itself an
+   * archive (e.g. a Fanbox post whose attachment is a .zip file). Such
+   * content shouldn't be re-zipped or dropped into a per-post work folder -
+   * it should just be saved as `<post name>.<ext>` directly.
+   * @param {string} mimeType
+   * @returns {boolean}
+   */
+  isSingleArchivePage(mimeType) {
+    return this.downloader.files.length === 1 && MimeType.getExtenstion(mimeType) === 'zip';
+  }
+
+  /**
+   * A rename rule can contain a `{pageNum}` path segment - the shipped
+   * `fanboxPostRenameRule` default is `{id}_{title}/{pageNum}` - meant for
+   * the per-page "work folder" branch below, where each item is formatted
+   * with its own page number in context. When naming something that stands
+   * for the whole post instead (the single zip archive, or a lone page
+   * that's already an archive and is saved as-is), there is no page number
+   * to plug in, so that segment is dropped rather than left as a literal,
+   * unresolved `{pageNum}` token - which, since the rule contains a `/`,
+   * would otherwise split into a bogus subfolder around it.
+   * @returns {string}
+   */
+  formatPostName() {
+    const rule = (this.options.renameRule || '')
+      .split(/[/\\]/)
+      .filter(segment => !/\{pageNum\}/i.test(segment))
+      .join('/');
+
+    return NameFormattor.getFormatter({ context: Object.assign({}, this.context) })
+      .format(rule, this.context.id);
+  }
+
   dontCreateWorkFolder() {
     if (GlobalSettings().downloadSaveMode !== 1) {
       return false;
@@ -165,7 +199,23 @@ class MultipleDownloadTask extends AbstractDownloadTask {
       context: Object.assign({}, this.context, { pageNum })
     });
 
-    if (this.shouldZipFile()) {
+    if (this.isSingleArchivePage(mimeType)) {
+      const filename = pathjoin(
+        GlobalSettings().downloadRelativeLocation,
+        this.formatPostName()
+      ) + `.${MimeType.getExtenstion(mimeType)}`;
+
+      this.lastDownloadId = await browser.runtime.sendMessage({
+        to: 'ws',
+        action: 'download:saveFile',
+        args: {
+          url,
+          filename: fixFilename(filename)
+        }
+      });
+
+      this.singleArchivePageSaved = true;
+    } else if (this.shouldZipFile()) {
       const file = nameFormatter.format(this.options.renameImageRule, `p${pageNum}`) + `.${MimeType.getExtenstion(mimeType)}`;
       this.zip.file(fixFilename(file), blob, { date: this.now });
     } else {
@@ -234,6 +284,12 @@ class MultipleDownloadTask extends AbstractDownloadTask {
    * @fires MultipleDownloadTask#complete
    */
   async onFinish() {
+    if (this.singleArchivePageSaved) {
+      this.changeState(this.COMPLETE_STATE);
+      this.dispatch('complete');
+      return;
+    }
+
     if (GlobalSettings().enableDownloadMetadata &&
       this.options.context &&
       this.canSaveInfo()
@@ -242,10 +298,9 @@ class MultipleDownloadTask extends AbstractDownloadTask {
     }
 
     if (this.shouldZipFile()) {
-      const nameFormatter = NameFormattor.getFormatter({ context: Object.assign({}, this.context) });
       let filename = pathjoin(
         GlobalSettings().downloadRelativeLocation,
-        nameFormatter.format(this.options.renameRule, this.context.id)
+        this.formatPostName()
       );
       filename = fixFilename(filename);
 
