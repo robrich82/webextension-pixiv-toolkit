@@ -137,14 +137,22 @@ function main() {
     '--channel', 'unlisted'
   ]), 5, 10000);
 
-  let xpiName = fs.readdirSync(ARTIFACTS_DIR).find(name => name.endsWith('.xpi'));
+  let signedName = fs.readdirSync(ARTIFACTS_DIR).find(name => name.endsWith('.xpi'));
 
-  if (!xpiName) {
+  if (!signedName) {
     console.error('web-ext sign did not produce a .xpi in web-ext-artifacts/.');
     process.exit(1);
   }
 
+  // web-ext names the signed file after a hash of the extension id
+  // (e.g. 44b1f306226b4b62a10f-6.4.4.xpi), which is meaningless on the
+  // release page. Renaming doesn't touch the file's bytes or its AMO
+  // signature - Firefox validates those independent of filename - so this
+  // is purely cosmetic and safe to do after signing.
+  let xpiName = `pixiv-toolkit-firefox-${version}.xpi`;
   let xpiPath = path.join(ARTIFACTS_DIR, xpiName);
+  fs.renameSync(path.join(ARTIFACTS_DIR, signedName), xpiPath);
+
   let hash = sha256(xpiPath);
 
   console.log(`\nSigned: ${xpiName}`);
