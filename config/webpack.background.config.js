@@ -100,10 +100,16 @@ module.exports = env => {
                  * Firefox requires an explicit add-on id to install a build
                  * permanently or to sign it through AMO. This fork uses its own
                  * id so its signed builds stay distinct from the upstream add-on.
+                 *
+                 * `update_url` points Firefox at a self-hosted update manifest
+                 * (published as a GitHub Release asset on this fork, see
+                 * scripts/release.js) so a signed-but-unlisted build can still
+                 * auto-update instead of requiring a manual reinstall per release.
                  */
                 json.browser_specific_settings = {
                   gecko: {
-                    id: 'webextension-pixiv-toolkit-fork@robrich82'
+                    id: 'webextension-pixiv-toolkit-fork@robrich82',
+                    update_url: 'https://github.com/robrich82/webextension-pixiv-toolkit/releases/latest/download/updates.json'
                   }
                 };
               }
