@@ -30,10 +30,12 @@
     "permissions": [
         "declarativeNetRequestWithHostAccess",
         "declarativeNetRequestFeedback",
-        "downloads.shelf",
         "downloads",
         "storage",
         "unlimitedStorage"
+    ],
+    "optional_permissions": [
+        "downloads.shelf"
     ],
     "host_permissions": [
         "*://*.pixiv.net/*",
