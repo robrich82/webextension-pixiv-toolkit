@@ -1,11 +1,16 @@
 # Tests
 
 `pnpm test` runs Jest over every `*.spec.js` under `test/`, with coverage
-collected from `src/**/*.js`. Configuration lives in `jest.config.json`; the
-`test` block of `.babelrc` compiles to CommonJS for the current Node.
+collected from `src/**/*.js` and `src/**/*.vue`. Configuration lives in
+`jest.config.json`, split into two Jest `projects`: `unit` (everything under
+`test/`, except `test/components/`, running in the `node` environment — see
+below for why) and `components` (`test/components/**/*.spec.js`, running under
+`jsdom`, covered in its own section further down). The `test` block of
+`.babelrc` compiles to CommonJS for the current Node.
 
-The webpack aliases are mirrored into `moduleNameMapper`, so a spec can import
-source files by the same `@/` and `@@/` paths the source itself uses.
+The webpack aliases are mirrored into `moduleNameMapper` for both projects, so
+a spec can import source files by the same `@/` and `@@/` paths the source
+itself uses.
 
 ## The coverage floor
 
@@ -142,11 +147,13 @@ specs (`document`, `Image`, a 2d context, `FileReader` for
 `PackageFileReader`), assigned to `globalThis` in `beforeEach` and deleted
 again afterwards.
 
-jsdom was considered and skipped. It implements none of what those three
-actually depend on: `execCommand('copy')` is absent, images never load, and
-`canvas.getContext('2d')` returns `null` without `node-canvas` — a compiled
-dependency — behind it. A jsdom run would still be asserting against stubs,
-only stubs someone else wrote and this project would then be carrying.
+jsdom was considered and skipped for these three. It implements none of what
+they actually depend on: `execCommand('copy')` is absent, images never load,
+and `canvas.getContext('2d')` returns `null` without `node-canvas` — a
+compiled dependency — behind it. A jsdom run would still be asserting against
+stubs, only stubs someone else wrote and this project would then be carrying.
+Component specs are a different case — see "Component tests" below, which
+does use jsdom, deliberately, for the `components` Jest project.
 
 So the specs assert the sequence rather than the result: that the copy node is
 still in the document when `execCommand` runs, that `getImageSize` reads
@@ -159,3 +166,91 @@ codebase could suffer; none of them needs a browser to catch.
 decodes them again through UPNG's own decoder and compares pixels. Frames there
 are 32x32 for a reason the spec records: the encoder sizes its scratch buffer
 from the pixel data alone, and a 4x4 animation overflows it.
+
+## Component tests
+
+`test/components/*.spec.js` covers the `option-items` and
+`options_page/components/options` `.vue` components — the leaf option
+components with real logic, migrated to Vue 3 first per
+`docs/vue3-migration.md`. It's Jest's `components` project (see above):
+`testEnvironment: "jsdom"`, `.vue` files transformed by `@vue/vue2-jest`
+(the actively maintained fork of `vue-jest` for Vue 2, unlike the archived
+`vue-jest@3`/`4`), and `@vue/test-utils@1` (the last major with Vue 2
+support — `@vue/test-utils@2`+ is Vue 3 only).
+
+`vue-jest`/`@vue/vue2-jest` compile templates through the real
+`vue-template-compiler`, not the `vue/compiler-sfc` Vue 2.7 bundles — vue-loader
+15 only reaches for `vue/compiler-sfc` when it's present, but `@vue/vue2-jest`
+imports `vue-template-compiler` unconditionally, so it's a devDependency here
+purely for Jest even though the webpack build doesn't need it. It's pinned to
+the same version as `vue` (version mismatches between the two throw at
+require time).
+
+### Mounting: `test/helpers/mountOptionComponent.js`
+
+Every options-page component reads `this.browserItems` and calls
+`this.tl(...)`, both added by the global `SuperMixin` (`browserItems` resolves
+`this.$root.globalBrowserItems`; `tl` wraps `this.$t`). `mountOptionComponent`
+supplies both:
+
+- A single `localVue` built once at module load — `createLocalVue()`,
+  `.use(Vuetify)`, `.mixin(SuperMixin)` — and reused for every mount in the
+  file. Calling `.use(Vuetify)` again on a *fresh* `createLocalVue()` per test
+  logs a "Multiple instances of Vue detected" warning (vuetifyjs/vuetify#4068);
+  reusing one `localVue` avoids it and is faster besides.
+- `mocks: { $t: key => key }` — a passthrough, not a real vue-i18n instance,
+  since these specs assert behaviour, not translated copy.
+- A `parentComponent` whose `data()` carries `globalBrowserItems` (and
+  `isFirefox_`). This is the only way vue-test-utils gives a mounted
+  component a `$root` distinct from itself — `mount(Component)` alone makes
+  the component its own root, so `browserItems` would read `undefined`.
+
+`shallowMountOption` (the default for these specs) auto-stubs every Vuetify
+component, which is what makes testing these components tractable at all —
+Vuetify 1.5's real `v-select` needs a full DOM layout pass to open, and these
+specs only care about the surrounding component's own logic (`computed`,
+`watch`, `created`/`beforeMount`, methods), not Vuetify's rendering.
+`mountOption` (real `mount`) exists for the rare case that matters, but no
+current spec needs it.
+
+The extension API double (`test/doubles/browser.js`, see above) is reused
+as-is: a spec imports it directly and the component's own
+`@/modules/Extension/browser` import resolves to the same instance via
+`moduleNameMapper`.
+
+### Two gotchas specific to these components
+
+**A watcher can echo its own `created()`/`beforeMount()` assignment.** Several
+components initialise a watched data property from `browserItems` in
+`created()` — `this.pageNumberLength = this.browserItems.globalTaskPageNumberLength`,
+say — which is itself a change the watcher is queued to persist on the next
+tick. A spec that changes that same property in the *same* tick as mount,
+before that queued flush runs, can see it cancel out: Vue's watcher only
+compares the value at flush time against the value before the whole batch, so
+mount-then-immediately-set-back-to-the-original-default never calls the
+callback at all. The fix is mechanical: `await wrapper.vm.$nextTick()` once
+right after mounting, before making the change under test, so the echo settles
+on its own. (`DownloadSaveMode`'s revert-on-invalid-input watcher relies on
+the same batching from the other direction: setting `this.value` back inside
+the watcher's own callback re-queues it, and the second run's write is the one
+that actually lands.)
+
+**A stale event-handler reference can wedge Vue's scheduler for the rest of
+the file.** `UgoiraConverterOption.vue`'s template has
+`<v-select @change="onUgoiraConvertToolChangeHandler">`, but no such method
+exists on the component (a pre-existing dead reference — confirmed by grep,
+not fixed here since this issue is about adding coverage, not behaviour
+changes). Once that component actually re-renders with the handler still
+`undefined`, Vue's listener-patch throws (`Cannot read properties of
+undefined (reading '_wrapper')`) inside the *render* watcher — not a user
+watcher, so the exception isn't caught by Vue's `handleError` path and
+escapes `flushSchedulerQueue` before it resets. Because the scheduler is
+shared by every component on the same `localVue`, this leaves it wedged:
+later watchers (in this component or any other, for the rest of the test
+file) get queued but never flushed again, which reads as "reactivity silently
+stopped working" with no error at the call site that broke it.
+`UgoiraConverterOption.spec.js` works around it with a `methods:` mount
+override supplying a no-op handler — see the comment on `mountConverter`
+there. If a future spec's watcher assertions mysteriously stop firing with no
+thrown error, a stale `@event` handler reference recently triggered is worth
+checking before anything else.
