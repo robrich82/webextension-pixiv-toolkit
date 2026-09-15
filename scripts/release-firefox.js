@@ -82,6 +82,36 @@ function sha256(filePath) {
   return hash.digest('hex');
 }
 
+function sleepSync(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+/**
+ * `web-ext sign` makes several HTTPS round trips to addons.mozilla.org
+ * (upload, poll for status, download), none of which it retries itself.
+ * Observed in practice: a plain HTTPS request to that api resets the TLS
+ * handshake roughly 1 in 3 tries (intermittent network flakiness, not a
+ * deterministic block - curl to the same host succeeds reliably, so this is
+ * specific to how often Node's own TLS client hits the flaky path). Retrying
+ * the whole sign step is safe before it has actually produced a signed .xpi:
+ * AMO only refuses to sign a given (id, version) a second time once a
+ * signing job has actually completed for it.
+ */
+function retry(fn, times, delayMs) {
+  for (let attempt = 1; attempt <= times; attempt++) {
+    try {
+      return fn();
+    } catch (error) {
+      if (attempt === times) {
+        throw error;
+      }
+
+      console.log(`\nAttempt ${attempt}/${times} failed (${error.message}), retrying in ${delayMs / 1000}s...`);
+      sleepSync(delayMs);
+    }
+  }
+}
+
 function main() {
   // Validated up front so a missing credential fails fast with a clear
   // message, but the values themselves are never read here - see runPnpm.
@@ -100,12 +130,12 @@ function main() {
   });
 
   console.log('\n== Sign ==');
-  runPnpm([
+  retry(() => runPnpm([
     'exec', 'web-ext', 'sign',
     '--source-dir', 'dist/firefox',
     '--artifacts-dir', 'web-ext-artifacts',
     '--channel', 'unlisted'
-  ]);
+  ]), 5, 10000);
 
   let xpiName = fs.readdirSync(ARTIFACTS_DIR).find(name => name.endsWith('.xpi'));
 
