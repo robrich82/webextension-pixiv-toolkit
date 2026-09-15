@@ -93,10 +93,12 @@ just renamed.
 ## Suggested sequencing
 
 1. Land the toolchain branch first (done) so the build is not a moving target.
-2. Add component tests before touching anything — there are 23 test files today
-   (`test/*.spec.js`) but none exercise a `.vue` component; they cover utilities
-   and non-UI logic. A 51-component rewrite with no UI test coverage is the main
-   risk in this whole plan and should be addressed before, not after.
+2. Add component tests before touching anything (tracked in #27) — `test/`
+   already holds real coverage (`Util` and `Parser` are held to coverage
+   floors, and there's a full extension API double; see `docs/testing.md`),
+   but none of it exercises a `.vue` component. A 51-component rewrite with no
+   UI test coverage is the main risk in this whole plan and should be
+   addressed before, not after.
 3. Migrate the leaf `option-items` (5 files) first to establish the patterns.
 4. Then `options_page/components/options` (20), then the rest of the options page.
 5. `content_scripts/components` (6) last — those render into Pixiv's own pages and
