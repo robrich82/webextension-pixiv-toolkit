@@ -6,7 +6,9 @@ Vue.use(VueI18n);
 
 export default class I18n {
   static i18n(locale, fallback = null) {
-    locale = locale.replace('-', '_');
+    if (locale) {
+      locale = locale.replace('-', '_');
+    }
 
     if (fallback) {
       fallback = fallback.replace('-', '_');
