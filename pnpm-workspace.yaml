@@ -30,6 +30,14 @@ engineStrict: true
 # older mature version is unaffected.
 minimumReleaseAge: 10080
 
+# The security-patch overrides below (image-size, adm-zip) landed within the
+# cooldown window when added, so they need an explicit exclusion or the
+# install fails outright. Remove each entry once minimumReleaseAge has
+# elapsed since its publish date; the override in `overrides` below stays.
+minimumReleaseAgeExclude:
+  - 'adm-zip@0.6.1'
+  - 'image-size@2.0.3'
+
 # Lifecycle scripts are denied by default in pnpm, and pnpm fails the install
 # outright if a package wants to build and this map does not mention it. So the
 # allowlist is really a decision log: every package in the tree that declares an
@@ -93,3 +101,10 @@ overrides:
   'js-yaml@>=4.0.0 <4.3.2': ^4.3.2
   'js-yaml@<3.15.2': ^3.15.2
   'fast-uri@<3.1.6': ^3.1.6
+  # web-ext's addons-linter/firefox-profile pull these in transitively.
+  # image-size <=2.0.2 (GHSA-w3rx-r6r6-pgpr, GHSA-5p2g-fcmc-qvqq): ICNS/JXL/HEIF
+  # parsers allow a denial-of-service infinite loop, patched 2.0.3.
+  'image-size@<=2.0.2': ^2.0.3
+  # adm-zip <=0.6.0 (GHSA-vwc7-r8mq-g2x9): extraction follows destination
+  # symlinks, allowing an arbitrary file overwrite, patched 0.6.1.
+  'adm-zip@<=0.6.0': ^0.6.1
