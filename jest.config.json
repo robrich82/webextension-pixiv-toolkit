@@ -2,22 +2,8 @@
   "collectCoverage": true,
   "collectCoverageFrom": [
     "src/**/*.js",
+    "src/**/*.vue",
     "!src/statics/lib/**"
-  ],
-  "transform": {
-    "\\.js$": "babel-jest"
-  },
-  "testRegex": "\\.spec\\.js$",
-  "modulePathIgnorePatterns": [
-    "<rootDir>/dist/"
-  ],
-  "moduleNameMapper": {
-    "^@/modules/Extension/browser$": "<rootDir>/test/doubles/browser.js",
-    "^@@/(.*)$": "<rootDir>/src/options_page/$1",
-    "^@/(.*)$": "<rootDir>/src/$1"
-  },
-  "setupFilesAfterEnv": [
-    "<rootDir>/test/setup/extensionGlobals.js"
   ],
   "coverageThreshold": {
     "global": {
@@ -37,6 +23,62 @@
       "branches": 66,
       "functions": 67,
       "lines": 76
+    },
+    "./src/options_page/components/options/": {
+      "statements": 88,
+      "branches": 78,
+      "functions": 95,
+      "lines": 88
     }
-  }
+  },
+  "projects": [
+    {
+      "displayName": "unit",
+      "testEnvironment": "node",
+      "transform": {
+        "\\.js$": "babel-jest"
+      },
+      "testRegex": "\\.spec\\.js$",
+      "testPathIgnorePatterns": [
+        "/test/components/"
+      ],
+      "modulePathIgnorePatterns": [
+        "<rootDir>/dist/"
+      ],
+      "moduleNameMapper": {
+        "^@/modules/Extension/browser$": "<rootDir>/test/doubles/browser.js",
+        "^@@/(.*)$": "<rootDir>/src/options_page/$1",
+        "^@/(.*)$": "<rootDir>/src/$1"
+      },
+      "setupFilesAfterEnv": [
+        "<rootDir>/test/setup/extensionGlobals.js"
+      ]
+    },
+    {
+      "displayName": "components",
+      "testEnvironment": "jsdom",
+      "moduleFileExtensions": [
+        "vue",
+        "js",
+        "json"
+      ],
+      "transform": {
+        "\\.js$": "babel-jest",
+        "\\.vue$": "@vue/vue2-jest"
+      },
+      "testRegex": "/test/components/.*\\.spec\\.js$",
+      "modulePathIgnorePatterns": [
+        "<rootDir>/dist/"
+      ],
+      "moduleNameMapper": {
+        "^@/modules/Extension/browser$": "<rootDir>/test/doubles/browser.js",
+        "^@@/(.*)$": "<rootDir>/src/options_page/$1",
+        "^@/(.*)$": "<rootDir>/src/$1"
+      },
+      "setupFilesAfterEnv": [
+        "<rootDir>/test/setup/extensionGlobals.js",
+        "<rootDir>/test/setup/componentGlobals.js"
+      ]
+    }
+  ]
 }
