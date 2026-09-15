@@ -313,7 +313,7 @@ the layout doing its job: the fix is to declare the dependency, not to loosen
 ## CI
 
 `.github/workflows/ci.yml` is the only pipeline, running on every pull request
-and on pushes to `master`. It needs no third-party signup, so it covers forks
+and on pushes to `main`. It needs no third-party signup, so it covers forks
 too, and it is what puts a status check on a PR and backs the readme badge.
 
 `pnpm/action-setup` runs before `actions/setup-node` — setup-node needs pnpm on
