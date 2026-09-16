@@ -1,6 +1,6 @@
 /**
  * Drives the real background `SettingService` against the extension API fake,
- * which is what `jest.config.json` resolves `@/modules/Extension/browser` to.
+ * which is what `jest.config.js` resolves `@/modules/Extension/browser` to.
  */
 const browser = require('./doubles/browser').default;
 const SettingService = require('../src/background/services/SettingService').default;

@@ -3,7 +3,7 @@
  *
  * The real module hands back whatever `chrome`/`browser` global the extension
  * happens to be running against, so nothing that touches an extension API can
- * be tested under Jest without it. `jest.config.json` maps that module path
+ * be tested under Jest without it. `jest.config.js` maps that module path
  * here, which means specs get this fake by importing the code under test — no
  * per-spec `jest.mock` call.
  *
