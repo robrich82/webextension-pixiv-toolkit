@@ -165,14 +165,14 @@ function main() {
 
   try {
     let existingRaw = runCapture('gh', [
-      'release', 'view', 'latest', '--repo', REPO,
+      'release', 'view', '--repo', REPO,
       '--json', 'assets'
     ]);
     let assets = JSON.parse(existingRaw).assets || [];
 
     if (assets.some(asset => asset.name === 'updates.json')) {
       let tmpFile = path.join(ARTIFACTS_DIR, 'updates.prev.json');
-      run('gh', ['release', 'download', 'latest', '--repo', REPO, '-p', 'updates.json', '-O', tmpFile, '--clobber']);
+      run('gh', ['release', 'download', '--repo', REPO, '-p', 'updates.json', '-O', tmpFile, '--clobber']);
       updates = JSON.parse(fs.readFileSync(tmpFile, 'utf8'));
     }
   } catch (error) {
