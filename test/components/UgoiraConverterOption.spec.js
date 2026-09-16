@@ -2,24 +2,8 @@ import browser from '../doubles/browser';
 import { shallowMountOption } from '../helpers/mountOptionComponent';
 import UgoiraConverterOption from '@/options_page/components/options/UgoiraConverterOption.vue';
 
-/**
- * The template's `<v-select @change="onUgoiraConvertToolChangeHandler">` has
- * no matching method anywhere in the component (grep confirms it) — a
- * pre-existing dead reference. That alone is harmless, but the moment this
- * component actually re-renders with the handler still undefined, Vue's
- * listener-patch throws ("Cannot read properties of undefined (reading
- * '_wrapper')"), and because that throw happens inside the *render* watcher
- * (not a user watcher), it escapes flushSchedulerQueue before the queue is
- * reset — which permanently wedges Vue's scheduler for every component
- * sharing this localVue afterwards (later watchers get queued but never
- * flushed again). Stubbing the method sidesteps that landmine so it can't
- * take out unrelated tests later in the same file.
- */
 function mountConverter(options) {
-  return shallowMountOption(UgoiraConverterOption, {
-    methods: { onUgoiraConvertToolChangeHandler: () => {} },
-    ...options
-  });
+  return shallowMountOption(UgoiraConverterOption, options);
 }
 
 describe('UgoiraConverterOption', () => {
