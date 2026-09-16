@@ -165,12 +165,24 @@ describe('HistoryOptions', () => {
     expect(wrapper.vm.importItems).toEqual([]);
   });
 
-  // visitHistoryPort is never assigned anywhere in this codebase (grep confirms
-  // it), so the real "Clear" button throws today rather than clearing anything.
-  // This documents that pre-existing gap rather than papering over it.
-  test('clearHistory throws today: visitHistoryPort is never wired up', () => {
-    const wrapper = shallowMountOption(HistoryOptions, { browserItems });
+  describe('clearHistory', () => {
+    test('is wired to a real port instance on mount', () => {
+      const wrapper = shallowMountOption(HistoryOptions, { browserItems });
 
-    expect(() => wrapper.vm.clearHistory()).toThrow(/reading 'clearHistory'/);
+      expect(wrapper.vm.visitHistoryPort).toBeTruthy();
+      expect(typeof wrapper.vm.visitHistoryPort.clearHistory).toBe('function');
+    });
+
+    test('clears the history through the port and closes the dialog', () => {
+      const clearHistory = jest.fn();
+      const wrapper = shallowMountOption(HistoryOptions, { browserItems });
+      wrapper.vm.visitHistoryPort = { clearHistory };
+      wrapper.vm.confirmDialog = true;
+
+      wrapper.vm.clearHistory();
+
+      expect(clearHistory).toHaveBeenCalled();
+      expect(wrapper.vm.confirmDialog).toBe(false);
+    });
   });
 });
