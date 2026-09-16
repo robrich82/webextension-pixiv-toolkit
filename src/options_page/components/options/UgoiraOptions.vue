@@ -81,8 +81,6 @@ export default {
 
       defaultRenameRule: "{id}_{title}",
 
-      location: '',
-
       ugoiraCustomFFmpegCommand: '',
 
       animationJsonFormat: 1,
@@ -131,7 +129,6 @@ export default {
     this.renameRule = this.browserItems.ugoiraRenameRule;
     this.ugoiraCustomFFmpegCommand = this.browserItems.ugoiraCustomFFmpegCommand || '';
     this.animationJsonFormat = this.browserItems.animationJsonFormat;
-    this.location = this.browserItems.ugoiraRelativeLocation;
 
     this.renameMetas = [
       {

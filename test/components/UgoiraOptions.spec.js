@@ -5,8 +5,7 @@ import UgoiraOptions from '@/options_page/components/options/UgoiraOptions.vue';
 const browserItems = {
   ugoiraRenameRule: '{id}_{title}',
   ugoiraCustomFFmpegCommand: '-f concat',
-  animationJsonFormat: 2,
-  ugoiraRelativeLocation: 'ugoira/'
+  animationJsonFormat: 2
 };
 
 describe('UgoiraOptions', () => {
@@ -16,7 +15,6 @@ describe('UgoiraOptions', () => {
     expect(wrapper.vm.renameRule).toBe('{id}_{title}');
     expect(wrapper.vm.ugoiraCustomFFmpegCommand).toBe('-f concat');
     expect(wrapper.vm.animationJsonFormat).toBe(2);
-    expect(wrapper.vm.location).toBe('ugoira/');
   });
 
   test('falls back to an empty ffmpeg command when none is stored', () => {
@@ -72,20 +70,5 @@ describe('UgoiraOptions', () => {
     await browser._fake.flush();
 
     expect(browser.storage.local.items.ugoiraCustomFFmpegCommand).toBe('-f concat -i input.txt');
-  });
-
-  // There is no `location` watcher on this component, so changing it is
-  // never persisted (mirrors the same gap on PixivComicOptions.renameImageRule).
-  // Asserting `storage.local.set` was never called, rather than just that one
-  // key is undefined, also catches a watcher that persists under the wrong key.
-  test('location has no watcher: changing it is never persisted', async () => {
-    const wrapper = shallowMountOption(UgoiraOptions, { browserItems });
-    await wrapper.vm.$nextTick();
-    browser.storage.local.set.mockClear();
-
-    wrapper.vm.location = 'new/';
-    await wrapper.vm.$nextTick();
-
-    expect(browser.storage.local.set).not.toHaveBeenCalled();
   });
 });
