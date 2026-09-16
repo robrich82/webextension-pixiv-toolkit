@@ -12,7 +12,6 @@
         :items="converters"
         v-model="ugoiraConvertTool"
         type="value"
-        @change="onUgoiraConvertToolChangeHandler"
         style="width:150px"
       ></v-select>
     </v-list-tile-action>
