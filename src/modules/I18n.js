@@ -1,8 +1,5 @@
-import Vue from 'vue';
-import VueI18n from 'vue-i18n';
+import { createI18n } from 'vue-i18n';
 import locales from 'locales';
-
-Vue.use(VueI18n);
 
 export default class I18n {
   static i18n(locale, fallback = null) {
@@ -14,7 +11,14 @@ export default class I18n {
       fallback = fallback.replace('-', '_');
     }
 
-    let i18n = new VueI18n({
+    /**
+     * `legacy: true` keeps `this.$t()` working for every existing Options-API
+     * component (see SuperMixin.tl()) instead of requiring the Composition
+     * API. Deprecated as of vue-i18n 11, removed in 12 -- revisit if/when
+     * this project upgrades past 11.
+     */
+    let i18n = createI18n({
+      legacy: true,
       locale: (!locale || locale === 'default') ? (fallback || 'en') : locale,
       messages: {
         en: locales.localeEn,

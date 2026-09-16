@@ -3,25 +3,27 @@ import App from './components/App';
 import browser from '@/modules/Extension/browser';
 import I18n from '@/modules/I18n';
 import SuperMixin from '@/mixins/SuperMixin';
-import Vue from 'vue';
+import { createApp, h } from 'vue';
+import mitt from 'mitt';
 
 class UIApplication {
   /**
-   * @type {Vue}
+   * The mounted root component's public instance.
+   * @type {import('vue').ComponentPublicInstance}
    */
   app;
 
   /**
-   * Create vue application
-   * @constructor
+   * The Vue App instance, kept separately because `unmount()` lives on it,
+   * not on the mounted component instance.
+   * @type {import('vue').App}
    */
-  constructor() {
-    /**
-     * Configurate Vue
-     */
-    Vue.prototype.$browser = browser;
-    Vue.mixin(SuperMixin);
-  }
+  vueApp;
+
+  /**
+   * @type {HTMLElement}
+   */
+  container;
 
   createComponent() {
     return new Promise(resolve => {
@@ -47,13 +49,14 @@ class UIApplication {
 
         document.body.appendChild(container);
 
-        window.$eventBus = new Vue();
+        const emitter = mitt();
+        window.$eventBus = {
+          $on: emitter.on,
+          $off: emitter.off,
+          $emit: emitter.emit
+        };
 
-        window.$extension = this.app = new Vue({
-          el: '#__ptk-app',
-
-          i18n,
-
+        const vueApp = createApp({
           data() {
             return {
               globalBrowserItems: items,
@@ -70,16 +73,16 @@ class UIApplication {
 
                 if (key === 'language') {
                   if (changes[key].newValue === 'default') {
-                    i18n.locale = chrome.i18n.getUILanguage().replace('-', '_');
+                    i18n.global.locale = chrome.i18n.getUILanguage().replace('-', '_');
                   } else {
-                    i18n.locale = changes[key].newValue;
+                    i18n.global.locale = changes[key].newValue;
                   }
                 }
               }
             });
           },
 
-          render: h => h(App),
+          render: () => h(App),
 
           methods: {
             /**
@@ -108,6 +111,14 @@ class UIApplication {
           }
         });
 
+        vueApp.config.globalProperties.$browser = browser;
+        vueApp.mixin(SuperMixin);
+        vueApp.use(i18n);
+
+        window.$extension = this.app = vueApp.mount(container);
+        this.vueApp = vueApp;
+        this.container = container;
+
         resolve();
       });
     });
@@ -132,8 +143,8 @@ class UIApplication {
   }
 
   unload() {
-    const $el = this.app.$el;
-    this.app.$destroy();
+    const $el = this.container;
+    this.vueApp.unmount();
     $el.parentElement.removeChild($el);
   }
 }
