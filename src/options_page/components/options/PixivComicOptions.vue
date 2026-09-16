@@ -143,15 +143,21 @@ export default {
       });
     },
 
+    renameImageRule(val) {
+      browser.storage.local.set({
+        pixivComicEpisodeRenameImageRule: val
+      });
+    },
+
     pageNumberStartWithOne(val) {
       browser.storage.local.set({
-        pixivComicPageNumberStartWithOne: val
+        pixivComicEpisodePageNumberStartWithOne: val
       });
     },
 
     pageNumberLength(val) {
       browser.storage.local.set({
-        pixivComicPageNumberLength: val
+        pixivComicEpisodePageNumberLength: val
       });
     },
   },

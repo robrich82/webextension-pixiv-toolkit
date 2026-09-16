@@ -41,13 +41,12 @@ describe('PixivComicOptions', () => {
     expect(Object.keys(wrapper.vm.$data)).toContain('showRenameDialog');
   });
 
-  // The page-number watchers persist under keys that drop "Episode", even
-  // though created() reads the "Episode"-prefixed keys back in — a pre-existing
-  // read/write key mismatch this test documents rather than papers over.
+  // The page-number watchers persist under the same "Episode"-prefixed keys
+  // that created() reads back in.
   test.each([
-    ['pageNumberStartWithOne', 0, 'pixivComicPageNumberStartWithOne'],
-    ['pageNumberLength', -1, 'pixivComicPageNumberLength']
-  ])('persists a change to %s under the non-Episode key', async (dataKey, newValue, storageKey) => {
+    ['pageNumberStartWithOne', 0, 'pixivComicEpisodePageNumberStartWithOne'],
+    ['pageNumberLength', -1, 'pixivComicEpisodePageNumberLength']
+  ])('persists a change to %s under the Episode key', async (dataKey, newValue, storageKey) => {
     const wrapper = shallowMountOption(PixivComicOptions, { browserItems });
     await wrapper.vm.$nextTick();
 
@@ -84,19 +83,13 @@ describe('PixivComicOptions', () => {
     expect(browser.storage.local.items.pixivComicEpisodeRenameRule).toBe('{id}_{title}/{numbering_title}_{workTitle}');
   });
 
-  // There is no `renameImageRule` watcher on this component at all, so
-  // editing it never reaches storage. Asserting `storage.local.set` was never
-  // called (rather than just that one key is undefined) also catches the
-  // read/write key-mismatch bug documented above, in case a watcher ever
-  // appears here writing under the wrong key.
-  test('renameImageRule has no watcher: changing it is never persisted', async () => {
+  test('renameImageRule persists a change under the Episode key', async () => {
     const wrapper = shallowMountOption(PixivComicOptions, { browserItems });
     await wrapper.vm.$nextTick();
-    browser.storage.local.set.mockClear();
 
     wrapper.vm.renameImageRule = 'p{pageNum}_new';
     await wrapper.vm.$nextTick();
 
-    expect(browser.storage.local.set).not.toHaveBeenCalled();
+    expect(browser.storage.local.items.pixivComicEpisodeRenameImageRule).toBe('p{pageNum}_new');
   });
 });
