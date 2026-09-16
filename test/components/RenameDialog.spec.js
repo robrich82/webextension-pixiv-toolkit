@@ -14,6 +14,10 @@ const baseProps = {
 };
 
 describe('RenameDialog', () => {
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   test('adopts the value prop as the rename format on creation', () => {
     const wrapper = shallowMountOption(RenameDialog, { propsData: baseProps });
 
@@ -84,7 +88,5 @@ describe('RenameDialog', () => {
     expect(fakeInput.focus).toHaveBeenCalled();
     expect(fakeInput.setSelectionRange).toHaveBeenCalledWith(7, 7);
     expect(wrapper.vm.inputPos).toBe(7);
-
-    jest.useRealTimers();
   });
 });

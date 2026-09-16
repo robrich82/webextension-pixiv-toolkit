@@ -37,6 +37,7 @@ describe('CombineRenameRules', () => {
     const wrapper = shallowMountOption(CombineRenameRules, {
       browserItems: { downloadSaveMode: 1, combinWRRuleAndIRRuleWhenDontCreateWorkFolder: 0 }
     });
+    await wrapper.vm.$nextTick();
 
     wrapper.vm.value = 1;
     await wrapper.vm.$nextTick();

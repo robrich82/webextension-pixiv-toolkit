@@ -31,7 +31,8 @@ describe('DownloadsShelfOption', () => {
 
     expect(wrapper.vm.disableDownloadsShelf).toBe(true);
     // The permission check always writes the option back off, regardless of
-    // what it found — re-enabling it is left to onDisableDownloadsShelf.
+    // what it found — re-enabling it happens through the disableDownloadsShelf
+    // watcher, not directly inside onDisableDownloadsShelf.
     expect(browser.storage.local.items.disableDownloadsShelf).toBe(false);
   });
 
@@ -65,6 +66,7 @@ describe('DownloadsShelfOption', () => {
     const wrapper = shallowMountOption(DownloadsShelfOption, {
       browserItems: { disableDownloadsShelf: false }
     });
+    await wrapper.vm.$nextTick();
 
     wrapper.vm.disableDownloadsShelf = true;
     await wrapper.vm.$nextTick();

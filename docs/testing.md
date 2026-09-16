@@ -2,7 +2,8 @@
 
 `pnpm test` runs Jest over every `*.spec.js` under `test/`, with coverage
 collected from `src/**/*.js` and `src/**/*.vue`. Configuration lives in
-`jest.config.json`, split into two Jest `projects`: `unit` (everything under
+`jest.config.js`, split into two Jest `projects` sharing a common `base`:
+`unit` (everything under
 `test/`, except `test/components/`, running in the `node` environment — see
 below for why) and `components` (`test/components/**/*.spec.js`, running under
 `jsdom`, covered in its own section further down). The `test` block of
@@ -14,26 +15,27 @@ itself uses.
 
 ## The coverage floor
 
-`coverageThreshold` in `jest.config.json` fails the run — and so CI, which just
+`coverageThreshold` in `jest.config.js` fails the run — and so CI, which just
 calls `pnpm test` — when coverage drops below where it already is. It is a
 ratchet, not a target: the numbers are set a hair under the current ones, so
 nothing can quietly regress, and they get raised whenever a change clears them
 by a useful margin.
 
-There are three groups, because one global number would let a well-tested
+There are four groups, because one global number would let a well-tested
 directory pay for an untested one:
 
 | Group | statements | branches | functions | lines |
 | --- | --- | --- | --- | --- |
 | `src/modules/Util/` | 95 | 86 | 100 | 99 |
 | `src/modules/Parser/` | 77 | 66 | 67 | 76 |
-| everything else | 6.7 | 6.2 | 6.6 | 6.7 |
+| `src/options_page/components/options/` | 88 | 78 | 95 | 88 |
+| everything else | 7.1 | 6.5 | 7.0 | 7.0 |
 
-`Util` and `Parser` are the parts that are actually tested, so they are held to
-a real standard; the global row is the rest of `src`, which is mostly untested
-UI, services and download tasks. Note that Jest removes a path group's files
-from the global pool, so the global row is *not* the whole-repo number — that
-currently reads around 31% statements.
+`Util`, `Parser` and the options components are the parts that are actually
+tested, so they are held to a real standard; the global row is the rest of
+`src`, which is mostly untested UI, services and download tasks. Note that
+Jest removes a path group's files from the global pool, so the global row is
+*not* the whole-repo number — that currently reads around 36% statements.
 
 A PR that adds a large untested file will trip the global floor. That is the
 mechanism working: either cover the file or, if the change genuinely cannot be
@@ -87,6 +89,10 @@ the stored state — `storage.local.items`, `downloads.items`, `tabs.items`,
 Test-only controls live under `browser._fake`, away from the real API surface:
 `reset()`, `flush()`, `addTab()`, `setCurrentTab()`, `setUILanguage()`,
 `setManifest()`, `setLastError()`, `determineFilename()` and `lastDownload()`.
+`state` is the fake's own internal store (manifest, granted permissions, tab
+and window counters); a few specs reach into it directly — e.g.
+`browser._fake.state.grantedPermissions = {...}` — where no dedicated setter
+exists yet.
 
 `test/setup/extensionGlobals.js` runs `reset()` before every test, so a spec
 starts with empty stores, no listeners and no recorded calls. That file also
@@ -171,8 +177,8 @@ from the pixel data alone, and a 4x4 animation overflows it.
 
 `test/components/*.spec.js` covers the `option-items` and
 `options_page/components/options` `.vue` components — the leaf option
-components with real logic, migrated to Vue 3 first per
-`docs/vue3-migration.md`. It's Jest's `components` project (see above):
+components with real logic, and the ones `docs/vue3-migration.md` recommends
+migrating first (not yet started). It's Jest's `components` project (see above):
 `testEnvironment: "jsdom"`, `.vue` files transformed by `@vue/vue2-jest`
 (the actively maintained fork of `vue-jest` for Vue 2, unlike the archived
 `vue-jest@3`/`4`), and `@vue/test-utils@1` (the last major with Vue 2
@@ -200,18 +206,18 @@ supplies both:
   reusing one `localVue` avoids it and is faster besides.
 - `mocks: { $t: key => key }` — a passthrough, not a real vue-i18n instance,
   since these specs assert behaviour, not translated copy.
-- A `parentComponent` whose `data()` carries `globalBrowserItems` (and
-  `isFirefox_`). This is the only way vue-test-utils gives a mounted
-  component a `$root` distinct from itself — `mount(Component)` alone makes
-  the component its own root, so `browserItems` would read `undefined`.
+- A `parentComponent` whose `data()` carries `globalBrowserItems`. This is the
+  only way vue-test-utils gives a mounted component a `$root` distinct from
+  itself — `mount(Component)` alone makes the component its own root, so
+  `browserItems` would read `undefined`.
 
-`shallowMountOption` (the default for these specs) auto-stubs every Vuetify
-component, which is what makes testing these components tractable at all —
-Vuetify 1.5's real `v-select` needs a full DOM layout pass to open, and these
-specs only care about the surrounding component's own logic (`computed`,
-`watch`, `created`/`beforeMount`, methods), not Vuetify's rendering.
-`mountOption` (real `mount`) exists for the rare case that matters, but no
-current spec needs it.
+`shallowMountOption` auto-stubs every Vuetify component, which is what makes
+testing these components tractable at all — Vuetify 1.5's real `v-select`
+needs a full DOM layout pass to open, and these specs only care about the
+surrounding component's own logic (`computed`, `watch`, `created`/
+`beforeMount`, methods), not Vuetify's rendering. There is no real-`mount`
+variant — nothing here needs actual Vuetify DOM output, and adding one back
+is a three-line change if that changes.
 
 The extension API double (`test/doubles/browser.js`, see above) is reused
 as-is: a spec imports it directly and the component's own

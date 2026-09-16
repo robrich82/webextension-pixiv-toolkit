@@ -42,7 +42,7 @@ describe('MangaOptions', () => {
     expect(browser.storage.local.items[storageKey]).toBe(newValue);
   });
 
-  test('renameRule falls back to the default rule when cleared', async () => {
+  test('renameRule falls back to the default rule when cleared, but the visible field is left empty', async () => {
     const wrapper = shallowMountOption(MangaOptions, { browserItems });
     await wrapper.vm.$nextTick();
 
@@ -50,9 +50,13 @@ describe('MangaOptions', () => {
     await wrapper.vm.$nextTick();
 
     expect(browser.storage.local.items.mangaRenameRule).toBe('{id}_{title}');
+    // The watcher reassigns the local `val`, not `this.renameRule`, so the
+    // on-screen field stays empty even though storage gets the default — the
+    // same asymmetry documented for FanboxPostSettings.renameImageRule.
+    expect(wrapper.vm.renameRule).toBe('');
   });
 
-  test('renameImageRule falls back to the default image rule when cleared', async () => {
+  test('renameImageRule falls back to the default image rule when cleared, but the visible field is left empty', async () => {
     const wrapper = shallowMountOption(MangaOptions, { browserItems });
     await wrapper.vm.$nextTick();
 
@@ -60,5 +64,6 @@ describe('MangaOptions', () => {
     await wrapper.vm.$nextTick();
 
     expect(browser.storage.local.items.mangaRenameImageRule).toBe('p{pageNum}');
+    expect(wrapper.vm.renameImageRule).toBe('');
   });
 });

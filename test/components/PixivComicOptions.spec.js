@@ -27,6 +27,20 @@ describe('PixivComicOptions', () => {
     expect(wrapper.vm.renameImageMetas.map(meta => meta.holder)).toEqual([...holders, '{pageNum}']);
   });
 
+  // The template references `showRenameImageDialog`
+  // (`@click="showRenameImageDialog = true"`, `:show.sync="showRenameImageDialog"`)
+  // but only `showRenameDialog` is declared in data() — a pre-existing dead
+  // binding (Vue logs an "is not defined on the instance" warning on every
+  // mount, and since the property isn't reactive, the image rename dialog can
+  // never actually open). Documented here rather than fixed, matching the
+  // other quirks in this file.
+  test('showRenameImageDialog is a pre-existing dead binding: not declared in data()', () => {
+    const wrapper = shallowMountOption(PixivComicOptions, { browserItems });
+
+    expect(Object.keys(wrapper.vm.$data)).not.toContain('showRenameImageDialog');
+    expect(Object.keys(wrapper.vm.$data)).toContain('showRenameDialog');
+  });
+
   // The page-number watchers persist under keys that drop "Episode", even
   // though created() reads the "Episode"-prefixed keys back in — a pre-existing
   // read/write key mismatch this test documents rather than papers over.
@@ -71,14 +85,18 @@ describe('PixivComicOptions', () => {
   });
 
   // There is no `renameImageRule` watcher on this component at all, so
-  // editing it never reaches storage.
+  // editing it never reaches storage. Asserting `storage.local.set` was never
+  // called (rather than just that one key is undefined) also catches the
+  // read/write key-mismatch bug documented above, in case a watcher ever
+  // appears here writing under the wrong key.
   test('renameImageRule has no watcher: changing it is never persisted', async () => {
     const wrapper = shallowMountOption(PixivComicOptions, { browserItems });
     await wrapper.vm.$nextTick();
+    browser.storage.local.set.mockClear();
 
     wrapper.vm.renameImageRule = 'p{pageNum}_new';
     await wrapper.vm.$nextTick();
 
-    expect(browser.storage.local.items.pixivComicEpisodeRenameImageRule).toBeUndefined();
+    expect(browser.storage.local.set).not.toHaveBeenCalled();
   });
 });

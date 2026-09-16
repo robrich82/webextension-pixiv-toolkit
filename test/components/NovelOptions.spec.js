@@ -54,7 +54,13 @@ describe('NovelOptions', () => {
   });
 
   test('novelIncludeDescription is guarded against the created()-triggered echo: no real change, no write', async () => {
-    const wrapper = shallowMountOption(NovelOptions, { browserItems });
+    // Fixture differs from the false data() default, so created()'s assignment
+    // is a genuine change and the watcher actually fires — otherwise Vue skips
+    // the watcher callback entirely on a no-op assignment, and this test would
+    // pass without ever exercising the guard it claims to check.
+    const wrapper = shallowMountOption(NovelOptions, {
+      browserItems: { ...browserItems, novelIncludeDescription: true }
+    });
 
     // created() assigns this.novelIncludeDescription = browserItems.novelIncludeDescription,
     // which is itself a watched write; the watcher guards against persisting

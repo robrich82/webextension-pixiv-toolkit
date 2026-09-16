@@ -51,17 +51,29 @@ describe('InterfaceOptions', () => {
   });
 
   test.each([
-    ['autoActivateDownloadPanel', false, 'autoActivateDownloadPanel', false],
-    ['showReloadInPopup', false, 'showReloadInPopup', false],
-    ['showPixivOmina', true, 'showPixivOmina', true]
-  ])('persists a change to %s', async (dataKey, newValue, storageKey, expected) => {
+    ['showReloadInPopup', false],
+    ['showPixivOmina', true]
+  ])('persists a change to %s', async (key, newValue) => {
     const wrapper = shallowMountOption(InterfaceOptions, { browserItems });
     await wrapper.vm.$nextTick();
 
-    wrapper.vm[dataKey] = newValue;
+    wrapper.vm[key] = newValue;
     await wrapper.vm.$nextTick();
 
-    expect(browser.storage.local.items[storageKey]).toBe(expected);
+    expect(browser.storage.local.items[key]).toBe(newValue);
+  });
+
+  // Unlike the two above, this watcher coerces with `!!val` — a falsy-but-
+  // non-boolean input (`0`) needs to persist as `false`, not `0`, to actually
+  // exercise that coercion rather than just round-tripping a boolean.
+  test('persists a change to autoActivateDownloadPanel as a coerced boolean', async () => {
+    const wrapper = shallowMountOption(InterfaceOptions, { browserItems });
+    await wrapper.vm.$nextTick();
+
+    wrapper.vm.autoActivateDownloadPanel = 0;
+    await wrapper.vm.$nextTick();
+
+    expect(browser.storage.local.items.autoActivateDownloadPanel).toBe(false);
   });
 
   test('onLanguageChangeHandler persists the selected language', async () => {

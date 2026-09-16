@@ -10,7 +10,7 @@
  * $root carry data. mocks.$t is a plain passthrough stub rather than a real
  * vue-i18n instance, since these specs assert behaviour, not translated text.
  */
-import { createLocalVue, mount, shallowMount } from '@vue/test-utils';
+import { createLocalVue, shallowMount } from '@vue/test-utils';
 import Vuetify from 'vuetify';
 import SuperMixin from '@/mixins/SuperMixin';
 
@@ -24,34 +24,25 @@ const localVue = createLocalVue();
 localVue.use(Vuetify);
 localVue.mixin(SuperMixin);
 
-function buildParentComponent(browserItems, isFirefox) {
+function buildParentComponent(browserItems) {
   return {
     data() {
       return {
-        globalBrowserItems: browserItems,
-        isFirefox_: isFirefox
+        globalBrowserItems: browserItems
       };
     },
     render: h => h('div')
   };
 }
 
-function mountWith(mountFn, Component, { browserItems = {}, isFirefox = false, mocks = {}, ...options } = {}) {
-  return mountFn(Component, {
+export function shallowMountOption(Component, { browserItems = {}, mocks = {}, ...options } = {}) {
+  return shallowMount(Component, {
     localVue,
-    parentComponent: buildParentComponent(browserItems, isFirefox),
+    parentComponent: buildParentComponent(browserItems),
     mocks: {
       $t: key => key,
       ...mocks
     },
     ...options
   });
-}
-
-export function mountOption(Component, options) {
-  return mountWith(mount, Component, options);
-}
-
-export function shallowMountOption(Component, options) {
-  return mountWith(shallowMount, Component, options);
 }

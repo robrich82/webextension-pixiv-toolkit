@@ -1,6 +1,7 @@
 import browser from '../doubles/browser';
 import { shallowMountOption } from '../helpers/mountOptionComponent';
 import DownloadOptions from '@/options_page/components/options/DownloadOptions.vue';
+import DownloadsShelfOption from '@/options_page/components/options/DownloadsShelfOption.vue';
 
 const browserItems = {
   downloadRelativeLocation: 'pixiv/',
@@ -12,6 +13,10 @@ const browserItems = {
 };
 
 describe('DownloadOptions', () => {
+  afterEach(() => {
+    delete window.$_browser;
+  });
+
   test('adopts every stored value on creation', () => {
     const wrapper = shallowMountOption(DownloadOptions, { browserItems });
 
@@ -54,16 +59,39 @@ describe('DownloadOptions', () => {
   });
 
   test.each([
-    ['downloadSaveAs', false, 'downloadSaveAs'],
-    ['enableDownloadMetadata', false, 'enableDownloadMetadata']
-  ])('persists a change to %s', async (dataKey, newValue, storageKey) => {
+    ['downloadSaveAs', false],
+    ['enableDownloadMetadata', false]
+  ])('persists a change to %s', async (key, newValue) => {
     const wrapper = shallowMountOption(DownloadOptions, { browserItems });
     await wrapper.vm.$nextTick();
 
-    wrapper.vm[dataKey] = newValue;
+    wrapper.vm[key] = newValue;
     await wrapper.vm.$nextTick();
 
-    expect(browser.storage.local.items[storageKey]).toBe(newValue);
+    expect(browser.storage.local.items[key]).toBe(newValue);
+  });
+
+  // There is no `downloadTasksWhenDownloadingImages` watcher on this
+  // component, so a change never reaches storage — the same gap this suite
+  // documents for UgoiraOptions.location and PixivComicOptions.renameImageRule.
+  test('downloadTasksWhenDownloadingImages has no watcher: changing it is never persisted', async () => {
+    const wrapper = shallowMountOption(DownloadOptions, { browserItems });
+    await wrapper.vm.$nextTick();
+    browser.storage.local.set.mockClear();
+
+    wrapper.vm.downloadTasksWhenDownloadingImages = 5;
+    await wrapper.vm.$nextTick();
+
+    expect(browser.storage.local.set).not.toHaveBeenCalled();
+  });
+
+  test('shows the downloads-shelf option unless the browser is firefox', () => {
+    const nonFirefox = shallowMountOption(DownloadOptions, { browserItems });
+    expect(nonFirefox.findComponent(DownloadsShelfOption).exists()).toBe(true);
+
+    window.$_browser = 'firefox';
+    const firefox = shallowMountOption(DownloadOptions, { browserItems });
+    expect(firefox.findComponent(DownloadsShelfOption).exists()).toBe(false);
   });
 
   test('persists a valid multipleDownloadsGapTime as an integer', async () => {
@@ -120,6 +148,8 @@ describe('DownloadOptions', () => {
       browserItems: { ...browserItems, downloadRelativeLocation: 'bad.value/' }
     });
 
+    // Reading `hint` is what runs the validation and populates
+    // downloadRelativeFieldErrorMessages — the computed has that side effect.
     void wrapper.vm.hint;
 
     expect(wrapper.vm.downloadRelativeFieldErrorMessages).toEqual([

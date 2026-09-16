@@ -15,6 +15,7 @@ describe('SearchOptions', () => {
     const wrapper = shallowMountOption(SearchOptions, {
       browserItems: { enablePtkSearch: true }
     });
+    await wrapper.vm.$nextTick();
 
     wrapper.vm.enablePtkSearch = false;
     await wrapper.vm.$nextTick();

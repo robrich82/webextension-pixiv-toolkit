@@ -52,6 +52,8 @@ describe('ChangeLocationBtn', () => {
     });
 
     wrapper.vm.inputLocation = 'nope';
+    // Reading `hint` is what runs the validation and pushes into
+    // errorMessages — the computed has that side effect.
     void wrapper.vm.hint;
 
     expect(wrapper.vm.errorMessages).toEqual(['Invalid input, example: "pixiv_downloads/"']);
@@ -70,5 +72,26 @@ describe('ChangeLocationBtn', () => {
     void wrapper.vm.hint;
 
     expect(wrapper.vm.errorMessages).toEqual([]);
+  });
+
+  // The invalid branch of `hint` pushes onto errorMessages without clearing
+  // it first (only the valid branch resets to []), so consecutive invalid
+  // inputs accumulate duplicate messages instead of replacing the last one.
+  // A pre-existing quirk this documents rather than fixes.
+  test('accumulates a duplicate message across consecutive invalid inputs', () => {
+    const wrapper = shallowMountOption(ChangeLocationBtn, {
+      propsData: { location: '' }
+    });
+
+    wrapper.vm.inputLocation = 'nope';
+    void wrapper.vm.hint;
+
+    wrapper.vm.inputLocation = 'still nope';
+    void wrapper.vm.hint;
+
+    expect(wrapper.vm.errorMessages).toEqual([
+      'Invalid input, example: "pixiv_downloads/"',
+      'Invalid input, example: "pixiv_downloads/"'
+    ]);
   });
 });

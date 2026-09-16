@@ -23,6 +23,10 @@ function mountConverter(options) {
 }
 
 describe('UgoiraConverterOption', () => {
+  afterEach(() => {
+    delete window.confirm;
+  });
+
   test('adopts the stored tool, defaulting to "default" when nothing is stored', () => {
     const withStored = mountConverter({ browserItems: { ugoiraConvertTool: 'ffmpeg' } });
     expect(withStored.vm.ugoiraConvertTool).toBe('ffmpeg');

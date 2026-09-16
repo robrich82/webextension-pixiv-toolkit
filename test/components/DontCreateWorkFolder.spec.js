@@ -37,11 +37,28 @@ describe('DontCreateWorkFolder', () => {
     const wrapper = shallowMountOption(DontCreateWorkFolder, {
       browserItems: { downloadSaveMode: 1, dontCreateWorkFolder: 0 }
     });
+    await wrapper.vm.$nextTick();
 
     wrapper.vm.value = 3;
     await wrapper.vm.$nextTick();
 
     expect(browser.storage.local.items.dontCreateWorkFolder).toBe(3);
+  });
+
+  test('rejects an out-of-range value and reverts to the previous one', async () => {
+    const wrapper = shallowMountOption(DontCreateWorkFolder, {
+      browserItems: { downloadSaveMode: 1, dontCreateWorkFolder: 0 }
+    });
+    await wrapper.vm.$nextTick();
+
+    wrapper.vm.value = 5;
+    await wrapper.vm.$nextTick();
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.vm.value).toBe(0);
+    // The revert (`this.value = oldValue`) is itself a write the watcher
+    // observes, so it re-runs and persists the reverted value too.
+    expect(browser.storage.local.items.dontCreateWorkFolder).toBe(0);
   });
 
   test('reacts to a later downloadSaveMode change via storage.onChanged', async () => {

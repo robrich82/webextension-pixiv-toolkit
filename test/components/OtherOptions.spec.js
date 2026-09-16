@@ -3,7 +3,21 @@ import { shallowMountOption } from '../helpers/mountOptionComponent';
 import OtherOptions from '@/options_page/components/options/OtherOptions.vue';
 import defaultSettings from '@/config/default';
 
+// `defaultSettings` is a shared module-level singleton that importSettings()
+// mutates in place; snapshot it once so any test that changes it can be
+// undone regardless of whether that test itself passes or fails.
+const defaultSettingsSnapshot = { ...defaultSettings };
+const originalFileReader = global.FileReader;
+
 describe('OtherOptions', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+    delete URL.createObjectURL;
+    delete window.alert;
+    global.FileReader = originalFileReader;
+    Object.assign(defaultSettings, defaultSettingsSnapshot);
+  });
+
   test('reload() reloads the extension runtime', () => {
     const wrapper = shallowMountOption(OtherOptions);
 
@@ -35,9 +49,6 @@ describe('OtherOptions', () => {
 
     expect(URL.createObjectURL).toHaveBeenCalledWith(expect.any(Blob));
     expect(clickSpy).toHaveBeenCalled();
-
-    clickSpy.mockRestore();
-    delete URL.createObjectURL;
   });
 
   test('exportSettings() excludes historyBackup when asked', () => {
@@ -55,16 +66,11 @@ describe('OtherOptions', () => {
     wrapper.vm.exportSettings({ excludeHistoryBackup: true });
 
     expect(captured[0]).toEqual({ language: 'en' });
-
-    global.Blob.mockRestore();
-    HTMLAnchorElement.prototype.click.mockRestore();
-    delete URL.createObjectURL;
   });
 
   // jsdom logs a "Not implemented: navigation" console.error for the
   // window.location.reload() this exercises — expected noise, not a failure.
   test('importSettings() merges same-typed keys from the file into the shared defaults and persists them', async () => {
-    const originalFileReader = global.FileReader;
     let loadListener;
 
     global.FileReader = class {
@@ -113,9 +119,5 @@ describe('OtherOptions', () => {
     expect(browser.storage.local.items.language).toBe('ja');
     expect(browser.storage.local.items.maxHistoryItems).toBe(5000);
     expect(window.alert).toHaveBeenCalledWith('Settings imported');
-
-    HTMLInputElement.prototype.addEventListener.mockRestore();
-    HTMLInputElement.prototype.click.mockRestore();
-    global.FileReader = originalFileReader;
   });
 });

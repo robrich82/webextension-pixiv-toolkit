@@ -37,11 +37,28 @@ describe('ZipDownloads', () => {
     const wrapper = shallowMountOption(ZipDownloads, {
       browserItems: { downloadSaveMode: 0, globalZipMultipleImages: 1 }
     });
+    await wrapper.vm.$nextTick();
 
     wrapper.vm.value = 3;
     await wrapper.vm.$nextTick();
 
     expect(browser.storage.local.items.globalZipMultipleImages).toBe(3);
+  });
+
+  test('rejects an out-of-range value and reverts to the previous one', async () => {
+    const wrapper = shallowMountOption(ZipDownloads, {
+      browserItems: { downloadSaveMode: 0, globalZipMultipleImages: 1 }
+    });
+    await wrapper.vm.$nextTick();
+
+    wrapper.vm.value = 5;
+    await wrapper.vm.$nextTick();
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.vm.value).toBe(1);
+    // The revert (`this.value = oldValue`) is itself a write the watcher
+    // observes, so it re-runs and persists the reverted value too.
+    expect(browser.storage.local.items.globalZipMultipleImages).toBe(1);
   });
 
   test('reacts to a later downloadSaveMode change via storage.onChanged', async () => {

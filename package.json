@@ -14,7 +14,7 @@
     "build": "cross-env NODE_ENV=production PLATFORM_ENV=chrome webpack --config webpack.config.js",
     "build:firefox": "cross-env NODE_ENV=production PLATFORM_ENV=firefox webpack --config webpack.config.js --env platform=firefox",
     "release:firefox": "node scripts/release-firefox.js",
-    "test": "cross-env NODE_ENV=test jest --config jest.config.json"
+    "test": "cross-env NODE_ENV=test jest --config jest.config.js"
   },
   "dependencies": {
     "@ffmpeg/core": "^0.11.0",
@@ -24,7 +24,7 @@
     "pouchdb": "^9.0.0",
     "pouchdb-find": "^9.0.0",
     "upng-js": "^2.1.0",
-    "vue": "^2.7.16",
+    "vue": "2.7.16",
     "vue-i18n": "^8.28.2",
     "vue-router": "^3.6.5",
     "vue-virtual-scroller": "^1.1.2",

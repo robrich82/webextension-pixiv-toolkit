@@ -13,6 +13,10 @@ const browserItems = {
 };
 
 describe('HistoryOptions', () => {
+  afterEach(() => {
+    delete window.confirm;
+  });
+
   test('adopts every stored value before mount', () => {
     const wrapper = shallowMountOption(HistoryOptions, { browserItems });
 
@@ -44,18 +48,18 @@ describe('HistoryOptions', () => {
   });
 
   test.each([
-    ['enableSaveVisitHistory', false, 'enableSaveVisitHistory'],
-    ['enableSaveDownloadHistory', 0, 'enableSaveDownloadHistory'],
-    ['displayWorkTypeLabel', true, 'displayWorkTypeLabel'],
-    ['notSaveNSFWWorkInHistory', false, 'notSaveNSFWWorkInHistory']
-  ])('persists a change to %s', async (dataKey, newValue, storageKey) => {
+    ['enableSaveVisitHistory', false],
+    ['enableSaveDownloadHistory', 0],
+    ['displayWorkTypeLabel', true],
+    ['notSaveNSFWWorkInHistory', false]
+  ])('persists a change to %s', async (key, newValue) => {
     const wrapper = shallowMountOption(HistoryOptions, { browserItems });
     await wrapper.vm.$nextTick();
 
-    wrapper.vm[dataKey] = newValue;
+    wrapper.vm[key] = newValue;
     await wrapper.vm.$nextTick();
 
-    expect(browser.storage.local.items[storageKey]).toBe(newValue);
+    expect(browser.storage.local.items[key]).toBe(newValue);
   });
 
   test('workCoverSize is coerced to a number before it is persisted', async () => {
@@ -124,6 +128,7 @@ describe('HistoryOptions', () => {
 
     test('stops importing once the queue is empty', () => {
       const wrapper = shallowMountOption(HistoryOptions, { browserItems });
+      wrapper.vm.importing = true;
       wrapper.vm.importItems = [];
 
       wrapper.vm.importVisitHistoryData();
@@ -166,6 +171,6 @@ describe('HistoryOptions', () => {
   test('clearHistory throws today: visitHistoryPort is never wired up', () => {
     const wrapper = shallowMountOption(HistoryOptions, { browserItems });
 
-    expect(() => wrapper.vm.clearHistory()).toThrow();
+    expect(() => wrapper.vm.clearHistory()).toThrow(/reading 'clearHistory'/);
   });
 });

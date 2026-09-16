@@ -31,6 +31,7 @@ describe('DownloadSaveMode', () => {
     const wrapper = shallowMountOption(DownloadSaveMode, {
       browserItems: { downloadSaveMode: 0 }
     });
+    await wrapper.vm.$nextTick();
 
     wrapper.vm.value = 1;
     await wrapper.vm.$nextTick();
@@ -42,6 +43,7 @@ describe('DownloadSaveMode', () => {
     const wrapper = shallowMountOption(DownloadSaveMode, {
       browserItems: { downloadSaveMode: 0 }
     });
+    await wrapper.vm.$nextTick();
 
     wrapper.vm.value = 5;
     await wrapper.vm.$nextTick();

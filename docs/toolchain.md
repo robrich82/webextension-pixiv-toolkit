@@ -179,12 +179,20 @@ guarantee npm's flat tree cannot offer at all.
 
 ## Version ranges
 
-Every dependency sits on a caret range, and that is deliberate: caret never
-crosses a major, so a plain `pnpm install` cannot pull in a breaking release on
-its own. The two `0.x` pins are tighter still — caret on a `0.x` version locks
-the *minor*, so `@ffmpeg/core: ^0.11.0` resolves `>=0.11.0 <0.12.0` and holds
-the ffmpeg upgrade shut until someone does all three parts of it at once (see
-Known remaining issues).
+Almost every dependency sits on a caret range, and that is deliberate: caret
+never crosses a major, so a plain `pnpm install` cannot pull in a breaking
+release on its own. The two `0.x` pins are tighter still — caret on a `0.x`
+version locks the *minor*, so `@ffmpeg/core: ^0.11.0` resolves
+`>=0.11.0 <0.12.0` and holds the ffmpeg upgrade shut until someone does all
+three parts of it at once (see Known remaining issues).
+
+Four packages are exact-pinned instead: `@vue/test-utils`, `@vue/vue2-jest`,
+`vue-template-compiler`, and `vue`. The first three are abandoned (the last
+Vue-2-compatible releases of the test tooling; see docs/testing.md's
+"Component tests" section), so a caret buys nothing but drift, and
+`vue-template-compiler` must resolve to the exact same version as `vue` or it
+throws at require time — pinning both closes that gap for good rather than
+relying on `pnpm-lock.yaml` to keep them in sync by coincidence.
 
 The committed lockfile is the second layer, and `minimumReleaseAge` is the
 third: caret bounds *which* versions are admissible, the lockfile fixes which
@@ -276,9 +284,12 @@ is reachable here. Verify before removing them:
 - **`@vue/component-compiler-utils` → `postcss@^8.5.22`.** vue-loader 15 only
   loads this package on its pre-2.7 code path. With Vue 2.7 installed,
   `lib/compiler.js` takes the `is27` branch and uses `vue/compiler-sfc` instead,
-  so neither the package nor its postcss 7 is ever required at build time. This
-  is also why `vue-template-compiler` is no longer a devDependency — the same
-  branch sets `templateCompiler: undefined`, and it is an optional peer.
+  so neither the package nor its postcss 7 is ever required at *build* time —
+  the same branch sets `templateCompiler: undefined`, and vue-loader only lists
+  `vue-template-compiler` as an optional peer. It is a real devDependency again
+  as of the component-test suite (docs/testing.md, "Component tests"): Jest's
+  `@vue/vue2-jest` transform imports it unconditionally, so it's required for
+  tests even though webpack never touches it.
 
 To confirm both are still applied, check that `pnpm-lock.yaml` resolves exactly
 one `uuid@11.x` and that the `@vue/component-compiler-utils` snapshot depends on
@@ -333,7 +344,9 @@ reports that advisory at the same severity npm did, so the gate behaves as it
 always has. The plain `pnpm audit` (dev dependencies included) can and does
 report other advisories from the build toolchain from time to time; those are
 tooling chores, not shipped exposure, but they still fail this gate and need
-clearing (`pnpm update`, or an `overrides` floor — see `pnpm-workspace.yaml`).
+clearing: `pnpm update`, an `overrides` floor, or — when the package is
+abandoned and there is no newer version to float to — an explicit `audit:
+ignore` entry (see `pnpm-workspace.yaml`).
 
 CircleCI (`.circleci/config.yml`) ran the identical job and was dropped as
 duplication.

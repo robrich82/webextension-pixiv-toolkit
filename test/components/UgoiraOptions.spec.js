@@ -76,13 +76,16 @@ describe('UgoiraOptions', () => {
 
   // There is no `location` watcher on this component, so changing it is
   // never persisted (mirrors the same gap on PixivComicOptions.renameImageRule).
+  // Asserting `storage.local.set` was never called, rather than just that one
+  // key is undefined, also catches a watcher that persists under the wrong key.
   test('location has no watcher: changing it is never persisted', async () => {
     const wrapper = shallowMountOption(UgoiraOptions, { browserItems });
     await wrapper.vm.$nextTick();
+    browser.storage.local.set.mockClear();
 
     wrapper.vm.location = 'new/';
     await wrapper.vm.$nextTick();
 
-    expect(browser.storage.local.items.ugoiraRelativeLocation).toBeUndefined();
+    expect(browser.storage.local.set).not.toHaveBeenCalled();
   });
 });
