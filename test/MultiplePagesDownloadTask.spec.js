@@ -14,6 +14,15 @@
  *    dropped into a per-post work folder alongside a page-numbered copy. It
  *    should just be saved as `<post name>.<ext>` directly. See
  *    `isSingleArchivePage`.
+ *
+ * 3. Some zip attachment responses come back with no Content-Type header at
+ *    all, so `mimeType` is null. `isSingleArchivePage` used to call
+ *    `MimeType.getExtenstion(null)` unguarded, throwing before any save was
+ *    attempted - the task still raced to "complete" (see `onFinish`'s
+ *    `singleArchivePageSaved` check running on the downloader's `finish`
+ *    event, dispatched synchronously right after `item-finish` without
+ *    waiting on this async handler), so nothing was ever saved and the UI
+ *    reported success anyway. See `resolveExtension`.
  */
 import browser from './doubles/browser';
 import MultipleDownloadTask from '../src/options_page/modules/DownloadTasks/MultiplePagesDownloadTask';
@@ -53,7 +62,7 @@ const buildTask = (pages, settingsOverrides = {}) => {
 
 beforeEach(() => {
   globalThis.JSZip = class FakeJSZip {
-    file() {}
+    file = jest.fn();
 
     generateAsync() {
       return Promise.resolve(new Blob(['zip contents']));
@@ -79,6 +88,29 @@ test('a single page that is already a zip is saved directly under the post name,
   expect(saveFileCalls).toHaveLength(1);
   expect(saveFileCalls[0][0].args.filename).toBe('12148167_いろいろなえっち絵.zip');
   expect(task.isComplete()).toBe(true);
+  // The point of isSingleArchivePage: the raw zip is sent as-is, never
+  // added to `this.zip` for re-wrapping.
+  expect(task.zip.file).not.toHaveBeenCalled();
+});
+
+test('a single zip page with no Content-Type header still saves as an archive, by falling back to the URL extension', async () => {
+  // Signed CDN URL, as Fanbox actually serves attachment downloads - the
+  // query string must be stripped before reading the extension, or the
+  // fallback resolves to `zip?X-Amz-Signature=...` instead of `zip`, which
+  // would misdetect this as a plain file and re-wrap it in an outer zip.
+  const task = buildTask(['https://example.fanbox.cc/files/archive.zip?X-Amz-Signature=abc123']);
+  const blob = new Blob(['already a zip']);
+
+  await task.onItemFinish({ blob, args: { index: 0 }, mimeType: null });
+  await task.onFinish();
+
+  const saveFileCalls = browser.runtime.sendMessage.mock.calls
+    .filter(([message]) => message.action === 'download:saveFile');
+
+  expect(saveFileCalls).toHaveLength(1);
+  expect(saveFileCalls[0][0].args.filename).toBe('12148167_いろいろなえっち絵.zip');
+  expect(task.isComplete()).toBe(true);
+  expect(task.zip.file).not.toHaveBeenCalled();
 });
 
 test('multiple image pages are still packed into one post-named zip as before', async () => {

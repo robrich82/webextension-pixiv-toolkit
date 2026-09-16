@@ -142,15 +142,32 @@ class MultipleDownloadTask extends AbstractDownloadTask {
   }
 
   /**
+   * The response's `Content-Type` header is the primary source for a file's
+   * extension, but some responses (e.g. Fanbox's zip attachment downloads)
+   * don't send one at all - fall back to the extension on the source URL
+   * itself in that case, rather than producing a `.null` filename. Fanbox
+   * attachment URLs are signed CDN links (`...archive.zip?X-Amz-...`), so
+   * the query string is stripped first - otherwise the "extension" would be
+   * `zip?X-Amz-Signature=...`.
+   * @param {string} mimeType
+   * @param {string} pageUrl
+   * @returns {string}
+   */
+  resolveExtension(mimeType, pageUrl) {
+    return MimeType.getExtenstion(mimeType) || MimeType.getFileExtension(pageUrl.split(/[?#]/)[0]);
+  }
+
+  /**
    * True when the post has exactly one page and that page is itself an
    * archive (e.g. a Fanbox post whose attachment is a .zip file). Such
    * content shouldn't be re-zipped or dropped into a per-post work folder -
    * it should just be saved as `<post name>.<ext>` directly.
    * @param {string} mimeType
+   * @param {string} pageUrl
    * @returns {boolean}
    */
-  isSingleArchivePage(mimeType) {
-    return this.downloader.files.length === 1 && MimeType.getExtenstion(mimeType) === 'zip';
+  isSingleArchivePage(mimeType, pageUrl) {
+    return this.downloader.files.length === 1 && this.resolveExtension(mimeType, pageUrl) === 'zip';
   }
 
   /**
@@ -195,15 +212,16 @@ class MultipleDownloadTask extends AbstractDownloadTask {
   async onItemFinish({ blob, args, mimeType }) {
     let url = URL.createObjectURL(blob);
     let pageNum = this.buildPageNum(args.index);
+    let pageUrl = this.options.pages[args.index];
     let nameFormatter = NameFormattor.getFormatter({
       context: Object.assign({}, this.context, { pageNum })
     });
 
-    if (this.isSingleArchivePage(mimeType)) {
+    if (this.isSingleArchivePage(mimeType, pageUrl)) {
       const filename = pathjoin(
         GlobalSettings().downloadRelativeLocation,
         this.formatPostName()
-      ) + `.${MimeType.getExtenstion(mimeType)}`;
+      ) + `.${this.resolveExtension(mimeType, pageUrl)}`;
 
       this.lastDownloadId = await browser.runtime.sendMessage({
         to: 'ws',
@@ -216,7 +234,7 @@ class MultipleDownloadTask extends AbstractDownloadTask {
 
       this.singleArchivePageSaved = true;
     } else if (this.shouldZipFile()) {
-      const file = nameFormatter.format(this.options.renameImageRule, `p${pageNum}`) + `.${MimeType.getExtenstion(mimeType)}`;
+      const file = nameFormatter.format(this.options.renameImageRule, `p${pageNum}`) + `.${this.resolveExtension(mimeType, pageUrl)}`;
       this.zip.file(fixFilename(file), blob, { date: this.now });
     } else {
       let filename = GlobalSettings().downloadRelativeLocation;
@@ -224,12 +242,12 @@ class MultipleDownloadTask extends AbstractDownloadTask {
       if (this.type !== 'PIXIV_MANGA' && this.dontCreateWorkFolder()) {
         filename = pathjoin(filename,
           nameFormatter.format((GlobalSettings().combinWRRuleAndIRRuleWhenDontCreateWorkFolder === 0 ? '' : (this.options.renameRule + '_')) + this.options.renameImageRule, `${this.context.id}-p${pageNum}`)
-        ) + `.${MimeType.getExtenstion(mimeType)}`;
+        ) + `.${this.resolveExtension(mimeType, pageUrl)}`;
       } else {
         filename = pathjoin(filename,
           nameFormatter.format(this.options.renameRule, this.context.id),
           nameFormatter.format(this.options.renameImageRule, `p${pageNum}`)
-        ) + `.${MimeType.getExtenstion(mimeType)}`;
+        ) + `.${this.resolveExtension(mimeType, pageUrl)}`;
       }
 
       this.lastDownloadId = await browser.runtime.sendMessage({
