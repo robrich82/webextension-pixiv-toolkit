@@ -93,12 +93,12 @@ just renamed.
 ## Suggested sequencing
 
 1. Land the toolchain branch first (done) so the build is not a moving target.
-2. Add component tests before touching anything (tracked in #27) — `test/`
-   already holds real coverage (`Util` and `Parser` are held to coverage
-   floors, and there's a full extension API double; see `docs/testing.md`),
-   but none of it exercises a `.vue` component. A 51-component rewrite with no
-   UI test coverage is the main risk in this whole plan and should be
-   addressed before, not after.
+2. Component tests landed in #27 (merged via #44, done) — `test/components/`
+   now covers the leaf `option-items` and `options_page/components/options`
+   trees by mounting the real `.vue` components with `shallowMountOption`,
+   enforced by a coverage floor in `jest.config.js`; see `docs/testing.md`.
+   `content_scripts/components` is still untested. Since it migrates last
+   (step 5), that's the coverage gap left to close before this plan reaches it.
 3. Migrate the leaf `option-items` (5 files) first to establish the patterns.
 4. Then `options_page/components/options` (20), then the rest of the options page.
 5. `content_scripts/components` (6) last — those render into Pixiv's own pages and
