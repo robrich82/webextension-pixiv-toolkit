@@ -73,7 +73,7 @@ describe('DownloadOptions', () => {
 
   // There is no `downloadTasksWhenDownloadingImages` watcher on this
   // component, so a change never reaches storage — the same gap this suite
-  // documents for UgoiraOptions.location and PixivComicOptions.renameImageRule.
+  // documents for PixivComicOptions.renameImageRule.
   test('downloadTasksWhenDownloadingImages has no watcher: changing it is never persisted', async () => {
     const wrapper = shallowMountOption(DownloadOptions, { browserItems });
     await wrapper.vm.$nextTick();
