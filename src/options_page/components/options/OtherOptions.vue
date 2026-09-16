@@ -136,8 +136,8 @@ export default {
                   return;
                 }
 
-                if (importSettings[key] &&
-                  (typeof defaultSettings[key] === typeof importSettings[key] || typeof importSettings[key] === 'string') // checking logic need be improved
+                if (key in importSettings &&
+                  (typeof defaultSettings[key] === typeof importSettings[key] || typeof importSettings[key] === 'string')
                 ) {
                   defaultSettings[key] = importSettings[key];
                 }
