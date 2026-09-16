@@ -70,7 +70,7 @@ describe('OtherOptions', () => {
 
   // jsdom logs a "Not implemented: navigation" console.error for the
   // window.location.reload() this exercises — expected noise, not a failure.
-  test('importSettings() merges same-typed keys from the file into the shared defaults and persists them', async () => {
+  test('importSettings() merges same-typed keys, including falsy values, from the file into the shared defaults and persists them', async () => {
     let loadListener;
 
     global.FileReader = class {
@@ -111,10 +111,7 @@ describe('OtherOptions', () => {
 
     expect(defaultSettings.language).toBe('ja');
     expect(defaultSettings.maxHistoryItems).toBe(5000);
-    // `importSettings[key] &&` rejects any falsy import value, so a `false`
-    // import is silently dropped even though its type matches — a pre-existing
-    // quirk the source itself flags as "checking logic need be improved".
-    expect(defaultSettings.enablePtkSearch).toBe(true);
+    expect(defaultSettings.enablePtkSearch).toBe(false);
     expect(defaultSettings.notInDefaults).toBeUndefined();
     expect(browser.storage.local.items.language).toBe('ja');
     expect(browser.storage.local.items.maxHistoryItems).toBe(5000);
