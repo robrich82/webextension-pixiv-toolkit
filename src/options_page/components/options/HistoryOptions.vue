@@ -181,6 +181,7 @@
 </template>
 
 <script>
+import RendererPort from '@/modules/Ports/IllustHistoryPort/RendererPort';
 
 export default {
   data() {
@@ -195,12 +196,13 @@ export default {
       importItems: [],
       importCount: 0,
       maxHistoryItems: 10000,
-      workCoverSize: 1
+      workCoverSize: 1,
+      visitHistoryPort: null
     };
   },
 
   created() {
-    //
+    this.visitHistoryPort = RendererPort.getInstance();
   },
 
   beforeMount() {
