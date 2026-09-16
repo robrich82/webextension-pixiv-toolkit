@@ -23,6 +23,14 @@ describe('getExtenstion', () => {
     // the duplicate cannot silently change what downloads are named.
     expect(MimeType.getExtenstion('image/jpeg')).toBe('jpg');
   });
+
+  test('returns null instead of throwing when there is no Content-Type header', () => {
+    // Some responses (e.g. Fanbox's zip attachment downloads) omit
+    // Content-Type entirely, so this receives null/undefined rather than a
+    // string. It used to crash on `mimeType.toLowerCase()`.
+    expect(MimeType.getExtenstion(null)).toBeNull();
+    expect(MimeType.getExtenstion(undefined)).toBeNull();
+  });
 });
 
 describe('getMimeType', () => {

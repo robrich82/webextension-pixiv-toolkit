@@ -15,10 +15,16 @@ class MimeType {
   }
 
   /**
-   *
+   * Some responses (e.g. Fanbox's zip attachment downloads) come back with
+   * no `Content-Type` header at all, so `mimeType` can be `null`/`undefined`
+   * here rather than a string - return "unknown" instead of throwing.
    * @param {string} mimeType
    */
   static getExtenstion(mimeType) {
+    if (typeof mimeType !== 'string') {
+      return null;
+    }
+
     mimeType = mimeType.toLowerCase();
 
     let parts = [];
