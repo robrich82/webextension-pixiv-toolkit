@@ -242,21 +242,18 @@ the watcher's own callback re-queues it, and the second run's write is the one
 that actually lands.)
 
 **A stale event-handler reference can wedge Vue's scheduler for the rest of
-the file.** `UgoiraConverterOption.vue`'s template has
-`<v-select @change="onUgoiraConvertToolChangeHandler">`, but no such method
-exists on the component (a pre-existing dead reference — confirmed by grep,
-not fixed here since this issue is about adding coverage, not behaviour
-changes). Once that component actually re-renders with the handler still
-`undefined`, Vue's listener-patch throws (`Cannot read properties of
+the file.** A template `@event="someMethod"` naming a method the component
+doesn't actually define is a dead reference that only bites once that
+component re-renders: Vue's listener-patch throws (`Cannot read properties of
 undefined (reading '_wrapper')`) inside the *render* watcher — not a user
 watcher, so the exception isn't caught by Vue's `handleError` path and
 escapes `flushSchedulerQueue` before it resets. Because the scheduler is
 shared by every component on the same `localVue`, this leaves it wedged:
 later watchers (in this component or any other, for the rest of the test
 file) get queued but never flushed again, which reads as "reactivity silently
-stopped working" with no error at the call site that broke it.
-`UgoiraConverterOption.spec.js` works around it with a `methods:` mount
-override supplying a no-op handler — see the comment on `mountConverter`
-there. If a future spec's watcher assertions mysteriously stop firing with no
-thrown error, a stale `@event` handler reference recently triggered is worth
-checking before anything else.
+stopped working" with no error at the call site that broke it. The
+workaround, if a spec hits this on a component you can't fix, is to mount it
+with a `methods:` override supplying a no-op handler for the dead reference.
+If a future spec's watcher assertions mysteriously stop firing with no thrown
+error, a stale `@event` handler reference recently triggered elsewhere in the
+same file is worth checking before anything else.

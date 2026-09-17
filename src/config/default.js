@@ -167,10 +167,6 @@ export default Object.assign({}, {
      */
     showUpdateChangeLog: false,
 
-    /**
-     * @since 5.0.0
-     */
-    ugoiraConvertTool: 'default',
     ugoiraCustomFFmpegCommand: '',
 
     /**
