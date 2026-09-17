@@ -373,17 +373,17 @@ export default {
         let response = await browser.runtime.sendMessage({
           action: 'download:addDownload',
           args
-        });
+        }).catch(() => undefined);
 
-        if (!response.result && redownload === false) {
-          if (response.errorName === 'DownloadTaskExistsError') {
+        if (!(response && response.result) && redownload === false) {
+          if (response && response.errorName === 'DownloadTaskExistsError') {
             if (window.confirm(this.tl(`_the_resource_is_already_in_download_manager`))) {
               this.downloadWithDownloadManager({ ugoiraConvertType, redownload: true })
             }
 
             return;
           } else {
-            alert(this.tl('_unkown_error') + ': ' + response.errorName);
+            alert(this.tl('_unkown_error') + ': ' + (response && response.errorName));
           }
           return;
         } else {

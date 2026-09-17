@@ -194,11 +194,11 @@ export default {
 
       response = await browser.runtime.sendMessage({
         action: 'download:checkIfDownloadManagerOpened'
-      });
+      }).catch(() => undefined);
 
       clearTimeout(timeout);
 
-      if (response.result) {
+      if (response && response.result) {
         browser.tabs.update(response.data.tabId, { active: true });
       } else {
         window.open(browser.runtime.getURL('options_page/downloads.html'), '_blank');

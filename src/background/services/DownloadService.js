@@ -98,7 +98,12 @@ class DownloadService extends AbstractService {
   checkDownloadManagerReadyInDelay(wait = 2000) {
     return new Promise(resolve => {
       setTimeout(
-        async () => resolve(await this.checkDownloadManagerReady()),
+        /**
+         * A rejection inside this callback can't reject the outer Promise
+         * (setTimeout swallows it), so a failed/no-response check would
+         * otherwise hang the caller forever instead of resolving falsy.
+         */
+        async () => resolve(await this.checkDownloadManagerReady().catch(() => undefined)),
         wait
       );
     });

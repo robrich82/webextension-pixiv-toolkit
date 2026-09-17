@@ -28,12 +28,17 @@ class Bootstrap {
       }
 
       browser.runtime[event].addListener(function() {
-        bindableInstance[event].apply(bindableInstance, arguments);
+        const handlerResult = bindableInstance[event].apply(bindableInstance, arguments);
 
         /**
-         * Prevent message port be closed early.
+         * Only keep the message channel open when the handler actually
+         * promised an async sendResponse (Application.onMessage returns
+         * true for messages it routes). Doing this unconditionally kept the
+         * channel open for every message this listener ignored too, which is
+         * what eventually raised "Promised response from onMessage listener
+         * went out of scope".
          */
-        if (event === 'onMessage') {
+        if (event === 'onMessage' && handlerResult === true) {
           return true;
         }
       });
