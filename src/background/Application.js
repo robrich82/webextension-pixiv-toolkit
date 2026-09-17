@@ -168,28 +168,47 @@ class Application {
    * and the property value is `ws`
    * @param {{ to: string, action: string, args: any }} message
    */
-  async onMessage(message, sender, sendResponse) {
+  onMessage(message, sender, sendResponse) {
     /**
      * Handling incoming message which needs call service method, if the sender
      * need a response, the method of service need return a valid that isn't
      * undefined
      */
     if (message.to === 'ws' && message.action) {
-      let [serviceName, methodName] = message.action.split(':');
+      (async () => {
+        let [serviceName, methodName] = message.action.split(':');
 
-      let service = this.getService(serviceName);
+        let service = this.getService(serviceName);
 
-      let params = { sender };
+        let params = { sender };
 
-      if (message.args) {
-        for (let name in message.args) {
-          params[name] = message.args[name];
+        if (message.args) {
+          for (let name in message.args) {
+            params[name] = message.args[name];
+          }
         }
-      }
 
-      let result = await service[methodName].call(service, params);
+        let result = await service[methodName].call(service, params);
 
-      sendResponse(result);
+        sendResponse(result);
+      })().catch(error => {
+        /**
+         * We already returned true below, promising a sendResponse. Without
+         * this, a throw here leaves the channel open until the caller times
+         * out instead of failing fast.
+         */
+        console.error(`onMessage handler failed for action "${message.action}"`, error);
+        sendResponse(undefined);
+      });
+
+      /**
+       * Tells Bootstrap.bindEvents to keep the message channel open for the
+       * async sendResponse() above. Only messages that reach this branch may
+       * return true here — doing it unconditionally for every message (even
+       * ones this handler ignores) is what caused Firefox to eventually
+       * raise "Promised response from onMessage listener went out of scope".
+       */
+      return true;
     }
   }
 

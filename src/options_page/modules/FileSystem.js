@@ -27,11 +27,24 @@ class FileSystem {
    * @param {SaveFileOptions} options
    */
   saveFile(options) {
-    return new Promise(resolve => {
+    return new Promise((resolve, reject) => {
       browser.downloads.download({
         url: options.url,
         filename: options.filename,
       }, downloadId => {
+        /**
+         * On failure (invalid/blocked filename, revoked permission, an
+         * already-revoked blob: URL, ...) the callback fires with
+         * downloadId === undefined and sets runtime.lastError. Left
+         * unchecked, that silently resolves as if the file had saved.
+         */
+        const lastError = browser.runtime.lastError;
+
+        if (lastError || downloadId === undefined) {
+          reject(new Error(`Failed to download "${options.filename}": ${lastError ? lastError.message : 'no download id returned'}`));
+          return;
+        }
+
         resolve(downloadId);
       });
     });

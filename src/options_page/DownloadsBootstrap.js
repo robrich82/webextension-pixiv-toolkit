@@ -20,13 +20,14 @@ class DownloadsBootstrap {
     DownloadsBootstrap.bindableRuntimeEvents.forEach(event => {
       if (typeof bindableInstance[event] === 'function') {
         browser.runtime[event].addListener(function() {
-          console.log(arguments);
-          bindableInstance[event].apply(bindableInstance, arguments);
+          const handlerResult = bindableInstance[event].apply(bindableInstance, arguments);
 
           /**
-           * Prevent message port be closed early.
+           * Only keep the message channel open when the handler actually
+           * promised an async sendResponse. See background/Bootstrap.js for
+           * why this must not happen unconditionally.
            */
-          if (event === 'onMessage') {
+          if (event === 'onMessage' && handlerResult === true) {
             return true;
           }
         });

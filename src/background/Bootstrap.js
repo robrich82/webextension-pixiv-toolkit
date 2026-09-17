@@ -15,19 +15,33 @@ class Bootstrap {
 
   static bindEvents(bindableInstance) {
     Bootstrap.bindableRuntimeEvents.forEach(event => {
-      if (typeof bindableInstance[event] === 'function') {
-        console.log(event, arguments);
-        browser.runtime[event].addListener(function() {
-          bindableInstance[event].apply(bindableInstance, arguments);
+      if (typeof bindableInstance[event] !== 'function') return;
 
-          /**
-           * Prevent message port be closed early.
-           */
-          if (event === 'onMessage') {
-            return true;
-          }
-        });
+      /**
+       * Not every runtime event exists on every browser (e.g. Firefox has no
+       * runtime.onRestartRequired). Skip it instead of throwing, which would
+       * otherwise abort binding of every event still left in the loop.
+       */
+      if (!browser.runtime[event]) {
+        console.warn(`runtime.${event} is not supported by this browser; handler not bound`);
+        return;
       }
+
+      browser.runtime[event].addListener(function() {
+        const handlerResult = bindableInstance[event].apply(bindableInstance, arguments);
+
+        /**
+         * Only keep the message channel open when the handler actually
+         * promised an async sendResponse (Application.onMessage returns
+         * true for messages it routes). Doing this unconditionally kept the
+         * channel open for every message this listener ignored too, which is
+         * what eventually raised "Promised response from onMessage listener
+         * went out of scope".
+         */
+        if (event === 'onMessage' && handlerResult === true) {
+          return true;
+        }
+      });
     });
   }
 

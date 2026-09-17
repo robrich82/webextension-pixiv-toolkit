@@ -98,6 +98,15 @@ describe('illegal characters', () => {
   test('a title of only dots falls back like any other empty segment', () => {
     expect(format('{title}', { illustTitle: '...' })).toBe('undefined');
   });
+
+  test('strips emoji that Firefox rejects as an illegal download filename', () => {
+    expect(format('{title}', { illustTitle: 'サンプルタイトルです👯‍♀️🐰💛' }))
+      .toBe('サンプルタイトルです');
+  });
+
+  test('strips a standalone variation selector left after removing an emoji', () => {
+    expect(format('{title}', { illustTitle: 'a❤️b' })).toBe('ab');
+  });
 });
 
 describe('directory rules', () => {

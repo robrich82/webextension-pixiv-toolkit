@@ -38,7 +38,7 @@ export default {
       browser.runtime.sendMessage({
         action: 'log:getTrackedErrors'
       }, errorMessages => {
-        errorMessages.forEach(errorMessage => {
+        (errorMessages || []).forEach(errorMessage => {
           this.errors += errorMessage + "\r\n";
         });
       });

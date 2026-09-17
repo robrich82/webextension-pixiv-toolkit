@@ -33,9 +33,9 @@ import Vuetify from 'vuetify';
   (async () => {
     let response = await browser.runtime.sendMessage({
       action: 'download:checkIfDownloadManagerOpened',
-    });
+    }).catch(() => undefined);
 
-    if (response.result) {
+    if (response && response.result) {
       openedTabId = response.data.tabId;
       openedWindowId = response.data.windowId;
     }
