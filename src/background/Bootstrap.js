@@ -15,19 +15,28 @@ class Bootstrap {
 
   static bindEvents(bindableInstance) {
     Bootstrap.bindableRuntimeEvents.forEach(event => {
-      if (typeof bindableInstance[event] === 'function') {
-        console.log(event, arguments);
-        browser.runtime[event].addListener(function() {
-          bindableInstance[event].apply(bindableInstance, arguments);
+      if (typeof bindableInstance[event] !== 'function') return;
 
-          /**
-           * Prevent message port be closed early.
-           */
-          if (event === 'onMessage') {
-            return true;
-          }
-        });
+      /**
+       * Not every runtime event exists on every browser (e.g. Firefox has no
+       * runtime.onRestartRequired). Skip it instead of throwing, which would
+       * otherwise abort binding of every event still left in the loop.
+       */
+      if (!browser.runtime[event]) {
+        console.warn(`runtime.${event} is not supported by this browser; handler not bound`);
+        return;
       }
+
+      browser.runtime[event].addListener(function() {
+        bindableInstance[event].apply(bindableInstance, arguments);
+
+        /**
+         * Prevent message port be closed early.
+         */
+        if (event === 'onMessage') {
+          return true;
+        }
+      });
     });
   }
 

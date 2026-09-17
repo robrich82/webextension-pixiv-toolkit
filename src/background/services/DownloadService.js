@@ -29,7 +29,17 @@ class DownloadService extends AbstractService {
 
   listenOnDeterminingFilename() {
     if (DownloadService.onDeterminingFilenameListenered === true) return;
-    DownloadService.onDeterminingFilenameListenered = true;
+
+    /**
+     * Firefox doesn't implement downloads.onDeterminingFilename. Skip
+     * cleanly instead of throwing, and leave the flag false so this is
+     * re-checked (cheaply — this only runs once per background context)
+     * rather than latched on a browser that never had the event.
+     */
+    if (!browser.downloads?.onDeterminingFilename) {
+      console.warn('downloads.onDeterminingFilename is not supported by this browser; filename suggestions disabled');
+      return;
+    }
 
     browser.downloads.onDeterminingFilename.addListener((downloadItem, suggest) => {
       const filenameSuggestion = {
@@ -45,6 +55,8 @@ class DownloadService extends AbstractService {
 
       suggest(filenameSuggestion);
     });
+
+    DownloadService.onDeterminingFilenameListenered = true;
   }
 
   static getService() {
