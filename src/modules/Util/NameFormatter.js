@@ -104,6 +104,16 @@ class NameFormatter {
     name = name.replace(/\u{200B}/ug, ' ');
 
     /**
+     * Firefox's downloads.download() rejects a filename containing an emoji,
+     * or the zero-width joiner / variation selectors used to combine several
+     * codepoints into one emoji glyph, with "filename must not contain
+     * illegal characters" - even though the same title renders fine
+     * everywhere else in the extension. They're decorative, so dropping them
+     * from the saved filename loses nothing a reader needs.
+     */
+    name = name.replace(/\p{Extended_Pictographic}|\u{200D}|\u{FE0E}|\u{FE0F}/ug, '');
+
+    /**
      * Windows (and Chrome's downloads API, regardless of OS) rejects a
      * filename that ends with a dot or a space. `downloads.download()` fails
      * silently in that case - no thrown error, just a missing download - so a
