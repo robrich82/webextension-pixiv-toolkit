@@ -683,15 +683,6 @@
    "_more_info": {
        "message": "更多信息"
    },
-   "_convert_tool": {
-       "message": "转化工具"
-   },
-   "_ffmpeg": {
-       "message": "FFmpeg"
-   },
-   "_select_gif_convert_tool": {
-       "message": "选择动图转化工具"
-   },
    "_startup_message": {
        "message": "自从6.0.0版本更新以来问题一直不断，其主要原因还是当初升级过于仓促导致了一些决策上的失误。经过这段时间的修修补补应该算是进入正规了，在这里也谢谢继续使用并反映问题的你们。由于后面有些个人事务需要处理，计划会每两周集中处理issue，也请大家理解🙏"
    },
@@ -701,14 +692,8 @@
    "_custom": {
        "message": "自定义"
    },
-   "_need_permission_to_load_library_from_unpkg_com_go_to_the_next_step": {
-       "message": "需要从 unpkg.com 载入库的权限。进入下一步？"
-   },
    "_not_set": {
        "message": "未设置"
-   },
-   "_has_not_effect_if_selected_converter_is_ffmpeg": {
-       "message": "当选择FFmpeg为转换器时没有效果"
    },
    "_disable_downloads_shelf": {
        "message": "禁用下载架"

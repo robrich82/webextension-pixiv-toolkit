@@ -680,15 +680,6 @@
    "_more_info": {
        "message": "More info"
    },
-   "_convert_tool": {
-       "message": "Convert Tool"
-   },
-   "_ffmpeg": {
-       "message": "FFmpeg"
-   },
-   "_select_gif_convert_tool": {
-       "message": "Select ugoira convert tool"
-   },
    "_startup_message": {
        "message": "There have been constant problems since the 6.0.0 version update, and the main reason is that the upgrade was too hasty and led to some mistakes in decision-making. After this period of repairs, it should be back to road. Thank you for continuing to use and report problems. Due to some personal affairs that need to be dealt with later, the later plan is to deal with issues in every two weeks. Please understand 🙏."
    },
@@ -698,14 +689,8 @@
    "_custom": {
        "message": "Custom"
    },
-   "_need_permission_to_load_library_from_unpkg_com_go_to_the_next_step": {
-       "message": "Need permission to load library from unpkg.com. Go to the next step ?"
-   },
    "_not_set": {
        "message": "Not set"
-   },
-   "_has_not_effect_if_selected_converter_is_ffmpeg": {
-       "message": "Has no effect if selected converter is FFmpeg"
    },
    "_disable_downloads_shelf": {
        "message": "Disable downloads shelf"
