@@ -49,6 +49,15 @@ class UIApplication {
 
         document.body.appendChild(container);
 
+        /**
+         * A bare `new Vue()` instance no longer works as an event bus under
+         * Vue 3 (no `$on`/`$off`/`$emit`). This shim covers only the two
+         * current callers below and `App.vue`'s single `$on` -- unlike Vue
+         * 2's bus, there's no `$once`, `$off()` with no arguments is a
+         * silent no-op (mitt's `all.get(undefined)`), and `$emit` forwards
+         * only its first payload argument (mitt is single-payload; Vue 2's
+         * `$emit` was variadic). Widen this if a future caller needs more.
+         */
         const emitter = mitt();
         window.$eventBus = {
           $on: emitter.on,

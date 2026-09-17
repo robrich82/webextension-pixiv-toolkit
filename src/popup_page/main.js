@@ -30,5 +30,5 @@ browser.storage.local.get(null, items => {
   });
 
   app.use(i18n);
-  app.mount('#app');
+  app.mount('#app-mount');
 });

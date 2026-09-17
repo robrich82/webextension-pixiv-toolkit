@@ -13,7 +13,12 @@
     <title>Pixiv Toolkit Next</title>
   </head>
   <body>
-    <div id="app"></div>
+    <!--
+      Not `id="app"` -- Index.vue's/Downloads.vue's own root is `<div id="app">`.
+      Vue 2's `el: '#app'` replaced this placeholder; Vue 3's `app.mount()`
+      renders inside it, so reusing the same id would produce two.
+    -->
+    <div id="app-mount"></div>
     <!-- built files will be auto injected -->
   </body>
 </html>

@@ -177,20 +177,15 @@ from the pixel data alone, and a 4x4 animation overflows it.
 
 `test/components/*.spec.js` covers the `option-items` and
 `options_page/components/options` `.vue` components — the leaf option
-components with real logic, and the ones `docs/vue3-migration.md` recommends
-migrating first (not yet started). It's Jest's `components` project (see above):
-`testEnvironment: "jsdom"`, `.vue` files transformed by `@vue/vue2-jest`
-(the actively maintained fork of `vue-jest` for Vue 2, unlike the archived
-`vue-jest@3`/`4`), and `@vue/test-utils@1` (the last major with Vue 2
-support — `@vue/test-utils@2`+ is Vue 3 only).
-
-`vue-jest`/`@vue/vue2-jest` compile templates through the real
-`vue-template-compiler`, not the `vue/compiler-sfc` Vue 2.7 bundles — vue-loader
-15 only reaches for `vue/compiler-sfc` when it's present, but `@vue/vue2-jest`
-imports `vue-template-compiler` unconditionally, so it's a devDependency here
-purely for Jest even though the webpack build doesn't need it. It's pinned to
-the same version as `vue` (version mismatches between the two throw at
-require time).
+components with real logic, and the ones `docs/vue3-migration.md` migrates
+first. It's Jest's `components` project (see above): `testEnvironment:
+"jsdom"`, `.vue` files transformed by `@vue/vue3-jest`, and `@vue/test-utils@2`
+(the current major, Vue 3 only — as of the Vue 3 migration's Phase A, this
+repo builds against Vue 3, not Vue 2's `@vue/vue2-jest`/`@vue/test-utils@1`).
+The `components` project also carries a `transformIgnorePatterns` override and
+a `jsdomGlobals.js` setup file, both needed because Vuetify 3 ships ESM-only
+and references a jsdom-absent global `CSS` at import time — see the comments
+in `jest.config.js` and `test/setup/jsdomGlobals.js` for why.
 
 ### Mounting: `test/helpers/mountOptionComponent.js`
 
@@ -199,25 +194,32 @@ Every options-page component reads `this.browserItems` and calls
 `this.$root.globalBrowserItems`; `tl` wraps `this.$t`). `mountOptionComponent`
 supplies both:
 
-- A single `localVue` built once at module load — `createLocalVue()`,
-  `.use(Vuetify)`, `.mixin(SuperMixin)` — and reused for every mount in the
-  file. Calling `.use(Vuetify)` again on a *fresh* `createLocalVue()` per test
-  logs a "Multiple instances of Vue detected" warning (vuetifyjs/vuetify#4068);
-  reusing one `localVue` avoids it and is faster besides.
-- `mocks: { $t: key => key }` — a passthrough, not a real vue-i18n instance,
-  since these specs assert behaviour, not translated copy.
-- A `parentComponent` whose `data()` carries `globalBrowserItems`. This is the
-  only way vue-test-utils gives a mounted component a `$root` distinct from
-  itself — `mount(Component)` alone makes the component its own root, so
-  `browserItems` would read `undefined`.
+- `global: { plugins: [vuetify], mixins: [SuperMixin, browserItemsMixin] }` —
+  `@vue/test-utils@2` removed `createLocalVue`/`parentComponent` entirely, and
+  a component mounted with no parent is *not* its own `$root` the way it was
+  under `@vue/test-utils@1` (confirmed empirically, not documented by VTU).
+  A global mixin's `data()` does reach that internal root, though, so
+  `browserItemsMixin` (built fresh per `shallowMountOption()` call, closing
+  over that call's `browserItems`) is what actually seeds it — see the
+  comment in `mountOptionComponent.js` for the full reasoning.
+- `global.mocks: { $t: key => key }` — a passthrough, not a real vue-i18n
+  instance, since these specs assert behaviour, not translated copy.
+- `createVuetify()` is built once at module load and reused for every mount in
+  the file, matching the old `localVue` pattern's intent — but for a different
+  reason: Vue 3's Vuetify doesn't warn on multiple instances the way Vue 2's
+  did, it's just wasteful to rebuild per mount.
 
 `shallowMountOption` auto-stubs every Vuetify component, which is what makes
-testing these components tractable at all — Vuetify 1.5's real `v-select`
-needs a full DOM layout pass to open, and these specs only care about the
-surrounding component's own logic (`computed`, `watch`, `created`/
-`beforeMount`, methods), not Vuetify's rendering. There is no real-`mount`
-variant — nothing here needs actual Vuetify DOM output, and adding one back
-is a three-line change if that changes.
+testing these components tractable at all — a real `v-select` needs a full DOM
+layout pass to open, and these specs only care about the surrounding
+component's own logic (`computed`, `watch`, `created`/`beforeMount`, methods),
+not Vuetify's rendering. There is no real-`mount` variant — nothing here needs
+actual Vuetify DOM output, and adding one back is a small change if that
+changes. Note that the templates these specs mount still use Vuetify 1.5
+markup (`v-list-tile`, etc.) until the component-migration phases land, so an
+auto-stub's tag name (e.g. `v-list-tile-stub` vs. Vuetify 3's `v-list-item`)
+is a moving target — assertions here should prefer `wrapper.vm.*` state over
+rendered stub markup for exactly that reason.
 
 The extension API double (`test/doubles/browser.js`, see above) is reused
 as-is: a spec imports it directly and the component's own
@@ -225,6 +227,14 @@ as-is: a spec imports it directly and the component's own
 `moduleNameMapper`.
 
 ### Two gotchas specific to these components
+
+*(Recorded against Vue 2's scheduler internals, pre-dating the Vue 3 migration's
+Phase A. The mounted components are still Vue 2-style Options API code running
+unmigrated, and the batching behaviour they describe is a Vue-level concern,
+not a `@vue/test-utils` one — but Vue 3's scheduler (`queueJob`/`flushJobs`)
+replaced Vue 2's `flushSchedulerQueue`, and `@vue/test-utils@2` no longer
+shares one `localVue`/scheduler across a whole file's mounts the way `@vue/
+test-utils@1` did. Re-verify before relying on the specifics below.)*
 
 **A watcher can echo its own `created()`/`beforeMount()` assignment.** Several
 components initialise a watched data property from `browserItems` in

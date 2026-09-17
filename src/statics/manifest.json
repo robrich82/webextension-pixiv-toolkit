@@ -65,8 +65,8 @@
             ],
             "js": [
                 "lib/global.js",
-                "lib/vue.min.js",
-                "lib/vue-i18n.min.js",
+                "lib/vue.global.prod.js",
+                "lib/vue-i18n.global.prod.js",
                 "lib/locales.js",
                 "lib/jszip/jszip.js",
                 "lib/jszip/jszip-utils.min.js",

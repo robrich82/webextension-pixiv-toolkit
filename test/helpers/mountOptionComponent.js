@@ -25,21 +25,33 @@ import SuperMixin from '@/mixins/SuperMixin';
 
 const vuetify = createVuetify();
 
-export function shallowMountOption(Component, { browserItems = {}, mocks = {}, ...options } = {}) {
+export function shallowMountOption(Component, { browserItems = {}, mocks = {}, global: globalOverrides = {}, ...options } = {}) {
   const browserItemsMixin = {
     data() {
       return { globalBrowserItems: browserItems };
     }
   };
 
+  // Merged rather than spread wholesale: a caller passing `global.stubs` or
+  // `global.provide` (the normal VTU2 way to reach them) would otherwise
+  // silently replace this whole block and lose vuetify/SuperMixin/$t.
+  const {
+    plugins: extraPlugins = [],
+    mixins: extraMixins = [],
+    mocks: extraMocks = {},
+    ...restGlobal
+  } = globalOverrides;
+
   return shallowMount(Component, {
     global: {
-      plugins: [vuetify],
-      mixins: [SuperMixin, browserItemsMixin],
+      plugins: [vuetify, ...extraPlugins],
+      mixins: [SuperMixin, browserItemsMixin, ...extraMixins],
       mocks: {
         $t: key => key,
-        ...mocks
-      }
+        ...mocks,
+        ...extraMocks
+      },
+      ...restGlobal
     },
     ...options
   });

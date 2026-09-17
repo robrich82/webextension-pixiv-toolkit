@@ -146,6 +146,6 @@ import { createVuetify } from 'vuetify';
     app.use(router);
     app.use(i18n);
     app.use(vuetify);
-    app.mount('#app');
+    app.mount('#app-mount');
   }
 })();

@@ -51,7 +51,16 @@ exports.cssLoaders = function (options) {
     // Extract CSS when that option is specified
     // (which is the case during production build)
     if (options.extract) {
-      return [MiniCssExtractPlugin.loader].concat(loaders)
+      // Every page's CSS is extracted to static/css/, one directory deeper
+      // than the assets (static/fonts/, static/img/, ...) it references, but
+      // the base `output.publicPath: './'` is a literal string rather than
+      // 'auto', so MiniCssExtractPlugin can't compute that offset itself and
+      // otherwise emits asset urls relative to the CSS file's own directory
+      // instead of the page root -- e.g. `./static/fonts/x.woff2` inside
+      // static/css/index.css resolves to the nonexistent
+      // static/css/static/fonts/x.woff2. This publicPath cancels both extra
+      // levels (css/ and static/) back to the page root.
+      return [{ loader: MiniCssExtractPlugin.loader, options: { publicPath: '../../' } }].concat(loaders)
     } else {
       return ['style-loader'].concat(loaders)
     }

@@ -20,6 +20,10 @@ export default class I18n {
     let i18n = createI18n({
       legacy: true,
       locale: (!locale || locale === 'default') ? (fallback || 'en') : locale,
+      // vue-i18n 9+ defaults fallbackLocale to the current locale itself
+      // (vue-i18n 8 defaulted to 'en'), so a locale outside the two defined
+      // below would otherwise fall through straight to the raw message key.
+      fallbackLocale: 'en',
       messages: {
         en: locales.localeEn,
         'zh_CN': locales.localeZhCN

@@ -9,7 +9,10 @@ describe('CombineRenameRules', () => {
     });
 
     expect(wrapper.vm.showThis).toBe(false);
-    expect(wrapper.find('v-list-tile-stub').exists()).toBe(false);
+    // Vuetify 3 doesn't register `v-list-tile` (Vuetify 1.5's tag, unmigrated
+    // until phase B/C), so Vue renders it as a literal unresolved element
+    // rather than auto-stubbing it -- `v-list-tile-stub` never matches.
+    expect(wrapper.find('v-list-tile').exists()).toBe(false);
   });
 
   test('shows itself and adopts the stored value when downloadSaveMode is 1', () => {
@@ -19,11 +22,7 @@ describe('CombineRenameRules', () => {
 
     expect(wrapper.vm.showThis).toBe(true);
     expect(wrapper.vm.value).toBe(1);
-    // TODO(vue3-migration phase B/C, #26): the template still uses Vuetify
-    // 1.5's `v-list-tile`, which Vuetify 3 doesn't register, so it no longer
-    // renders as `v-list-tile-stub`. Update this to `v-list-item-stub` once
-    // the template is migrated.
-    // expect(wrapper.find('v-list-tile-stub').exists()).toBe(true);
+    expect(wrapper.find('v-list-tile').exists()).toBe(true);
   });
 
   test('exposes the enable/disable options in the expected order', () => {
