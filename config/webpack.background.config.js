@@ -70,12 +70,12 @@ module.exports = env => {
             },
             info: alreadyMinimized
           }, {
-            from: utils.resolve('node_modules/vue/dist/vue.min.js'),
-            to: utils.resolve(`dist/${platform}/lib/vue.min.js`),
+            from: utils.resolve('node_modules/vue/dist/vue.global.prod.js'),
+            to: utils.resolve(`dist/${platform}/lib/vue.global.prod.js`),
             info: alreadyMinimized
           }, {
-            from: utils.resolve('node_modules/vue-i18n/dist/vue-i18n.min.js'),
-            to: utils.resolve(`dist/${platform}/lib/vue-i18n.min.js`),
+            from: utils.resolve('node_modules/vue-i18n/dist/vue-i18n.global.prod.js'),
+            to: utils.resolve(`dist/${platform}/lib/vue-i18n.global.prod.js`),
             info: alreadyMinimized
           }, {
             from: utils.resolve('node_modules/pouchdb/dist/pouchdb.min.js'),

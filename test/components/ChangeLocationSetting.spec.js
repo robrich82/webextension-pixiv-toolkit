@@ -50,6 +50,10 @@ describe('ChangeLocationSetting', () => {
       browserItems: { enableExtTakeOverDownloads: true }
     });
 
-    expect(enabled.find('change-location-btn-stub').attributes('disabled')).toBeUndefined();
+    // @vue/test-utils 2's auto-stubs serialize a false boolean prop as the
+    // literal attribute "false" rather than omitting it (@vue/test-utils 1
+    // omitted it) -- this is a stub-rendering difference, not a component
+    // behaviour change.
+    expect(enabled.find('change-location-btn-stub').attributes('disabled')).toBe('false');
   });
 });

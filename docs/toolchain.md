@@ -186,13 +186,13 @@ version locks the *minor*, so `@ffmpeg/core: ^0.11.0` resolves
 `>=0.11.0 <0.12.0` and holds the ffmpeg upgrade shut until someone does all
 three parts of it at once (see Known remaining issues).
 
-Four packages are exact-pinned instead: `@vue/test-utils`, `@vue/vue2-jest`,
-`vue-template-compiler`, and `vue`. The first three are abandoned (the last
-Vue-2-compatible releases of the test tooling; see docs/testing.md's
-"Component tests" section), so a caret buys nothing but drift, and
-`vue-template-compiler` must resolve to the exact same version as `vue` or it
-throws at require time — pinning both closes that gap for good rather than
-relying on `pnpm-lock.yaml` to keep them in sync by coincidence.
+Vue 2's tooling (`@vue/test-utils@1`, `@vue/vue2-jest`, `vue-template-compiler`)
+used to be exact-pinned here, since those were abandoned last-Vue-2-compatible
+releases and `vue-template-compiler` had to match `vue` exactly or it threw at
+require time (see `docs/vue3-migration.md`, done as of the Vue 3 migration's
+Phase A). Vue 3's equivalents (`vue`, `@vue/test-utils`, `@vue/vue3-jest`) are
+all back on ordinary caret ranges — none of them are abandoned, and there is no
+version-matching constraint between them to protect.
 
 The committed lockfile is the second layer, and `minimumReleaseAge` is the
 third: caret bounds *which* versions are admissible, the lockfile fixes which
@@ -270,30 +270,23 @@ These live in `pnpm-workspace.yaml`, not `package.json`. **pnpm does not read
 npm's top-level `overrides` field** — if these are ever moved back there they
 stop applying silently, with no error, and both advisories return.
 
-Note the flattened key syntax: npm's nested
-`{"@vue/component-compiler-utils": {"postcss": "..."}}` becomes
-`'@vue/component-compiler-utils>postcss'`.
+The `@vue/component-compiler-utils` → `postcss` override this section used to
+document was removed as part of the Vue 3 migration's Phase A: vue-loader 17
+(Vue 3) doesn't load `@vue/component-compiler-utils` at all, using
+`@vue/compiler-sfc` directly instead, so the package and its postcss 7 peer
+are no longer reachable — confirmed via `pnpm why @vue/component-compiler-utils`
+resolving to nothing.
 
-Both entries exist to keep `pnpm audit` quiet, **not** because either advisory
-is reachable here. Verify before removing them:
+The one entry left exists to keep `pnpm audit` quiet, **not** because the
+advisory is reachable here:
 
 - **`uuid` → `^11.1.1`.** `pouchdb-utils` pins uuid 8. The advisory
   (GHSA-w5hq-g745-h8pq) is a missing bounds check in `v3`/`v5`/`v6` when called
   with a `buf` argument; pouchdb only ever calls `v4` (its own source comments
   say so). uuid 11 keeps the `v4` signature.
-- **`@vue/component-compiler-utils` → `postcss@^8.5.22`.** vue-loader 15 only
-  loads this package on its pre-2.7 code path. With Vue 2.7 installed,
-  `lib/compiler.js` takes the `is27` branch and uses `vue/compiler-sfc` instead,
-  so neither the package nor its postcss 7 is ever required at *build* time —
-  the same branch sets `templateCompiler: undefined`, and vue-loader only lists
-  `vue-template-compiler` as an optional peer. It is a real devDependency again
-  as of the component-test suite (docs/testing.md, "Component tests"): Jest's
-  `@vue/vue2-jest` transform imports it unconditionally, so it's required for
-  tests even though webpack never touches it.
 
-To confirm both are still applied, check that `pnpm-lock.yaml` resolves exactly
-one `uuid@11.x` and that the `@vue/component-compiler-utils` snapshot depends on
-`postcss: 8.x`.
+To confirm it's still applied, check that `pnpm-lock.yaml` resolves exactly one
+`uuid@11.x`.
 
 ## Build output under pnpm
 
@@ -337,16 +330,15 @@ The job then runs `pnpm install --frozen-lockfile`,
 `pnpm audit --audit-level=moderate`, `pnpm test`, and the Chrome and Firefox
 builds, uploading each `dist/` directory as an artifact.
 
-The audit gate is set at `moderate` because the Vue 2 EOL advisory — the only
-one that reaches the shipped bundle (`pnpm audit -P`) — is `low` and standing;
-failing at `moderate` keeps a new problem from being lost in that noise. pnpm
-reports that advisory at the same severity npm did, so the gate behaves as it
-always has. The plain `pnpm audit` (dev dependencies included) can and does
-report other advisories from the build toolchain from time to time; those are
-tooling chores, not shipped exposure, but they still fail this gate and need
-clearing: `pnpm update`, an `overrides` floor, or — when the package is
-abandoned and there is no newer version to float to — an explicit `audit:
-ignore` entry (see `pnpm-workspace.yaml`).
+The audit gate is set at `moderate`. As of the Vue 3 migration's Phase A,
+`pnpm audit -P` reports no known vulnerabilities at all — the Vue 2 EOL
+advisory this gate used to carry at `low` (see "Known remaining issues") is
+gone along with the Vue 2 packages themselves. The plain `pnpm audit` (dev
+dependencies included) can still report advisories from the build toolchain
+from time to time; those are tooling chores, not shipped exposure, but they
+still fail this gate and need clearing: `pnpm update`, an `overrides` floor, or
+— when the package is abandoned and there is no newer version to float to — an
+explicit `audit: ignore` entry (see `pnpm-workspace.yaml`).
 
 CircleCI (`.circleci/config.yml`) ran the identical job and was dropped as
 duplication.
@@ -356,12 +348,6 @@ configured and for the extension API double the specs run against.
 
 ## Known remaining issues
 
-- **Vue 2 is EOL** (December 2023) and carries an unfixable ReDoS advisory
-  (GHSA-5j4c-8p2g-v4jx). This is the only advisory that reaches the shipped
-  bundle (`pnpm audit -P`), via `vue`, `vuetify` and `vue-virtual-scroller`. The
-  plain `pnpm audit` may show more from the build toolchain at any given
-  moment — see `pnpm-workspace.yaml` and the CI section above. See
-  `docs/vue3-migration.md`.
 - **ffmpeg is pinned to 0.11.** `@ffmpeg/core` is copied into `lib/ffmpeg`, but
   the code loads a *vendored* `src/statics/lib/ffmpeg/ffmpeg.min.js` (0.11.6) as
   a `FFmpeg` global and uses the 0.11 API (`createFFmpeg`, `.FS()`,

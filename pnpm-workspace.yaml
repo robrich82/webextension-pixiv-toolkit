@@ -69,20 +69,6 @@ allowBuilds:
 # no tarball URLs. This is pnpm's default; pinned so it survives a default flip.
 blockExoticSubdeps: true
 
-# GHSA-g3ch-rx76-35fx: vue-template-compiler XSS, all of >=2.0.0 <3.0.0, no
-# patched version -- Vue 2 is EOL and vue-template-compiler's last release is
-# 2.7.16. Unlike every entry in `overrides` below this cannot be cleared with a
-# version floor; there is nothing to float to. It reaches the tree only as a
-# required peer of @vue/test-utils@1 and @vue/vue2-jest (both Jest-only, see
-# docs/testing.md's "Component tests" section), and the shipped bundle never
-# contains it (confirmed via `pnpm why vue-template-compiler`). This ignore is
-# global, not dev-scoped, so it would also hide the advisory if
-# vue-template-compiler ever became reachable from a production dependency --
-# remove it with the Vue 3 migration (docs/vue3-migration.md).
-audit:
-  ignore:
-    - GHSA-g3ch-rx76-35fx
-
 # Fail the install when a package's trust level drops relative to earlier
 # releases (a maintainer losing 2FA, a publish from an unattested source).
 trustPolicy: no-downgrade
@@ -99,8 +85,8 @@ trustPolicyExclude:
   - 'semver@6.3.1'
 
 # --- Overrides --------------------------------------------------------------
-# The first two entries keep `pnpm audit` clean rather than fixing a live
-# exposure; see docs/toolchain.md for why neither advisory is reachable here.
+# The `uuid` entry keeps `pnpm audit` clean rather than fixing a live
+# exposure; see docs/toolchain.md for why that advisory is not reachable here.
 # The `js-yaml`/`fast-uri` floors below fix an actual advisory each, floored at
 # the advisory's own first-patched version so the resolved version sitting
 # above the floor is the `^` working, not a weaker guard. `js-yaml` is split
@@ -111,7 +97,6 @@ trustPolicyExclude:
 # Drop them and the advisories come back.
 overrides:
   uuid: ^11.1.1
-  '@vue/component-compiler-utils>postcss': ^8.5.22
   'js-yaml@>=4.0.0 <4.3.2': ^4.3.2
   'js-yaml@<3.15.2': ^3.15.2
   'fast-uri@<3.1.6': ^3.1.6

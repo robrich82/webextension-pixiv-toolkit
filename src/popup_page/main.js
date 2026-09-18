@@ -2,21 +2,15 @@ import '@/core/global';
 import App from './App';
 import Browser from '@/modules/Browser/Browser';
 import I18n from '@/modules/I18n';
-import Vue from 'vue';
-
-Vue.config.productionTip = false;
+import { createApp, h } from 'vue';
 
 window.browser = Browser.getBrowser();
 
 browser.storage.local.get(null, items => {
   const i18n = I18n.i18n(items.language, browser.i18n.getUILanguage());
 
-  new Vue({
-    el: '#app',
-
-    i18n,
-
-    render: h => h(App),
+  const app = createApp({
+    render: () => h(App),
 
     data() {
       return {
@@ -34,4 +28,7 @@ browser.storage.local.get(null, items => {
       });
     }
   });
+
+  app.use(i18n);
+  app.mount('#app-mount');
 });

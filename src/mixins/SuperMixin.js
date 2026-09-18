@@ -1,3 +1,5 @@
+import { isNavigationFailure, NavigationFailureType } from 'vue-router';
+
 export default {
   computed: {
     browserItems() {
@@ -33,15 +35,10 @@ export default {
     },
 
     pushRoute(args) {
-      return this.$router.push(args).then(() => {
-        return Promise.resolve();
-      }).catch(error => {
-        if (error.name === 'NavigationDuplicated') {
-          // ignore
-          return;
+      return this.$router.push(args).then(failure => {
+        if (failure && !isNavigationFailure(failure, NavigationFailureType.duplicated)) {
+          throw failure;
         }
-
-        return Promise.reject(error);
       });
     }
   }

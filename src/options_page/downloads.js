@@ -1,4 +1,5 @@
-import 'vuetify/dist/vuetify.min.css';
+import 'vuetify/styles';
+import '@mdi/font/css/materialdesignicons.css';
 
 import '@/core/global';
 import Application from "./DownloadsApplication";
@@ -9,8 +10,8 @@ import Downloads from './Downloads.vue';
 import moment from 'moment';
 import router from './router';
 import SuperMixin from '@/mixins/SuperMixin';
-import Vue from 'vue'
-import Vuetify from 'vuetify';
+import { createApp, h } from 'vue'
+import { createVuetify } from 'vuetify';
 
 /**
  * Make sure there is only one downloads page open. When the page first opened
@@ -65,9 +66,6 @@ import Vuetify from 'vuetify';
     /**
      * Boot the UI
      */
-    Vue.config.productionTip = false;
-    Vue.mixin(SuperMixin);
-
     moment.locale('zh_CN', {
       months: [
         '1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'
@@ -105,19 +103,12 @@ import Vuetify from 'vuetify';
 
     const i18n = I18n.i18n(items.language, browser.i18n.getUILanguage());
 
-    moment.locale(i18n.locale);
+    moment.locale(i18n.global.locale);
 
-    Vue.use(Vuetify)
+    const vuetify = createVuetify();
 
-    /* eslint-disable no-new */
-    new Vue({
-      el: '#app',
-
-      router,
-
-      i18n,
-
-      render: h => h(Downloads),
+    const app = createApp({
+      render: () => h(Downloads),
 
       data() {
         return {
@@ -137,12 +128,12 @@ import Vuetify from 'vuetify';
 
             if (key === 'language') {
               if (items[key].newValue === 'default') {
-                i18n.locale = chrome.i18n.getUILanguage().replace('-', '_');
+                i18n.global.locale = chrome.i18n.getUILanguage().replace('-', '_');
               } else {
-                i18n.locale = items[key].newValue;
+                i18n.global.locale = items[key].newValue;
               }
 
-              moment.locale(i18n.locale);
+              moment.locale(i18n.global.locale);
             } else if (key === 'disableDownloadsShelf') {
               browser.downloads.setShelfEnabled(!items[key].newValue);
             }
@@ -150,5 +141,11 @@ import Vuetify from 'vuetify';
         });
       }
     });
+
+    app.mixin(SuperMixin);
+    app.use(router);
+    app.use(i18n);
+    app.use(vuetify);
+    app.mount('#app-mount');
   }
 })();

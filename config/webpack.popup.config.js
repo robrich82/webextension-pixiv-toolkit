@@ -7,7 +7,7 @@ const { merge } = require('webpack-merge');
 const vueLoaderConfig = require('./vue-loader.config');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
-const VueLoaderPlugin = require('vue-loader/lib/plugin');
+const { VueLoaderPlugin } = require('vue-loader');
 
 const isProduction = process.env.NODE_ENV === 'production' ?
   !0 : !!0;
