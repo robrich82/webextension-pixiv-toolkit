@@ -19,13 +19,13 @@
  * Vue 2's `Vue.use`, there's no global registration to collide across
  * tests), so this can be created once at module scope.
  */
-import { shallowMount } from '@vue/test-utils';
-import { createVuetify } from 'vuetify';
+import { mount, shallowMount } from '@vue/test-utils';
+import { createAppVuetify } from '@/options_page/vuetify';
 import SuperMixin from '@/mixins/SuperMixin';
 
-const vuetify = createVuetify();
+const vuetify = createAppVuetify();
 
-export function shallowMountOption(Component, { browserItems = {}, mocks = {}, global: globalOverrides = {}, ...options } = {}) {
+function buildMountOptions({ browserItems = {}, mocks = {}, global: globalOverrides = {}, ...options } = {}) {
   const browserItemsMixin = {
     data() {
       return { globalBrowserItems: browserItems };
@@ -42,7 +42,7 @@ export function shallowMountOption(Component, { browserItems = {}, mocks = {}, g
     ...restGlobal
   } = globalOverrides;
 
-  return shallowMount(Component, {
+  return {
     global: {
       plugins: [vuetify, ...extraPlugins],
       mixins: [SuperMixin, browserItemsMixin, ...extraMixins],
@@ -54,5 +54,33 @@ export function shallowMountOption(Component, { browserItems = {}, mocks = {}, g
       ...restGlobal
     },
     ...options
+  };
+}
+
+export function shallowMountOption(Component, options) {
+  const built = buildMountOptions(options);
+
+  return shallowMount(Component, {
+    ...built,
+    global: {
+      // Vuetify layout components (v-card, v-list, ...) are now really
+      // registered, so shallowMount stubs them and their default slot would
+      // otherwise swallow every descendant a spec needs to find. Caveat:
+      // this also renders stubbed dialogs/menus regardless of visibility, so
+      // a future "X is not visible" assertion needs a real mount, not this.
+      renderStubDefaultSlot: true,
+      ...built.global
+    }
   });
+}
+
+/**
+ * A real (non-shallow) mount, for the rare spec that needs to assert on
+ * actual Vuetify-rendered output rather than component state -- e.g. pinning
+ * that a named slot (`#title`/`#subtitle`/`#append`) or an `item-title`/
+ * `item-value` prop mapping actually reaches the DOM, which `shallowMount`
+ * can't see (its stub only ever renders the *default* slot).
+ */
+export function mountOption(Component, options) {
+  return mount(Component, buildMountOptions(options));
 }

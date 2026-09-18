@@ -1,14 +1,32 @@
 import browser from '../doubles/browser';
-import { shallowMountOption } from '../helpers/mountOptionComponent';
+import { mountOption, shallowMountOption } from '../helpers/mountOptionComponent';
 import DownloadSaveMode from '@/options_page/components/options/option-items/DownloadSaveMode.vue';
 
 describe('DownloadSaveMode', () => {
+  // shallowMount stubs `v-list-item` and only renders a stub's *default*
+  // slot, so it can't see this component's actual markup -- everything here
+  // lives in the `#title`/`#subtitle`/`#append` named slots. A real mount is
+  // the only way to pin that the migration's slot names and the `v-select`
+  // `item-title`/`item-value` mapping (this component's options are
+  // `{text, value}`, not Vuetify 3's default `{title, value}` shape) actually
+  // reach the DOM.
+  test('renders the title, subtitle, and the selected option label', () => {
+    const wrapper = mountOption(DownloadSaveMode, {
+      browserItems: { downloadSaveMode: 0 }
+    });
+
+    expect(wrapper.find('.v-list-item-title').text()).toBe('_download_save_mode.message');
+    expect(wrapper.find('.v-list-item-subtitle').text()).toBe('_download_save_mode_0_desc.message');
+    expect(wrapper.find('.v-select__selection-text').text()).toBe('_pack_in_zip.message');
+  });
+
   test('adopts the stored value on creation', () => {
     const wrapper = shallowMountOption(DownloadSaveMode, {
       browserItems: { downloadSaveMode: 1 }
     });
 
     expect(wrapper.vm.value).toBe(1);
+    expect(wrapper.find('v-list-item-stub').exists()).toBe(true);
   });
 
   test('exposes the zip/folder options and a subtitle per value', () => {

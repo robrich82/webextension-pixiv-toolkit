@@ -40,15 +40,15 @@ export default {
 </script>
 
 <template>
-  <v-list-tile v-if="showThis">
-    <v-list-tile-content>
-      <v-list-tile-title>{{ tl('_combin_work_and_image_rename_rule_when_dont_create_work_folder') }}</v-list-tile-title>
-    </v-list-tile-content>
-    <v-list-tile-action>
+  <v-list-item v-if="showThis">
+    <template #title>{{ tl('_combin_work_and_image_rename_rule_when_dont_create_work_folder') }}</template>
+    <template #append>
       <v-select :items="options"
+        item-title="text"
+        item-value="value"
         v-model="value"
         style="width:150px;"
       ></v-select>
-    </v-list-tile-action>
-  </v-list-tile>
+    </template>
+  </v-list-item>
 </template>

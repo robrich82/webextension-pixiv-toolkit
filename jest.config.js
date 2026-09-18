@@ -7,6 +7,9 @@ const base = {
   ],
   moduleNameMapper: {
     '^@/modules/Extension/browser$': '<rootDir>/test/doubles/browser.js',
+    // Vuetify 3 components import their own co-located stylesheet (e.g.
+    // VApp.js does `import './VApp.css'`), which babel-jest can't parse as JS.
+    '\\.(css|s[ac]ss)$': '<rootDir>/test/doubles/styleMock.js',
     '^@@/(.*)$': '<rootDir>/src/options_page/$1',
     '^@/(.*)$': '<rootDir>/src/$1'
   },

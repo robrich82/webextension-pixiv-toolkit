@@ -1,6 +1,6 @@
 <template>
   <div class="option-section">
-    <v-list two-line>
+    <v-list lines="two">
       <v-list-tile>
         <v-list-tile-content>
           <v-list-tile-title>{{ tl('_page_number_start_with_1') }}</v-list-tile-title>
