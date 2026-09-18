@@ -184,8 +184,11 @@ first. It's Jest's `components` project (see above): `testEnvironment:
 repo builds against Vue 3, not Vue 2's `@vue/vue2-jest`/`@vue/test-utils@1`).
 The `components` project also carries a `transformIgnorePatterns` override and
 a `jsdomGlobals.js` setup file, both needed because Vuetify 3 ships ESM-only
-and references a jsdom-absent global `CSS` at import time — see the comments
-in `jest.config.js` and `test/setup/jsdomGlobals.js` for why.
+and references jsdom-absent globals (`CSS`, `ResizeObserver`) at import/mount
+time — see the comments in `jest.config.js` and `test/setup/jsdomGlobals.js`
+for why. The shared `moduleNameMapper` also stubs `.css`/`.scss` imports to
+`test/doubles/styleMock.js`, since Vuetify 3's compiled components each import
+their own co-located stylesheet, which babel-jest can't parse as JS.
 
 ### Mounting: `test/helpers/mountOptionComponent.js`
 
@@ -204,22 +207,35 @@ supplies both:
   comment in `mountOptionComponent.js` for the full reasoning.
 - `global.mocks: { $t: key => key }` — a passthrough, not a real vue-i18n
   instance, since these specs assert behaviour, not translated copy.
-- `createVuetify()` is built once at module load and reused for every mount in
-  the file, matching the old `localVue` pattern's intent — but for a different
+- `createAppVuetify()` (the same factory the two production entry points use,
+  in `src/options_page/vuetify.js` — see `docs/vue3-migration.md`'s "Phase B
+  discovery") is built once at module load and reused for every mount in the
+  file, matching the old `localVue` pattern's intent — but for a different
   reason: Vue 3's Vuetify doesn't warn on multiple instances the way Vue 2's
-  did, it's just wasteful to rebuild per mount.
+  did, it's just wasteful to rebuild per mount. It's real Vuetify 3
+  component registration, not a no-op — see the next paragraph for what that
+  changed.
 
-`shallowMountOption` auto-stubs every Vuetify component, which is what makes
-testing these components tractable at all — a real `v-select` needs a full DOM
-layout pass to open, and these specs only care about the surrounding
-component's own logic (`computed`, `watch`, `created`/`beforeMount`, methods),
-not Vuetify's rendering. There is no real-`mount` variant — nothing here needs
-actual Vuetify DOM output, and adding one back is a small change if that
-changes. Note that the templates these specs mount still use Vuetify 1.5
-markup (`v-list-tile`, etc.) until the component-migration phases land, so an
-auto-stub's tag name (e.g. `v-list-tile-stub` vs. Vuetify 3's `v-list-item`)
-is a moving target — assertions here should prefer `wrapper.vm.*` state over
-rendered stub markup for exactly that reason.
+`shallowMountOption` auto-stubs every Vuetify component. Since Phase B,
+Vuetify's real components are actually registered (`createAppVuetify()`), so
+this stubbing is what makes testing these components tractable at all — a
+real `v-select` needs a full DOM layout pass to open, and these specs only
+care about the surrounding component's own logic (`computed`, `watch`,
+`created`/`beforeMount`, methods), not Vuetify's rendering. It also sets
+`global.renderStubDefaultSlot: true`, because a stub's *default* slot would
+otherwise swallow any descendant component nested inside a Vuetify layout tag
+(e.g. a custom component inside `<v-list>`), making it unreachable via
+`find`/`findComponent`. That option only reaches the default slot, though — a
+migrated component's `#title`/`#subtitle`/`#append` *named* slots (see
+`option-items/*.vue`) never render under `shallowMount`, stub or not, so a
+`shallowMount` spec cannot assert on that component's actual rendered markup.
+Prefer `wrapper.vm.*` state for behavior, as before, but pin a migrated
+template's slot names and prop mappings (e.g. `v-select`'s `item-title`) with
+one real `mountOption()` (also exported by `mountOptionComponent.js`) per
+established pattern — see `DownloadSaveMode.spec.js` for the shape. One
+caveat of `renderStubDefaultSlot`: it also renders a stubbed dialog/menu's
+body regardless of visibility, so a future "X is not visible" assertion needs
+a real mount too, not a shallow one.
 
 The extension API double (`test/doubles/browser.js`, see above) is reused
 as-is: a spec imports it directly and the component's own

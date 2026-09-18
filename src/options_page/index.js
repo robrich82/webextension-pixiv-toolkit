@@ -7,7 +7,7 @@ import Browser from '@/modules/Browser/Browser'
 import I18n from '@/modules/I18n';
 import SuperMixin from '@/mixins/SuperMixin';
 import { createApp, h } from 'vue'
-import { createVuetify } from 'vuetify';
+import { createAppVuetify } from './vuetify';
 import moment from 'moment';
 import router from './router';
 
@@ -56,7 +56,7 @@ try {
 
       moment.locale(i18n.global.locale);
 
-      const vuetify = createVuetify();
+      const vuetify = createAppVuetify();
 
       const app = createApp({
         render: () => h(Index),

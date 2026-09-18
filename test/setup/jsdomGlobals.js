@@ -8,3 +8,16 @@
 if (typeof globalThis.CSS === 'undefined') {
   globalThis.CSS = { supports: () => false };
 }
+
+/**
+ * jsdom doesn't implement ResizeObserver, which Vuetify's overlay/menu
+ * machinery (used by v-select, v-dialog, v-menu, ...) reads unconditionally
+ * on a real (non-shallow) mount.
+ */
+if (typeof globalThis.ResizeObserver === 'undefined') {
+  globalThis.ResizeObserver = class ResizeObserver {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+}

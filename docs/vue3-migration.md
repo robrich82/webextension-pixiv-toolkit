@@ -4,8 +4,11 @@ Scoping notes for the branch that clears the last standing advisory.
 
 **Phase A (the toolchain bump + every global integration point) has landed**
 on `feature/vue3-vuetify3-migration-26` — see that branch's `build/
-vue3-toolchain-bump-26` PR. `.vue` component templates are still on Vuetify 1.5
-markup; the phases below this point are what's left.
+vue3-toolchain-bump-26` PR. **Phase B (the leaf `option-items` components) has
+also landed**, via `feature/vue3-phase-b-option-items-26` — see "Phase B
+discovery" below for what actually registering Vuetify 3's components turned
+up. Every other `.vue` component template is still on Vuetify 1.5 markup; the
+phases below this point are what's left.
 
 ## Why this was outstanding
 
@@ -47,13 +50,13 @@ Ordered by occurrences — the top three are the whole ballgame:
 |---|---|---|
 | `v-list-tile` | 75 | `v-list-item` |
 | `v-list-tile-content` | 69 | removed — content is the default slot |
-| `v-list-tile-title` | 67 | `v-list-item-title` |
-| `v-list-tile-action` | 60 | `v-list-item-action` (+ `append`/`prepend` slots) |
+| `v-list-tile-title` | 67 | `v-list-item-title` component, or (the pattern Phase B chose) a `#title` slot on the parent `v-list-item` |
+| `v-list-tile-action` | 60 | `v-list-item-action` component, or (the pattern Phase B chose) an `#append` slot on the parent `v-list-item` |
 | `v-btn` | 42 | `v-btn`, but `flat`→`variant="text"`, `depressed`→`variant="flat"` |
-| `v-list-tile-sub-title` | 40 | `v-list-item-subtitle` |
-| `v-list` | 29 | `v-list` |
-| `v-icon` | 26 | `v-icon` — icon set config changes (`mdi-` prefixes) |
-| `v-select` | 25 | `v-select` — `items` item-text/item-value → `item-title`/`item-value` |
+| `v-list-tile-sub-title` | 40 | `v-list-item-subtitle` component, or a `#subtitle` slot (Phase B's choice) |
+| `v-list` | 29 | `v-list`, but `two-line`/`three-line` → `lines="two"`/`lines="three"` |
+| `v-icon` | 26 | `v-icon` — default icon set is `mdi` (`mdi-`-prefixed); Material ligature names (`open_in_new`) render no glyph |
+| `v-select` | 25 | `v-select` — `items` shaped `{text, value}` needs explicit `item-title="text"` (`item-value` needs no change — V3's default already reads `value`) |
 | `v-card` / `v-card-text` / `v-card-title` / `v-card-actions` | 42 | mostly 1:1 |
 | `v-switch`, `v-text-field` | 21 | `.sync`/`v-model` semantics change |
 | `v-dialog` | 9 | `persistent`/activator slot syntax changed |
@@ -116,6 +119,62 @@ Done in Phase A:
   both HTML `<script>` tags, and `manifest.json`'s `content_scripts[0].js` list
   all had to change together — the last of those three was easy to miss).
 
+## Phase B discovery: `createVuetify()` was never registering any components
+
+Phase A called `createVuetify()` with no `components`/`directives` in both
+options-page entry points (`index.js`, `downloads.js`) and in the shared test
+helper. `createVuetify()` on its own registers nothing — every Vuetify tag
+app-wide rendered as an inert, unresolved custom element, in production and in
+every component spec, for the whole lifetime of Phase A. Phase B fixed this
+(now centralized in `src/options_page/vuetify.js`, imported by both entry
+points and by `test/helpers/mountOptionComponent.js`, so the three copies
+can't drift apart again the way they just did).
+
+**This has a blast radius far wider than the 4 migrated files.** Registering
+the real component set means every *unmigrated* Vuetify tag whose name still
+exists in Vuetify 3 now activates as that real V3 component, driven by
+Vuetify-1.5-shaped props it doesn't understand — while the `v-list-tile*`
+family (renamed, not reused) stays inert as before. Concretely, until later
+phases land, expect:
+
+- **Every other `<v-select>` with `{text, value}` items and no `item-title`**
+  (19 occurrences across `InterfaceOptions.vue`, `UgoiraOptions.vue`,
+  `GlobalTaskSettings.vue`'s own two non-migrated selects, and others) to
+  render `[object Object]` as the selection and blank dropdown rows.
+- **`@change` on `v-select`/`v-switch`** (6 occurrences, e.g.
+  `InterfaceOptions.vue`) — Vuetify 3 doesn't emit `change`, so the bound
+  handlers (locale switch, panel reposition) silently stop firing; the
+  underlying `v-model` value still persists correctly.
+- **`<v-navigation-drawer app clipped hide-overlay>`** (`Index.vue`) — `app`,
+  `clipped`, `hide-overlay` are all removed props, and there is no
+  `<v-main>` anywhere in `src` to receive the V3 layout offset, so the drawer
+  will overlay page content instead of pushing it.
+- **`<v-list two-line>`** elsewhere (~22 sites) falls through as a stray DOM
+  attribute instead of `lines="two"` — subtitles get clamped to one line.
+- **`<v-dialog v-model.sync="...">`** (`.sync` was removed in Vue 3) compiles
+  to a stray `modelModifiers: {sync:true}`; the dialog still works via
+  `modelValue`, but this path is newly reachable and untested.
+- Stray removed props landing on the DOM as plain attributes:
+  `<v-btn depressed>`, `<v-text-field reverse>`, `<v-divider light>`.
+
+**None of this is a regression** — before the fix, nothing rendered at all,
+so this PR strictly improves what's on screen (the 4 migrated rows now work
+correctly). But it changes "inert" to "broken/warning-laden" everywhere else,
+which will surprise anyone who loads the extension between Phase B and
+whichever phase fixes each spot above. Each item is exactly the kind of fix
+its own phase already plans to make; nothing here needs doing early, but the
+"Vuetify component inventory" table above and the per-phase file lists are
+where to check before assuming a given tag is fine as-is.
+
+**Bundle size:** `createVuetify({ components, directives })` passes whole
+namespace objects, which defeats webpack tree-shaking — the whole Vuetify 3
+library is now bundled regardless of what's used. Measured: `index.js` and
+`downloads.js` each grew by ~540 KB JS / ~310 KB CSS. The fix is necessary
+(nothing rendered without it) so this isn't worth blocking on mid-migration,
+but it should not be the end state — investigate a webpack per-component
+auto-import setup (the webpack analogue of `vite-plugin-vuetify`) before the
+final phase merges to `main`.
+
 ## Suggested sequencing
 
 1. ~~Land the toolchain branch first~~ (done — Phase A, see the top of this doc).
@@ -125,9 +184,10 @@ Done in Phase A:
    enforced by a coverage floor in `jest.config.js`; see `docs/testing.md`.
    `content_scripts/components` is still untested. Since it migrates last
    (step 5), that's the coverage gap left to close before this plan reaches it.
-3. Migrate the leaf `option-items` (4 files — this doc previously said 5;
-   `DownloadSaveMode.vue`, `ZipDownloads.vue`, `CombineRenameRules.vue`,
-   `DontCreateWorkFolder.vue` is the full set) first to establish the patterns.
+3. ~~Migrate the leaf `option-items`~~ (done — Phase B; 4 files, this doc
+   previously said 5: `DownloadSaveMode.vue`, `ZipDownloads.vue`,
+   `CombineRenameRules.vue`, `DontCreateWorkFolder.vue` is the full set). See
+   "Phase B discovery" below for what landed alongside the markup change.
 4. Then `options_page/components/options` (20), then the rest of the options page
    — `DownloadManager.vue`'s `this.$set` calls (see above) are a hard blocker
    somewhere in this phase, not just a markup update.

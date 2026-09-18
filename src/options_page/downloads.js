@@ -11,7 +11,7 @@ import moment from 'moment';
 import router from './router';
 import SuperMixin from '@/mixins/SuperMixin';
 import { createApp, h } from 'vue'
-import { createVuetify } from 'vuetify';
+import { createAppVuetify } from './vuetify';
 
 /**
  * Make sure there is only one downloads page open. When the page first opened
@@ -105,7 +105,7 @@ import { createVuetify } from 'vuetify';
 
     moment.locale(i18n.global.locale);
 
-    const vuetify = createVuetify();
+    const vuetify = createAppVuetify();
 
     const app = createApp({
       render: () => h(Downloads),

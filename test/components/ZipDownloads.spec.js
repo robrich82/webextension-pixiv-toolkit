@@ -9,6 +9,7 @@ describe('ZipDownloads', () => {
     });
 
     expect(wrapper.vm.showThis).toBe(false);
+    expect(wrapper.find('v-list-item-stub').exists()).toBe(false);
   });
 
   test('shows itself and adopts the stored value when downloadSaveMode is 0', () => {
@@ -18,6 +19,7 @@ describe('ZipDownloads', () => {
 
     expect(wrapper.vm.showThis).toBe(true);
     expect(wrapper.vm.value).toBe(2);
+    expect(wrapper.find('v-list-item-stub').exists()).toBe(true);
   });
 
   test('exposes the four zip options', () => {
