@@ -1,5 +1,5 @@
 import browser from '../doubles/browser';
-import { shallowMountOption } from '../helpers/mountOptionComponent';
+import { mountOption, shallowMountOption } from '../helpers/mountOptionComponent';
 import UgoiraExtendDialog from '@/options_page/components/options/UgoiraExtendDialog.vue';
 
 const browserItems = {
@@ -9,6 +9,18 @@ const browserItems = {
 };
 
 describe('UgoiraExtendDialog', () => {
+  // shallowMount stubs `v-list-item` and only renders its default slot, so it
+  // can't see this component's `#title`/`#subtitle`/`#append` named slots
+  // (see DownloadSaveMode.spec.js for the same pattern). `v-dialog`'s content
+  // also teleports to `document.body` rather than staying under the wrapper's
+  // own root element, so `wrapper.text()` can't see it either -- read the
+  // body directly.
+  test('renders the title through the migrated named slots', () => {
+    mountOption(UgoiraExtendDialog, { browserItems });
+
+    expect(document.body.textContent).toContain('extend_enable.message');
+  });
+
   test('adopts every stored value before mount', () => {
     const wrapper = shallowMountOption(UgoiraExtendDialog, { browserItems });
 

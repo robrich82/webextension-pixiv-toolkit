@@ -1,30 +1,26 @@
 <template>
   <div class="option-section">
-    <v-list two-line>
-      <v-list-tile @click="openRenameDialog()">
-        <v-list-tile-content>
-          <v-list-tile-title>{{ tl('_rename') }}</v-list-tile-title>
-          <v-list-tile-sub-title>{{ renameRule }}</v-list-tile-sub-title>
-        </v-list-tile-content>
-        <v-list-tile-action>
+    <v-list lines="two">
+      <v-list-item @click="openRenameDialog()">
+        <template #title>{{ tl('_rename') }}</template>
+        <template #subtitle>{{ renameRule }}</template>
+        <template #append>
           <v-btn icon ripple>
-            <v-icon>keyboard_arrow_right</v-icon>
+            <v-icon>mdi-chevron-right</v-icon>
           </v-btn>
-        </v-list-tile-action>
-      </v-list-tile>
+        </template>
+      </v-list-item>
 
-      <v-list-tile>
-        <v-list-tile-content>
-          <v-list-tile-title>{{ tl('include_novel_description') }}</v-list-tile-title>
-          <v-list-tile-sub-title>{{ tl('include_novel_description_at_the_beginning') }}</v-list-tile-sub-title>
-        </v-list-tile-content>
-        <v-list-tile-action>
+      <v-list-item>
+        <template #title>{{ tl('include_novel_description') }}</template>
+        <template #subtitle>{{ tl('include_novel_description_at_the_beginning') }}</template>
+        <template #append>
           <v-switch v-model="novelIncludeDescription"></v-switch>
-        </v-list-tile-action>
-      </v-list-tile>
+        </template>
+      </v-list-item>
     </v-list>
 
-    <rename-dialog :show.sync="showRenameDialog"
+    <rename-dialog v-model:show="showRenameDialog"
       v-model="renameRule"
       :title="tl('_novel_rename_rule')"
       :metas="renameMetas"

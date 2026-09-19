@@ -3,91 +3,79 @@
     <span class="option-card-title">{{ tl('Others') }}</span>
 
     <v-card>
-      <v-list two-line>
-        <v-list-tile>
-          <v-list-tile-content>
-            <v-list-tile-title>{{ tl('_export_settings') }}</v-list-tile-title>
-          </v-list-tile-content>
-          <v-list-tile-action>
+      <v-list lines="two">
+        <v-list-item>
+          <template #title>{{ tl('_export_settings') }}</template>
+          <template #append>
             <v-menu
               open-on-hover
-              top
-              offset-x
-              left
+              location="top"
             >
               <template
-                v-slot:activator="{ on }"
+                v-slot:activator="{ props }"
               >
                 <v-btn
-                  depressed
-                  v-on="on"
+                  variant="flat"
+                  v-bind="props"
                 >{{ tl('_export') }}</v-btn>
               </template>
               <v-list>
-                <v-list-tile
+                <v-list-item
                   @click="exportSettings"
-                >{{ tl('_all_settings') }}</v-list-tile>
-                <v-list-tile
+                >{{ tl('_all_settings') }}</v-list-item>
+                <v-list-item
                   @click="exportSettings({ excludeHistoryBackup: true })"
-                >{{ tl('_exclude_history_backup') }}</v-list-tile>
+                >{{ tl('_exclude_history_backup') }}</v-list-item>
               </v-list>
             </v-menu>
-          </v-list-tile-action>
-        </v-list-tile>
+          </template>
+        </v-list-item>
 
-        <v-list-tile two-line>
-          <v-list-tile-content>
-            <v-list-tile-title>{{ tl('_import_settings') }}</v-list-tile-title>
-          </v-list-tile-content>
-          <v-list-tile-action>
+        <v-list-item>
+          <template #title>{{ tl('_import_settings') }}</template>
+          <template #append>
             <v-menu
               open-on-hover
-              top
-              offset-x
-              left
+              location="top"
             >
               <template
-                v-slot:activator="{ on }"
+                v-slot:activator="{ props }"
               >
                 <v-btn
-                  depressed
-                  v-on="on"
+                  variant="flat"
+                  v-bind="props"
                 >{{ tl('_import') }}</v-btn>
               </template>
               <v-list>
-                <v-list-tile
+                <v-list-item
                   @click="importSettings({})"
-                >{{ tl('_all_settings') }}</v-list-tile>
-                <v-list-tile
+                >{{ tl('_all_settings') }}</v-list-item>
+                <v-list-item
                   @click="importSettings({ excludeHistoryBackup: true })"
-                >{{ tl('_exclude_history_backup') }}</v-list-tile>
+                >{{ tl('_exclude_history_backup') }}</v-list-item>
               </v-list>
             </v-menu>
-          </v-list-tile-action>
-        </v-list-tile>
+          </template>
+        </v-list-item>
       </v-list>
 
-      <v-list two-line>
-        <v-list-tile>
-          <v-list-tile-content>
-            <v-list-tile-title>{{ tl('Reload_extension') }}</v-list-tile-title>
-            <v-list-tile-sub-title>{{ tl('Reload_extension_if_there_is_something_wrong') }}</v-list-tile-sub-title>
-          </v-list-tile-content>
-          <v-list-tile-action>
-            <v-btn depressed @click="reload">{{ tl('Reload') }}</v-btn>
-          </v-list-tile-action>
-        </v-list-tile>
+      <v-list lines="two">
+        <v-list-item>
+          <template #title>{{ tl('Reload_extension') }}</template>
+          <template #subtitle>{{ tl('Reload_extension_if_there_is_something_wrong') }}</template>
+          <template #append>
+            <v-btn variant="flat" @click="reload">{{ tl('Reload') }}</v-btn>
+          </template>
+        </v-list-item>
       </v-list>
 
-      <v-list two-line>
-        <v-list-tile>
-          <v-list-tile-content>
-            <v-list-tile-title>{{ tl('_diagnosis_messages') }}</v-list-tile-title>
-          </v-list-tile-content>
-          <v-list-tile-action>
-            <v-btn depressed @click="viewDiagnosis">{{ tl('_view') }}</v-btn>
-          </v-list-tile-action>
-        </v-list-tile>
+      <v-list lines="two">
+        <v-list-item>
+          <template #title>{{ tl('_diagnosis_messages') }}</template>
+          <template #append>
+            <v-btn variant="flat" @click="viewDiagnosis">{{ tl('_view') }}</v-btn>
+          </template>
+        </v-list-item>
       </v-list>
     </v-card>
   </div>

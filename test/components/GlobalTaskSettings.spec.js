@@ -1,5 +1,5 @@
 import browser from '../doubles/browser';
-import { shallowMountOption } from '../helpers/mountOptionComponent';
+import { mountOption, shallowMountOption } from '../helpers/mountOptionComponent';
 import GlobalTaskSettings from '@/options_page/components/options/GlobalTaskSettings.vue';
 
 const browserItems = {
@@ -9,6 +9,15 @@ const browserItems = {
 };
 
 describe('GlobalTaskSettings', () => {
+  // shallowMount stubs `v-list-item` and only renders its default slot, so it
+  // can't see this component's `#title`/`#subtitle`/`#append` named slots
+  // (see DownloadSaveMode.spec.js for the same pattern).
+  test('renders the title through the migrated named slots', () => {
+    const wrapper = mountOption(GlobalTaskSettings, { browserItems });
+
+    expect(wrapper.text()).toContain('_page_number_start_with_1.message');
+  });
+
   test('adopts the stored values on creation', () => {
     const wrapper = shallowMountOption(GlobalTaskSettings, { browserItems });
 

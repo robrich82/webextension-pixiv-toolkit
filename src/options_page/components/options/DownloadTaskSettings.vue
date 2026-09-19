@@ -2,57 +2,70 @@
   <div class="option-section download-task-settings">
     <span class="option-card-title">{{ tl('_download_task_settings') }}</span>
 
-    <v-expansion-panel>
-      <v-expansion-panel-content>
-        <template v-slot:header>
+    <v-expansion-panels>
+      <v-expansion-panel>
+        <v-expansion-panel-title>
           <div class="download-task-settings__title">{{ tl('_global_settings') }}</div>
-        </template>
-        <global-task-settings></global-task-settings>
-      </v-expansion-panel-content>
+        </v-expansion-panel-title>
+        <v-expansion-panel-text>
+          <global-task-settings></global-task-settings>
+        </v-expansion-panel-text>
+      </v-expansion-panel>
 
-      <v-expansion-panel-content>
-        <template v-slot:header>
+      <v-expansion-panel>
+        <v-expansion-panel-title>
           <div class="download-task-settings__title">Pixiv {{ tl('Ugoira') }}</div>
-        </template>
-        <ugoria-options></ugoria-options>
-      </v-expansion-panel-content>
+        </v-expansion-panel-title>
+        <v-expansion-panel-text>
+          <ugoria-options></ugoria-options>
+        </v-expansion-panel-text>
+      </v-expansion-panel>
 
-      <v-expansion-panel-content>
-        <template v-slot:header>
+      <v-expansion-panel>
+        <v-expansion-panel-title>
           <div class="download-task-settings__title">Pixiv {{ tl('Illustration') }}</div>
-        </template>
-        <illust-options></illust-options>
-      </v-expansion-panel-content>
+        </v-expansion-panel-title>
+        <v-expansion-panel-text>
+          <illust-options></illust-options>
+        </v-expansion-panel-text>
+      </v-expansion-panel>
 
-      <v-expansion-panel-content>
-        <template v-slot:header>
+      <v-expansion-panel>
+        <v-expansion-panel-title>
           <div class="download-task-settings__title">Pixiv {{ tl('Manga') }}</div>
-        </template>
-        <manga-options></manga-options>
-      </v-expansion-panel-content>
+        </v-expansion-panel-title>
+        <v-expansion-panel-text>
+          <manga-options></manga-options>
+        </v-expansion-panel-text>
+      </v-expansion-panel>
 
-      <v-expansion-panel-content>
-        <template v-slot:header>
+      <v-expansion-panel>
+        <v-expansion-panel-title>
           <div class="download-task-settings__title">Pixiv {{ tl('Novel') }}</div>
-        </template>
-        <novel-options></novel-options>
-      </v-expansion-panel-content>
+        </v-expansion-panel-title>
+        <v-expansion-panel-text>
+          <novel-options></novel-options>
+        </v-expansion-panel-text>
+      </v-expansion-panel>
 
-      <v-expansion-panel-content>
-        <template v-slot:header>
+      <v-expansion-panel>
+        <v-expansion-panel-title>
           <div class="download-task-settings__title">Pixiv Comic</div>
-        </template>
-        <pixiv-comic-options></pixiv-comic-options>
-      </v-expansion-panel-content>
+        </v-expansion-panel-title>
+        <v-expansion-panel-text>
+          <pixiv-comic-options></pixiv-comic-options>
+        </v-expansion-panel-text>
+      </v-expansion-panel>
 
-      <v-expansion-panel-content>
-        <template v-slot:header>
+      <v-expansion-panel>
+        <v-expansion-panel-title>
           <div class="download-task-settings__title">Fanbox</div>
-        </template>
-        <fanbox-post-settings></fanbox-post-settings>
-      </v-expansion-panel-content>
-
-    </v-expansion-panel>
+        </v-expansion-panel-title>
+        <v-expansion-panel-text>
+          <fanbox-post-settings></fanbox-post-settings>
+        </v-expansion-panel-text>
+      </v-expansion-panel>
+    </v-expansion-panels>
   </div>
 </template>
 

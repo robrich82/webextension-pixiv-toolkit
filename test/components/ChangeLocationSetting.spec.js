@@ -1,5 +1,6 @@
-import { shallowMountOption } from '../helpers/mountOptionComponent';
+import { mountOption, shallowMountOption } from '../helpers/mountOptionComponent';
 import ChangeLocationSetting from '@/options_page/components/options/ChangeLocationSetting.vue';
+import ChangeLocationBtn from '@/options_page/components/options/ChangeLocationBtn.vue';
 
 const baseProps = {
   value: '',
@@ -37,23 +38,23 @@ describe('ChangeLocationSetting', () => {
     expect(wrapper.emitted('input')).toEqual([['downloads/other/']]);
   });
 
+  // shallowMount stubs `v-list-item` and only renders a stub's *default*
+  // slot, so it can't see change-location-btn -- it lives in the `#append`
+  // named slot. A real mount is the only way to reach it (see
+  // DownloadSaveMode.spec.js for the same pattern).
   test('disables the change-location button unless enableExtTakeOverDownloads is set', () => {
-    const disabled = shallowMountOption(ChangeLocationSetting, {
+    const disabled = mountOption(ChangeLocationSetting, {
       propsData: baseProps,
       browserItems: { enableExtTakeOverDownloads: false }
     });
 
-    expect(disabled.find('change-location-btn-stub').attributes('disabled')).toBe('true');
+    expect(disabled.findComponent(ChangeLocationBtn).props('disabled')).toBe(true);
 
-    const enabled = shallowMountOption(ChangeLocationSetting, {
+    const enabled = mountOption(ChangeLocationSetting, {
       propsData: baseProps,
       browserItems: { enableExtTakeOverDownloads: true }
     });
 
-    // @vue/test-utils 2's auto-stubs serialize a false boolean prop as the
-    // literal attribute "false" rather than omitting it (@vue/test-utils 1
-    // omitted it) -- this is a stub-rendering difference, not a component
-    // behaviour change.
-    expect(enabled.find('change-location-btn-stub').attributes('disabled')).toBe('false');
+    expect(enabled.findComponent(ChangeLocationBtn).props('disabled')).toBe(false);
   });
 });

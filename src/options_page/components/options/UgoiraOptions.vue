@@ -1,63 +1,59 @@
 <template>
   <div class="option-section">
-    <v-list two-line>
-      <v-list-tile @click="openRenameDialog">
-        <v-list-tile-content>
-          <v-list-tile-title>{{ tl('rename_ugoira_file') }}</v-list-tile-title>
-          <v-list-tile-sub-title>{{ renameRule }}</v-list-tile-sub-title>
-        </v-list-tile-content>
-        <v-list-tile-action>
+    <v-list lines="two">
+      <v-list-item @click="openRenameDialog">
+        <template #title>{{ tl('rename_ugoira_file') }}</template>
+        <template #subtitle>{{ renameRule }}</template>
+        <template #append>
           <v-btn icon ripple>
-            <v-icon>keyboard_arrow_right</v-icon>
+            <v-icon>mdi-chevron-right</v-icon>
           </v-btn>
-        </v-list-tile-action>
-      </v-list-tile>
+        </template>
+      </v-list-item>
 
-      <v-list-tile class="option-section__auto-height">
-        <v-list-tile-content>
-          <v-list-tile-title>{{ tl('_ffmpeg_custom_convert_command') }} (<a href="https://github.com/leoding86/webextension-pixiv-toolkit/blob/master/docs/help.md#about-ffmpeg-custom-convert-command-en_us" target="_blank"><strong>{{ tl('_more_info') }}</strong></a>)</v-list-tile-title>
-          <v-list-tile-sub-title>
-            <textarea class="option-section__input-text"
-              v-model="ugoiraCustomFFmpegCommand"
-              :placeholder="tl('_not_set')"
-              @blur="onUgoiraCustomFFmpegCommandChangeHandler"
-            ></textarea>
-          </v-list-tile-sub-title>
-        </v-list-tile-content>
-      </v-list-tile>
+      <v-list-item class="option-section__auto-height">
+        <template #title>{{ tl('_ffmpeg_custom_convert_command') }} (<a href="https://github.com/leoding86/webextension-pixiv-toolkit/blob/master/docs/help.md#about-ffmpeg-custom-convert-command-en_us" target="_blank"><strong>{{ tl('_more_info') }}</strong></a>)</template>
+        <template #subtitle>
+          <textarea class="option-section__input-text"
+            v-model="ugoiraCustomFFmpegCommand"
+            :placeholder="tl('_not_set')"
+            @blur="onUgoiraCustomFFmpegCommandChangeHandler"
+          ></textarea>
+        </template>
+      </v-list-item>
 
-      <v-list-tile>
-        <v-list-tile-content>
-          <v-list-tile-title>
-            {{ tl('pack_ugoira_frames_info') }}
-            <v-tooltip
-              bottom
+      <v-list-item>
+        <template #title>
+          {{ tl('pack_ugoira_frames_info') }}
+          <v-tooltip
+            location="bottom"
+          >
+            <template
+              v-slot:activator="{ props }"
             >
-              <template
-                v-slot:activator="{ on }"
-              >
-                <v-icon
-                  v-on="on"
-                  small
-                >info</v-icon>
-              </template>
-              <span>{{ tl('pack_ugoira_frames_info_into_tip') }}</span>
-            </v-tooltip>
-          </v-list-tile-title>
-          <v-list-tile-sub-title>{{ tl('pack_ugoira_frames_info_into_zip') }}</v-list-tile-sub-title>
-        </v-list-tile-content>
-        <v-list-tile-action>
+              <v-icon
+                v-bind="props"
+                size="small"
+              >mdi-information</v-icon>
+            </template>
+            <span>{{ tl('pack_ugoira_frames_info_into_tip') }}</span>
+          </v-tooltip>
+        </template>
+        <template #subtitle>{{ tl('pack_ugoira_frames_info_into_zip') }}</template>
+        <template #append>
           <v-select
             :items="animationJsonFormatOptions"
+            item-title="text"
+            item-value="value"
             v-model="animationJsonFormat"
             style="width:150px"
           >
           </v-select>
-        </v-list-tile-action>
-      </v-list-tile>
+        </template>
+      </v-list-item>
     </v-list>
 
-    <rename-dialog :show.sync="showRenameDialog"
+    <rename-dialog v-model:show="showRenameDialog"
       v-model="renameRule"
       :title="tl('rename_ugoira')"
       :metas="renameMetas"

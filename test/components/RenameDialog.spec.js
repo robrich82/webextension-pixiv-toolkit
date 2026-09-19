@@ -9,7 +9,7 @@ const metas = [
 const baseProps = {
   title: 'Rename',
   metas,
-  value: 'foo_bar',
+  modelValue: 'foo_bar',
   defaultValue: '{id}_{title}'
 };
 
@@ -41,7 +41,7 @@ describe('RenameDialog', () => {
   test('re-syncs renameFormat whenever the value prop changes', async () => {
     const wrapper = shallowMountOption(RenameDialog, { propsData: baseProps });
 
-    wrapper.setProps({ value: 'updated' });
+    wrapper.setProps({ modelValue: 'updated' });
     await wrapper.vm.$nextTick();
 
     expect(wrapper.vm.renameFormat).toBe('updated');
@@ -64,7 +64,7 @@ describe('RenameDialog', () => {
     wrapper.vm.updateRenameFormat();
 
     expect(wrapper.vm.renameFormat).toBe('{id}_{title}');
-    expect(wrapper.emitted('input')).toEqual([['{id}_{title}']]);
+    expect(wrapper.emitted('update:modelValue')).toEqual([['{id}_{title}']]);
   });
 
   test('updateRenameFormat emits whatever was typed when it is not empty', () => {
@@ -73,7 +73,7 @@ describe('RenameDialog', () => {
     wrapper.vm.renameFormat = 'custom_{id}';
     wrapper.vm.updateRenameFormat();
 
-    expect(wrapper.emitted('input')).toEqual([['custom_{id}']]);
+    expect(wrapper.emitted('update:modelValue')).toEqual([['custom_{id}']]);
   });
 
   // TODO(vue3-migration phase C, #26): manually assigning

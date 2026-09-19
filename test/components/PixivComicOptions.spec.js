@@ -1,5 +1,5 @@
 import browser from '../doubles/browser';
-import { shallowMountOption } from '../helpers/mountOptionComponent';
+import { mountOption, shallowMountOption } from '../helpers/mountOptionComponent';
 import PixivComicOptions from '@/options_page/components/options/PixivComicOptions.vue';
 
 const browserItems = {
@@ -10,6 +10,15 @@ const browserItems = {
 };
 
 describe('PixivComicOptions', () => {
+  // shallowMount stubs `v-list-item` and only renders its default slot, so it
+  // can't see this component's `#title`/`#subtitle`/`#append` named slots
+  // (see DownloadSaveMode.spec.js for the same pattern).
+  test('renders the title through the migrated named slots', () => {
+    const wrapper = mountOption(PixivComicOptions, { browserItems });
+
+    expect(wrapper.text()).toContain('_rename_pixiv_comic_episode_image.message');
+  });
+
   test('adopts every stored value on creation, all under the "Episode" key prefix', () => {
     const wrapper = shallowMountOption(PixivComicOptions, { browserItems });
 

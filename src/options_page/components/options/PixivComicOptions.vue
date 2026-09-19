@@ -1,65 +1,61 @@
 <template>
   <div class="option-section">
-    <v-list two-line>
-      <v-list-tile @click="showRenameDialog = true">
-        <v-list-tile-content>
-          <v-list-tile-title>{{ tl('_rename') }}</v-list-tile-title>
-          <v-list-tile-sub-title>{{ renameRule }}</v-list-tile-sub-title>
-        </v-list-tile-content>
-        <v-list-tile-action>
+    <v-list lines="two">
+      <v-list-item @click="showRenameDialog = true">
+        <template #title>{{ tl('_rename') }}</template>
+        <template #subtitle>{{ renameRule }}</template>
+        <template #append>
           <v-btn icon ripple>
-            <v-icon>keyboard_arrow_right</v-icon>
+            <v-icon>mdi-chevron-right</v-icon>
           </v-btn>
-        </v-list-tile-action>
-      </v-list-tile>
+        </template>
+      </v-list-item>
 
-      <v-list-tile @click="showRenameImageDialog = true">
-        <v-list-tile-content>
-          <v-list-tile-title>{{ tl('_rename_pixiv_comic_episode_image') }}</v-list-tile-title>
-          <v-list-tile-sub-title>{{ renameImageRule }}</v-list-tile-sub-title>
-        </v-list-tile-content>
-        <v-list-tile-action>
+      <v-list-item @click="showRenameImageDialog = true">
+        <template #title>{{ tl('_rename_pixiv_comic_episode_image') }}</template>
+        <template #subtitle>{{ renameImageRule }}</template>
+        <template #append>
           <v-btn icon ripple>
-            <v-icon>keyboard_arrow_right</v-icon>
+            <v-icon>mdi-chevron-right</v-icon>
           </v-btn>
-        </v-list-tile-action>
-      </v-list-tile>
+        </template>
+      </v-list-item>
 
-      <v-list-tile>
-        <v-list-tile-content>
-          <v-list-tile-title>{{ tl('_page_number_start_with_1') }}</v-list-tile-title>
-          <v-list-tile-sub-title>{{ tl('_page_number_start_with_1_otherwise_start_with_0') }}</v-list-tile-sub-title>
-        </v-list-tile-content>
-        <v-list-tile-action>
+      <v-list-item>
+        <template #title>{{ tl('_page_number_start_with_1') }}</template>
+        <template #subtitle>{{ tl('_page_number_start_with_1_otherwise_start_with_0') }}</template>
+        <template #append>
           <v-select :items="pageNumberStartWithOneOptions"
+            item-title="text"
+            item-value="value"
             v-model="pageNumberStartWithOne"
             style="width:150px;"
           ></v-select>
-        </v-list-tile-action>
-      </v-list-tile>
+        </template>
+      </v-list-item>
 
-      <v-list-tile>
-        <v-list-tile-content>
-          <v-list-tile-title>{{ tl('_the_length_of_page_number') }}</v-list-tile-title>
-          <v-list-tile-sub-title>{{ tl('_zeros_will_be_filled_at_the_beginning_of_page_number') }}</v-list-tile-sub-title>
-        </v-list-tile-content>
-        <v-list-tile-action>
+      <v-list-item>
+        <template #title>{{ tl('_the_length_of_page_number') }}</template>
+        <template #subtitle>{{ tl('_zeros_will_be_filled_at_the_beginning_of_page_number') }}</template>
+        <template #append>
           <v-select :items="pageNumberLengthOptions"
+            item-title="text"
+            item-value="value"
             v-model="pageNumberLength"
             style="width:150px;"
           ></v-select>
-        </v-list-tile-action>
-      </v-list-tile>
+        </template>
+      </v-list-item>
     </v-list>
 
-    <rename-dialog :show.sync="showRenameDialog"
+    <rename-dialog v-model:show="showRenameDialog"
       v-model="renameRule"
       :title="tl('_rename_comic')"
       :metas="renameMetas"
       :default-value="defaultRenameRule"
     ></rename-dialog>
 
-    <rename-dialog :show.sync="showRenameImageDialog"
+    <rename-dialog v-model:show="showRenameImageDialog"
       v-model="renameImageRule"
       :title="tl('_rename_pixiv_comic_image')"
       :metas="renameImageMetas"

@@ -21,3 +21,14 @@ if (typeof globalThis.ResizeObserver === 'undefined') {
     disconnect() {}
   };
 }
+
+/**
+ * jsdom doesn't implement `visualViewport` at all -- not even as `undefined`
+ * on `window` -- so Vuetify's overlay location strategy (`v-dialog`, `v-menu`,
+ * ... on a real, non-shallow mount) throws `ReferenceError: visualViewport is
+ * not defined` on the bare identifier reference before its own `?.` optional
+ * chaining ever gets a chance to guard against a missing implementation.
+ */
+if (typeof globalThis.visualViewport === 'undefined') {
+  globalThis.visualViewport = null;
+}

@@ -1,6 +1,6 @@
 <template>
   <v-btn
-    depressed
+    variant="flat"
     @click="buttonClickHandle"
   >{{ !granted ? 'Grant' : 'Remove' }}</v-btn>
 </template>

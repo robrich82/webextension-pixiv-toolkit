@@ -1,31 +1,31 @@
 <template>
   <div class="option-section">
     <v-list lines="two">
-      <v-list-tile>
-        <v-list-tile-content>
-          <v-list-tile-title>{{ tl('_page_number_start_with_1') }}</v-list-tile-title>
-          <v-list-tile-sub-title>{{ tl('_page_number_start_with_1_otherwise_start_with_0') }}</v-list-tile-sub-title>
-        </v-list-tile-content>
-        <v-list-tile-action>
+      <v-list-item>
+        <template #title>{{ tl('_page_number_start_with_1') }}</template>
+        <template #subtitle>{{ tl('_page_number_start_with_1_otherwise_start_with_0') }}</template>
+        <template #append>
           <v-select :items="pageNumberStartWithOneOptions"
+            item-title="text"
+            item-value="value"
             v-model="pageNumberStartWithOne"
             style="width:150px;"
           ></v-select>
-        </v-list-tile-action>
-      </v-list-tile>
+        </template>
+      </v-list-item>
 
-      <v-list-tile>
-        <v-list-tile-content>
-          <v-list-tile-title>{{ tl('_the_length_of_page_number') }}</v-list-tile-title>
-          <v-list-tile-sub-title>{{ tl('_zeros_will_be_filled_at_the_beginning_of_page_number') }}</v-list-tile-sub-title>
-        </v-list-tile-content>
-        <v-list-tile-action>
+      <v-list-item>
+        <template #title>{{ tl('_the_length_of_page_number') }}</template>
+        <template #subtitle>{{ tl('_zeros_will_be_filled_at_the_beginning_of_page_number') }}</template>
+        <template #append>
           <v-select :items="pageNumberLengthOptions"
+            item-title="text"
+            item-value="value"
             v-model="pageNumberLength"
             style="width:150px;"
           ></v-select>
-        </v-list-tile-action>
-      </v-list-tile>
+        </template>
+      </v-list-item>
 
       <DownloadSaveMode />
 

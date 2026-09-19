@@ -7,7 +7,9 @@ on `feature/vue3-vuetify3-migration-26` — see that branch's `build/
 vue3-toolchain-bump-26` PR. **Phase B (the leaf `option-items` components) has
 also landed**, via `feature/vue3-phase-b-option-items-26` — see "Phase B
 discovery" below for what actually registering Vuetify 3's components turned
-up. Every other `.vue` component template is still on Vuetify 1.5 markup; the
+up. **Phase C (`options_page/components/options`, 19 files) has also
+landed**, via `feature/vue3-phase-c-options-26` — see "Phase C notes" below.
+Every other `.vue` component template is still on Vuetify 1.5 markup; the
 phases below this point are what's left.
 
 ## Why this was outstanding
@@ -175,6 +177,69 @@ but it should not be the end state — investigate a webpack per-component
 auto-import setup (the webpack analogue of `vite-plugin-vuetify`) before the
 final phase merges to `main`.
 
+## Phase C notes: `options_page/components/options` (19 files)
+
+Mechanical `v-list-tile*` → `v-list-item` (`#title`/`#subtitle`/`#append`
+slots), `two-line` → `lines="two"`, and `item-title="text"` on every
+`v-select` landed across all 19 files per the inventory table above. A few
+things that weren't just renames:
+
+- **`v-model` on `RenameDialog.vue`** (used bare — `v-model="renameRule"` — by
+  6 of the other 18 files) needed the `value`/`input` → `modelValue`/
+  `update:modelValue` rename described above; Vue 3's compiler has no way to
+  target a custom prop/event pair from a *bare* `v-model` the way Vue 2's
+  `model` option could. `:show.sync="..."` on the same tag became
+  `v-model:show="..."` — `RenameDialog.vue` already emitted `update:show`, so
+  only the call sites changed. `ChangeLocationBtn.vue`'s `location` prop kept
+  its own name (already `update:location`), so its caller just became
+  `v-model:location="location"`.
+- **`v-menu`/`v-tooltip` activator slots** changed shape: `v-slot:activator="{
+  on }"` + `v-on="on"` → `v-slot:activator="{ props }"` + `v-bind="props"`.
+  `v-menu`'s old `top`/`offset-x`/`left` boolean props are gone too, replaced
+  by a single `location="top"` (an approximation of the old three-prop
+  combination, not a pixel-exact port).
+- **`v-expansion-panel(-content)` → `v-expansion-panels`/`v-expansion-panel`/
+  `v-expansion-panel-title`/`v-expansion-panel-text`** in
+  `DownloadTaskSettings.vue` — Vuetify 3 renamed the plural *and* singular
+  roles, not just the content tag, so this was a structural rewrite, not a
+  find/replace.
+- **`v-icon`/`v-btn`'s `small` boolean prop is gone**, replaced by
+  `size="small"`. Ligature icon names (`info`, `keyboard_arrow_right`) became
+  `mdi-information`/`mdi-chevron-right` — Vuetify 3's default icon set is
+  `mdi` (already wired in Phase A via `@mdi/font`), not Material ligatures.
+- **`@change` on `v-select`/`v-switch`** (flagged in "Phase B discovery") was
+  fixed by renaming the listener to `@update:model-value` in place — *not* by
+  moving the logic into a generic `watch`, which would also fire on the
+  component's own programmatic `beforeMount`/`created` assignments and change
+  behaviour (`DownloadsShelfOption.vue`'s permission-request flow only fires
+  on user interaction, not when the stored value is echoed back in).
+- **Function-coverage regression:** converting `<v-list-tile-title>` etc. into
+  `<template #title>` scoped slots means each slot's render code is now its
+  own function in the compiled output — and `shallowMountOption`'s
+  `renderStubDefaultSlot` stub (see `docs/testing.md`) only ever renders a
+  stubbed component's *default* slot, so none of those title/subtitle/append
+  functions run under the existing `shallowMountOption`-only specs. This
+  silently dropped `options_page/components/options`'s function coverage from
+  95.03% to 91.3%, tripping the coverage floor. Fixed by adding one
+  `mountOption` (real mount) smoke test per affected file, asserting the
+  rendered title text — the same pattern Phase B already used in
+  `DownloadSaveMode.spec.js`. `v-dialog` content (`UgoiraExtendDialog.vue`)
+  teleports to `document.body` rather than staying under the mounted
+  wrapper's root, so that one component's smoke test reads
+  `document.body.textContent` instead of `wrapper.text()`.
+- **jsdom gap:** a real (non-shallow) mount of anything using Vuetify's
+  overlay positioning (`v-dialog`, `v-menu`, `v-select`'s dropdown) now also
+  needs `visualViewport` on `globalThis` — jsdom doesn't define it at all
+  (unlike `ResizeObserver`, which is at least `undefined`), so a bare
+  reference throws `ReferenceError` before Vuetify's own `?.` guard can help.
+  Shimmed alongside the existing `CSS`/`ResizeObserver` shims in
+  `test/setup/jsdomGlobals.js`.
+- **Left alone, matching pre-existing test comments:** `RenameDialog.vue`'s
+  `hint` prop/computed shadowing and `pickMeta`'s `$refs` read (2 still-`test.skip`ped
+  specs) and `PixivComicOptions.vue`'s undeclared `showRenameImageDialog` dead
+  binding — none of these are markup issues, and fixing them wasn't part of
+  this phase's scope.
+
 ## Suggested sequencing
 
 1. ~~Land the toolchain branch first~~ (done — Phase A, see the top of this doc).
@@ -188,9 +253,12 @@ final phase merges to `main`.
    previously said 5: `DownloadSaveMode.vue`, `ZipDownloads.vue`,
    `CombineRenameRules.vue`, `DontCreateWorkFolder.vue` is the full set). See
    "Phase B discovery" below for what landed alongside the markup change.
-4. Then `options_page/components/options` (20), then the rest of the options page
-   — `DownloadManager.vue`'s `this.$set` calls (see above) are a hard blocker
-   somewhere in this phase, not just a markup update.
+4. ~~Then `options_page/components/options`~~ (done — Phase C; 19 files, this
+   doc previously said 20 — same count discrepancy as option-items above,
+   never had a 20th file). See "Phase C notes" above. The rest of the options
+   page (`options_page/components/*.vue`, 17 files) is still open —
+   `DownloadManager.vue`'s `this.$set` calls (see above) are a hard blocker
+   somewhere in that phase, not just a markup update.
 5. `content_scripts/components` (6) last — those render into Pixiv's own pages
    and are the hardest to verify. `PageSelector.vue`'s `this.$set` calls are the
    same kind of blocker here.

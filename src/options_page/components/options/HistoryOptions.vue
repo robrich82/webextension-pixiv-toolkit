@@ -3,21 +3,17 @@
     <span class="option-card-title">{{ tl('History') }}</span>
 
     <v-card>
-      <v-list two-line>
-        <v-list-tile>
-          <v-list-tile-content>
-            <v-list-tile-title>{{ tl('Enable_save_visit_history') }}</v-list-tile-title>
-          </v-list-tile-content>
-          <v-list-tile-action>
+      <v-list lines="two">
+        <v-list-item>
+          <template #title>{{ tl('Enable_save_visit_history') }}</template>
+          <template #append>
             <v-switch v-model="enableSaveVisitHistory"></v-switch>
-          </v-list-tile-action>
-        </v-list-tile>
+          </template>
+        </v-list-item>
 
-        <v-list-tile>
-          <v-list-tile-content>
-            <v-list-tile-title>{{ tl('_enable_save_download_history') }}</v-list-tile-title>
-          </v-list-tile-content>
-          <v-list-tile-action>
+        <v-list-item>
+          <template #title>{{ tl('_enable_save_download_history') }}</template>
+          <template #append>
             <v-select
               :items="[{
                 text: this.tl('_enable'),
@@ -29,37 +25,33 @@
                 text: this.tl('_disable'),
                 value: 0
               }]"
+              item-title="text"
+              item-value="value"
               v-model="enableSaveDownloadHistory"
               style="width:150px;"
             ></v-select>
-          </v-list-tile-action>
-        </v-list-tile>
+          </template>
+        </v-list-item>
 
-        <v-list-tile>
-          <v-list-tile-content>
-            <v-list-tile-title>{{ tl('Do_not_save_NSFW_work_to_history') }}</v-list-tile-title>
-          </v-list-tile-content>
-          <v-list-tile-action>
+        <v-list-item>
+          <template #title>{{ tl('Do_not_save_NSFW_work_to_history') }}</template>
+          <template #append>
             <v-switch v-model="notSaveNSFWWorkInHistory" :disabled="!enableSaveVisitHistory"></v-switch>
-          </v-list-tile-action>
-        </v-list-tile>
+          </template>
+        </v-list-item>
 
-        <v-list-tile>
-          <v-list-tile-content>
-            <v-list-tile-title>{{ tl('_display_work_type_label') }}</v-list-tile-title>
-          </v-list-tile-content>
-          <v-list-tile-action>
+        <v-list-item>
+          <template #title>{{ tl('_display_work_type_label') }}</template>
+          <template #append>
             <v-switch
               v-model="displayWorkTypeLabel"
             ></v-switch>
-          </v-list-tile-action>
-        </v-list-tile>
+          </template>
+        </v-list-item>
 
-        <v-list-tile>
-          <v-list-tile-content>
-            <v-list-tile-title>{{ tl('_cover_size') }}</v-list-tile-title>
-          </v-list-tile-content>
-          <v-list-tile-action>
+        <v-list-item>
+          <template #title>{{ tl('_cover_size') }}</template>
+          <template #append>
             <v-select
               :items="[{
                 text: this.tl('_small'),
@@ -71,75 +63,67 @@
                 text: this.tl('_large'),
                 value: 3
               }]"
+              item-title="text"
+              item-value="value"
               v-model="workCoverSize"
               style="width:150px;"
             ></v-select>
-          </v-list-tile-action>
-        </v-list-tile>
+          </template>
+        </v-list-item>
 
-        <v-list-tile>
-          <v-list-tile-content>
-            <v-list-tile-title>{{ tl('_max_history_items') }}</v-list-tile-title>
-            <v-list-tile-sub-title>{{ tl('_reload_to_apply_change') }}</v-list-tile-sub-title>
-          </v-list-tile-content>
-          <v-list-tile-action>
+        <v-list-item>
+          <template #title>{{ tl('_max_history_items') }}</template>
+          <template #subtitle>{{ tl('_reload_to_apply_change') }}</template>
+          <template #append>
             <v-text-field
               v-model="maxHistoryItems"
               reverse
               type="number"
               style="width:100px;"
             ></v-text-field>
-          </v-list-tile-action>
-        </v-list-tile>
+          </template>
+        </v-list-item>
 
-        <v-list-tile>
-          <v-list-tile-content>
-            <v-list-tile-title>{{ tl('Export_visit_history') }}</v-list-tile-title>
-          </v-list-tile-content>
-          <v-list-tile-action>
+        <v-list-item>
+          <template #title>{{ tl('Export_visit_history') }}</template>
+          <template #append>
             <v-btn
-              depressed
+              variant="flat"
               @click="exportVisitHistory"
             >{{ tl('_export') }}</v-btn>
-          </v-list-tile-action>
-        </v-list-tile>
+          </template>
+        </v-list-item>
 
-        <v-list-tile>
-          <v-list-tile-content>
-            <v-list-tile-title>{{ tl('Import_visit_history') }}</v-list-tile-title>
-          </v-list-tile-content>
-          <v-list-tile-action>
+        <v-list-item>
+          <template #title>{{ tl('Import_visit_history') }}</template>
+          <template #append>
             <v-btn
-              depressed
+              variant="flat"
               @click="importVisitHistory"
             >{{ tl('_import') }}</v-btn>
-          </v-list-tile-action>
-        </v-list-tile>
+          </template>
+        </v-list-item>
 
-        <v-list-tile>
-          <v-list-tile-content>
-            <v-list-tile-title>{{ tl('_recovery_history') }} ({{ tl('_total_backup') }}: {{ historyBackupCount }})</v-list-tile-title>
-          </v-list-tile-content>
-          <v-list-tile-action>
+        <v-list-item>
+          <template #title>{{ tl('_recovery_history') }} ({{ tl('_total_backup') }}: {{ historyBackupCount }})</template>
+          <template #append>
             <v-btn
-              depressed
+              variant="flat"
               @click="recoveryHistory"
             >{{ tl('_recovery') }}</v-btn>
-          </v-list-tile-action>
-        </v-list-tile>
+          </template>
+        </v-list-item>
 
-        <v-list-tile>
-          <v-list-tile-content>
-            <v-list-tile-title>{{ tl('clear_history_data') }}</v-list-tile-title>
-            <v-list-tile-sub-title>{{ tl('clear_history_data_cannot_be_reversed') }}</v-list-tile-sub-title>
-          </v-list-tile-content>
-          <v-list-tile-action>
+        <v-list-item>
+          <template #title>{{ tl('clear_history_data') }}</template>
+          <template #subtitle>{{ tl('clear_history_data_cannot_be_reversed') }}</template>
+          <template #append>
             <v-btn
-              depressed
+              variant="flat"
               @click="confirmDialog = true"
             >{{ tl('_clear') }}</v-btn>
-          </v-list-tile-action>
-        </v-list-tile>
+          </template>
+        </v-list-item>
       </v-list>
     </v-card>
 

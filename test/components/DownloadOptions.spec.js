@@ -1,5 +1,5 @@
 import browser from '../doubles/browser';
-import { shallowMountOption } from '../helpers/mountOptionComponent';
+import { mountOption, shallowMountOption } from '../helpers/mountOptionComponent';
 import DownloadOptions from '@/options_page/components/options/DownloadOptions.vue';
 import DownloadsShelfOption from '@/options_page/components/options/DownloadsShelfOption.vue';
 
@@ -15,6 +15,15 @@ const browserItems = {
 describe('DownloadOptions', () => {
   afterEach(() => {
     delete window.$_browser;
+  });
+
+  // shallowMount stubs `v-list-item` and only renders its default slot, so it
+  // can't see this component's `#title`/`#subtitle`/`#append` named slots
+  // (see DownloadSaveMode.spec.js for the same pattern).
+  test('renders the title through the migrated named slots', () => {
+    const wrapper = mountOption(DownloadOptions, { browserItems });
+
+    expect(wrapper.text()).toContain('_max_process_download_tasks.message');
   });
 
   test('adopts every stored value on creation', () => {
