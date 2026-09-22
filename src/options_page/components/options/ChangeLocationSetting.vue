@@ -1,34 +1,32 @@
 <template>
-  <v-list-tile>
-    <v-list-tile-content>
-      <v-list-tile-title>
-        {{ settingTitle }}
-        <v-tooltip
-          v-if="settingTip !== ''"
-          bottom
+  <v-list-item>
+    <template #title>
+      {{ settingTitle }}
+      <v-tooltip
+        v-if="settingTip !== ''"
+        location="bottom"
+      >
+        <template
+          v-slot:activator="{ props }"
         >
-          <template
-            v-slot:activator="{ on }"
-          >
-            <v-icon
-              v-on="on"
-              small
-            >info</v-icon>
-          </template>
-          <span>{{ settingTip }}</span>
-        </v-tooltip>
-      </v-list-tile-title>
-      <v-list-tile-sub-title>{{ settingHint }}</v-list-tile-sub-title>
-    </v-list-tile-content>
-    <v-list-tile-action>
+          <v-icon
+            v-bind="props"
+            size="small"
+          >mdi-information</v-icon>
+        </template>
+        <span>{{ settingTip }}</span>
+      </v-tooltip>
+    </template>
+    <template #subtitle>{{ settingHint }}</template>
+    <template #append>
       <change-location-btn
         :dialog-title="dialogTitle"
         :dialog-hint="dialogHint"
-        :location.sync="location"
+        v-model:location="location"
         :disabled="!browserItems.enableExtTakeOverDownloads"
       ></change-location-btn>
-    </v-list-tile-action>
-  </v-list-tile>
+    </template>
+  </v-list-item>
 </template>
 
 <script>
@@ -40,7 +38,7 @@ export default {
   },
 
   props: {
-    value: {
+    modelValue: {
       required: true,
       type: String
     },
@@ -78,11 +76,11 @@ export default {
 
     location: {
       get() {
-        return this.value;
+        return this.modelValue;
       },
 
       set(val) {
-        this.$emit('input', val);
+        this.$emit('update:modelValue', val);
       }
     }
   }

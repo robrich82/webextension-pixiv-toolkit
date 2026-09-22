@@ -1,8 +1,19 @@
 import browser from '../doubles/browser';
-import { shallowMountOption } from '../helpers/mountOptionComponent';
+import { mountOption, shallowMountOption } from '../helpers/mountOptionComponent';
 import DownloadsShelfOption from '@/options_page/components/options/DownloadsShelfOption.vue';
 
 describe('DownloadsShelfOption', () => {
+  // shallowMount stubs `v-list-item` and only renders its default slot, so it
+  // can't see this component's `#title`/`#append` named slots (see
+  // DownloadSaveMode.spec.js for the same pattern).
+  test('renders the title through the migrated named slot', () => {
+    const wrapper = mountOption(DownloadsShelfOption, {
+      browserItems: { disableDownloadsShelf: false }
+    });
+
+    expect(wrapper.text()).toContain('_disable_downloads_shelf.message');
+  });
+
   test('adopts the stored value and does not re-check permissions when disabled', () => {
     const wrapper = shallowMountOption(DownloadsShelfOption, {
       browserItems: { disableDownloadsShelf: false }

@@ -1,13 +1,11 @@
 <template>
-  <v-list-tile>
-    <v-list-tile-content>
-      <v-list-tile-title>{{ tl('_disable_downloads_shelf') }}</v-list-tile-title>
-    </v-list-tile-content>
-    <v-list-tile-action>
+  <v-list-item>
+    <template #title>{{ tl('_disable_downloads_shelf') }}</template>
+    <template #append>
       <v-switch v-model="disableDownloadsShelf"
-        @change="onDisableDownloadsShelf"></v-switch>
-    </v-list-tile-action>
-  </v-list-tile>
+        @update:model-value="onDisableDownloadsShelf"></v-switch>
+    </template>
+  </v-list-item>
 </template>
 
 <script>

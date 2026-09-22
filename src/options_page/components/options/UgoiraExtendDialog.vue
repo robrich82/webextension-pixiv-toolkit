@@ -1,44 +1,42 @@
 <template>
   <v-dialog v-model="showDialog" max-width="560">
     <v-card>
-      <v-list two-line>
-        <v-list-tile>
-          <v-list-tile-content>
-            <v-list-tile-title>{{ tl('extend_enable') }}</v-list-tile-title>
-          </v-list-tile-content>
-          <v-list-tile-action>
+      <v-list lines="two">
+        <v-list-item>
+          <template #title>{{ tl('extend_enable') }}</template>
+          <template #append>
             <v-switch v-model="enableExtend"></v-switch>
-          </v-list-tile-action>
-        </v-list-tile>
-        <v-list-tile>
-          <v-list-tile-content>
-            <v-list-tile-title>{{ tl('extend_duration_desc') }}</v-list-tile-title>
-            <v-list-tile-sub-title>{{ tl('enable_extend_desc') }}</v-list-tile-sub-title>
-          </v-list-tile-content>
-          <v-list-tile-action>
+          </template>
+        </v-list-item>
+        <v-list-item>
+          <template #title>{{ tl('extend_duration_desc') }}</template>
+          <template #subtitle>{{ tl('enable_extend_desc') }}</template>
+          <template #append>
             <v-select
               :items="secondsItems"
+              item-title="text"
+              item-value="value"
               v-model="enableWhenUnderSeconds"
               :disabled="!enableExtend"
-              @change="onEnableWhenUnderSecondsChangeHandler()"
+              @update:model-value="onEnableWhenUnderSecondsChangeHandler()"
               style="max-width: 110px"
             ></v-select>
-          </v-list-tile-action>
-        </v-list-tile>
-        <v-list-tile>
-          <v-list-tile-content>
-            <v-list-tile-title>{{ tl('extend_duration_seconds_title') }}</v-list-tile-title>
-          </v-list-tile-content>
-          <v-list-tile-action>
+          </template>
+        </v-list-item>
+        <v-list-item>
+          <template #title>{{ tl('extend_duration_seconds_title') }}</template>
+          <template #append>
             <v-select
               :items="extendDurationItems"
+              item-title="text"
+              item-value="value"
               v-model="extendDuration"
               :disabled="!enableExtend"
-              @change="onExtendDurationChangeHandler()"
+              @update:model-value="onExtendDurationChangeHandler()"
               style="max-width: 110px"
             ></v-select>
-          </v-list-tile-action>
-        </v-list-tile>
+          </template>
+        </v-list-item>
       </v-list>
     </v-card>
   </v-dialog>

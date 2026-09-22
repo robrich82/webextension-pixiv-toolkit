@@ -3,88 +3,79 @@
     <span class="option-card-title">{{ tl('_interface') }}</span>
 
     <v-card>
-      <v-list two-line>
-        <v-list-tile>
-          <v-list-tile-content>
-            <v-list-tile-title>{{ tl('_language') }}</v-list-tile-title>
-          </v-list-tile-content>
-          <v-list-tile-action>
+      <v-list lines="two">
+        <v-list-item>
+          <template #title>{{ tl('_language') }}</template>
+          <template #append>
             <v-select
               :items="languageOptions"
+              item-title="text"
+              item-value="value"
               v-model="language"
-              type="value"
-              @change="onLanguageChangeHandler"
+              @update:model-value="onLanguageChangeHandler"
               style="width:150px"
             >
             </v-select>
-          </v-list-tile-action>
-        </v-list-tile>
+          </template>
+        </v-list-item>
       </v-list>
 
-      <v-list two-line>
-        <v-list-tile>
-          <v-list-tile-content>
-            <v-list-tile-title>{{ tl('Activate_download_panel_automatically') }}</v-list-tile-title>
-            <v-list-tile-sub-title>{{ tl('Download_panel_will_show_up_automatically_when_page_loaded') }}</v-list-tile-sub-title>
-          </v-list-tile-content>
-          <v-list-tile-action>
+      <v-list lines="two">
+        <v-list-item>
+          <template #title>{{ tl('Activate_download_panel_automatically') }}</template>
+          <template #subtitle>{{ tl('Download_panel_will_show_up_automatically_when_page_loaded') }}</template>
+          <template #append>
             <v-switch v-model="autoActivateDownloadPanel"></v-switch>
-          </v-list-tile-action>
-        </v-list-tile>
+          </template>
+        </v-list-item>
       </v-list>
 
-      <v-list two-line>
-        <v-list-tile>
-          <v-list-tile-content>
-            <v-list-tile-title>{{ tl('_download_panel_position') }}</v-list-tile-title>
-          </v-list-tile-content>
-          <v-list-tile-action>
+      <v-list lines="two">
+        <v-list-item>
+          <template #title>{{ tl('_download_panel_position') }}</template>
+          <template #append>
             <v-select :items="downloadPanelPositionOptions"
+              item-title="text"
+              item-value="value"
               v-model="downloadPanelPosition"
-              type="value"
-              @change="onDownloadPanelPositionChangeHandler"
+              @update:model-value="onDownloadPanelPositionChangeHandler"
               style="width:150px"
             ></v-select>
-          </v-list-tile-action>
-        </v-list-tile>
+          </template>
+        </v-list-item>
       </v-list>
 
-      <v-list two-line>
-        <v-list-tile>
-          <v-list-tile-content>
-            <v-list-tile-title>{{ tl('_download_panel_style') }}</v-list-tile-title>
-          </v-list-tile-content>
-          <v-list-tile-action>
+      <v-list lines="two">
+        <v-list-item>
+          <template #title>{{ tl('_download_panel_style') }}</template>
+          <template #append>
             <v-select :items="downloadPanelStyleOptions"
+              item-title="text"
+              item-value="value"
               v-model="downloadPanelStyle"
-              type="value"
-              @change="onDownloadPanelStyleChangeHandler"
+              @update:model-value="onDownloadPanelStyleChangeHandler"
               style="width:150px"
             ></v-select>
-          </v-list-tile-action>
-        </v-list-tile>
+          </template>
+        </v-list-item>
       </v-list>
 
-      <v-list two-line>
-        <v-list-tile>
-          <v-list-tile-content>
-            <v-list-tile-title>{{ tl('_show') }} Pixiv Omina</v-list-tile-title>
-          </v-list-tile-content>
-          <v-list-tile-action>
+      <v-list lines="two">
+        <v-list-item>
+          <template #title>{{ tl('_show') }} Pixiv Omina</template>
+          <template #append>
             <v-switch v-model="showPixivOmina"></v-switch>
-          </v-list-tile-action>
-        </v-list-tile>
+          </template>
+        </v-list-item>
       </v-list>
 
-      <v-list two-line>
-        <v-list-tile>
-          <v-list-tile-content>
-            <v-list-tile-title>{{ tl('_show_reload_in_popup') }}</v-list-tile-title>
-          </v-list-tile-content>
-          <v-list-tile-action>
+      <v-list lines="two">
+        <v-list-item>
+          <template #title>{{ tl('_show_reload_in_popup') }}</template>
+          <template #append>
             <v-switch v-model="showReloadInPopup"></v-switch>
-          </v-list-tile-action>
-        </v-list-tile>
+          </template>
+        </v-list-item>
       </v-list>
     </v-card>
   </div>

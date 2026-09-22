@@ -6,7 +6,7 @@
         <div class="section-block">
           <h3>{{ tl("quick_picks") }}</h3>
           <v-btn
-            small
+            size="small"
             v-for="meta in metas"
             :key="meta.value"
             :ripple="false"
@@ -44,7 +44,7 @@ export default {
   mixins: [renameFormatMixin],
 
   props: {
-    value: {
+    modelValue: {
       required: false,
       type: String,
       default: '',
@@ -96,7 +96,7 @@ export default {
   },
 
   watch: {
-    value(val) {
+    modelValue(val) {
       this.renameFormat = val;
     },
 
@@ -110,7 +110,7 @@ export default {
   },
 
   created() {
-    this.renameFormat = this.value;
+    this.renameFormat = this.modelValue;
   },
 
   methods: {
@@ -124,7 +124,7 @@ export default {
         this.renameFormat = this.defaultValue;
       }
 
-      this.$emit('input', this.renameFormat);
+      this.$emit('update:modelValue', this.renameFormat);
     }
   },
 };

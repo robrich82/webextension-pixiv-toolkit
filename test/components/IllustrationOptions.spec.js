@@ -1,5 +1,5 @@
 import browser from '../doubles/browser';
-import { shallowMountOption } from '../helpers/mountOptionComponent';
+import { mountOption, shallowMountOption } from '../helpers/mountOptionComponent';
 import IllustrationOptions from '@/options_page/components/options/IllustrationOptions.vue';
 
 const browserItems = {
@@ -11,6 +11,15 @@ const browserItems = {
 };
 
 describe('IllustrationOptions', () => {
+  // shallowMount stubs `v-list-item` and only renders its default slot, so it
+  // can't see this component's `#title`/`#subtitle`/`#append` named slots
+  // (see DownloadSaveMode.spec.js for the same pattern).
+  test('renders the title through the migrated named slots', () => {
+    const wrapper = mountOption(IllustrationOptions, { browserItems });
+
+    expect(wrapper.text()).toContain('_rename_illustration.message');
+  });
+
   test('adopts every stored value on creation', () => {
     const wrapper = shallowMountOption(IllustrationOptions, { browserItems });
 

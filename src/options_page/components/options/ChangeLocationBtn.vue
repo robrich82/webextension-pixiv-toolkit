@@ -1,7 +1,7 @@
 <template>
   <div class="change-folder-btn">
     <v-btn
-      depressed
+      variant="flat"
       :disabled="disabled"
       @click="showDialog = true"
     >{{ tl('_change') }}</v-btn>
