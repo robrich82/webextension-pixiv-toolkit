@@ -95,7 +95,7 @@ export default {
 
 <style lang="scss">
 .download-task-settings {
-  .v-list__tile {
+  .v-list-item {
     padding: 0 24px;
   }
 }

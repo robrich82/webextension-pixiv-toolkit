@@ -38,7 +38,7 @@ export default {
   },
 
   props: {
-    value: {
+    modelValue: {
       required: true,
       type: String
     },
@@ -76,11 +76,11 @@ export default {
 
     location: {
       get() {
-        return this.value;
+        return this.modelValue;
       },
 
       set(val) {
-        this.$emit('input', val);
+        this.$emit('update:modelValue', val);
       }
     }
   }

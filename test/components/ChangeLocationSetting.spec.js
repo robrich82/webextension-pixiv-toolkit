@@ -3,7 +3,7 @@ import ChangeLocationSetting from '@/options_page/components/options/ChangeLocat
 import ChangeLocationBtn from '@/options_page/components/options/ChangeLocationBtn.vue';
 
 const baseProps = {
-  value: '',
+  modelValue: '',
   settingTitle: 'Where to save',
   dialogTitle: 'Set a location',
   dialogHint: 'Relative to the download root'
@@ -12,7 +12,7 @@ const baseProps = {
 describe('ChangeLocationSetting', () => {
   test('reports "Not set" when there is no location yet', () => {
     const wrapper = shallowMountOption(ChangeLocationSetting, {
-      propsData: { ...baseProps, value: '' }
+      propsData: { ...baseProps, modelValue: '' }
     });
 
     expect(wrapper.vm.settingHint).toBe('Not set');
@@ -20,22 +20,22 @@ describe('ChangeLocationSetting', () => {
 
   test('reports the current location once one is set', () => {
     const wrapper = shallowMountOption(ChangeLocationSetting, {
-      propsData: { ...baseProps, value: 'downloads/pixiv/' }
+      propsData: { ...baseProps, modelValue: 'downloads/pixiv/' }
     });
 
     expect(wrapper.vm.settingHint).toBe('downloads/pixiv/');
   });
 
-  test('the location computed mirrors the value prop and emits input on write', () => {
+  test('the location computed mirrors the modelValue prop and emits update:modelValue on write', () => {
     const wrapper = shallowMountOption(ChangeLocationSetting, {
-      propsData: { ...baseProps, value: 'downloads/pixiv/' }
+      propsData: { ...baseProps, modelValue: 'downloads/pixiv/' }
     });
 
     expect(wrapper.vm.location).toBe('downloads/pixiv/');
 
     wrapper.vm.location = 'downloads/other/';
 
-    expect(wrapper.emitted('input')).toEqual([['downloads/other/']]);
+    expect(wrapper.emitted('update:modelValue')).toEqual([['downloads/other/']]);
   });
 
   // shallowMount stubs `v-list-item` and only renders a stub's *default*

@@ -181,8 +181,17 @@ export default {
 }
 
 .option-section__auto-height {
-  .v-list__tile {
+  .v-list-item {
     height: auto;
+  }
+
+  // The ffmpeg command textarea lives in the #subtitle slot, which Vuetify 3
+  // clamps to 2 lines and fades via v-list's `lines="two"` -- undo both so
+  // the textarea stays fully visible and legible.
+  .v-list-item-subtitle {
+    display: block;
+    overflow: visible;
+    opacity: 1;
   }
 }
 </style>
