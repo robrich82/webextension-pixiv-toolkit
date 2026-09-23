@@ -140,7 +140,7 @@ h3 {
   font-size: 1.2em;
   padding: 10px 0;
 }
-v-input {
+.v-input-first {
   margin-top: 0;
 }
 </style>
