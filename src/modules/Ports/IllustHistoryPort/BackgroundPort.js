@@ -73,7 +73,10 @@ export default class BackgroundPort extends IllustHistoryPort {
   }
 
   clearHistoryAction() {
-    this.illustHistoryRepo.clearData();
     this.historyBackupRepo.forgetAll();
+
+    return this.illustHistoryRepo.clearData().catch(error => {
+      console.error('Failed to clear history data', error);
+    });
   }
 }

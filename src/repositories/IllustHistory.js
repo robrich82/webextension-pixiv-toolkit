@@ -251,9 +251,9 @@ class IllustHistory {
   }
 
   clearData() {
-    this.db.destroy().then(() => {
+    return this.db.destroy().then(() => {
       this.db = this.getDb();
-      this.init();
+      return this.init();
     });
   }
 }
