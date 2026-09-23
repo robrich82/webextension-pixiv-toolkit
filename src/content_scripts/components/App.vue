@@ -253,7 +253,7 @@ export default {
     });
   },
 
-  beforeDestroy() {
+  beforeUnmount() {
     this.downloadTaskObserver.stopObserve();
   },
 

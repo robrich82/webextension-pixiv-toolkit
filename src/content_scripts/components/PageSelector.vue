@@ -1,9 +1,9 @@
 <template>
   <div class="ptk__page-selector">
     <ptk-dialog
-      :show.sync="showSelectionDialog"
+      v-model:show="showSelectionDialog"
     >
-      <template slot="head">
+      <template #head>
         {{ tl('_select_pages_you_want_to_download') }}
       </template>
       <div class="ptk__page-selector">
@@ -24,7 +24,7 @@
           </div>
         </div>
       </div>
-      <template slot="foot">
+      <template #foot>
         <ptk-button @click="selectAll">{{ tl('_select_all') }}</ptk-button>
         <ptk-button @click="unselectAll">{{ tl('_unselect_all') }}</ptk-button>
         <ptk-button @click="selectInvert">{{ tl('_select_invert') }}</ptk-button>
@@ -94,7 +94,7 @@ export default {
 
   },
 
-  beforeDestroy() {
+  beforeUnmount() {
     //
   },
 
@@ -126,14 +126,14 @@ export default {
         }
       }
 
-      this.$set(this.pages, idx, page);
+      this.pages[idx] = page;
 
       this.emitSelect();
     },
 
     selectAll() {
       for (let idx in this.pages) {
-        this.$set(this.pages, idx, Object.assign(this.pages[idx], { selected: true }));
+        this.pages[idx] = Object.assign(this.pages[idx], { selected: true });
         this.selectedPageIndexes.push(parseInt(idx));
       }
 
@@ -142,7 +142,7 @@ export default {
 
     unselectAll() {
       for (let idx in this.pages) {
-        this.$set(this.pages, idx, Object.assign(this.pages[idx], { selected: false }));
+        this.pages[idx] = Object.assign(this.pages[idx], { selected: false });
         this.selectedPageIndexes = [];
       }
 
@@ -158,7 +158,7 @@ export default {
       for (let idx in this.pages) {
         let selectedValue = this.pages[idx].hasOwnProperty('selected') ?
           !this.pages[idx].selected : true;
-        this.$set(this.pages, idx, Object.assign(this.pages[idx], { selected: selectedValue }));
+        this.pages[idx] = Object.assign(this.pages[idx], { selected: selectedValue });
 
         if (selectedValue) {
           this.selectedPageIndexes.push(parseInt(idx));
@@ -179,7 +179,7 @@ export default {
     },
 
     updatePage(index, url) {
-      this.$set(this.pages, index, Object({ page: url }, this.pages[index]));
+      this.pages[index] = Object({ page: url }, this.pages[index]);
     }
   }
 }

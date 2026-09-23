@@ -47,11 +47,11 @@ export default {
 
   computed: {
     hasHead() {
-      return Array.isArray(this.$slots.head) && this.$slots.head.length > 0;
+      return !!this.$slots.head;
     },
 
     hasFoot() {
-      return Array.isArray(this.$slots.foot) && this.$slots.foot.length > 0;
+      return !!this.$slots.foot;
     }
   },
 

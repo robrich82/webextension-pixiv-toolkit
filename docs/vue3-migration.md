@@ -12,9 +12,12 @@ landed**, via `feature/vue3-phase-c-options-26` — see "Phase C notes" below.
 **Phase D (the rest of the options page, 19 files) has also landed**, via
 `feature/vue3-phase-d-options-page-26` — see "Phase D notes" below, in
 particular the webpack config fix that every prior phase's browser-load claim
-turned out not to have actually exercised. Every other `.vue` component
-template is still on Vuetify 1.5 markup; the phases below this point are
-what's left.
+turned out not to have actually exercised. **The dead-class cleanup pass has
+also landed** (PR #74) — see "Dead-class cleanup notes" below. **Phase E
+(`content_scripts/components`, the last unmigrated tree) has also landed**,
+via `feature/vue3-phase-e-content-scripts-26` — see "Phase E notes" below.
+This closes out the migration; `feature/vue3-vuetify3-migration-26` is ready
+to merge to `main`.
 
 ## Why this was outstanding
 
@@ -370,6 +373,80 @@ written (pre-dates the migration; not a regression). The template applies an
 unstyled `class="v-input-first"` right next to it, which is clearly what the
 selector was meant to be. Fixed to `.v-input-first`.
 
+## Phase E notes: `content_scripts/components` (5 files, not 6 — see below)
+
+The last unmigrated tree, and the only one with no Vuetify markup at all —
+`App.vue`, `Button.vue`, `ControlPanel.vue`, `Dialog.vue`, `PageSelector.vue`
+render plain HTML plus two small custom components (`ptk-button`,
+`ptk-dialog`), so this phase is pure Vue-2-API-vs-Vue-3-API cleanup, not a
+Vuetify markup pass. **This doc previously said 6 files in this directory —
+same off-by-one as the option-items (Phase B) and options (Phase C) counts
+before it; there were only ever 5.**
+
+Cleared the blockers this doc had already flagged for `App.vue` and
+`PageSelector.vue`:
+- `beforeDestroy` → `beforeUnmount` in both files.
+- `PageSelector.vue`'s 5 `this.$set(this.pages, idx, value)` calls →
+  plain `this.pages[idx] = value` (Vue 3's Proxy-based array reactivity
+  tracks indexed assignment natively).
+- `PageSelector.vue`'s `<ptk-dialog :show.sync="...">` → `v-model:show="..."`,
+  and its `<template slot="head">`/`slot="foot"` → `#head`/`#foot`.
+
+**One additional blocker turned up that this doc never tracked:**
+`Dialog.vue`'s `hasHead`/`hasFoot` computed properties checked
+`Array.isArray(this.$slots.head) && this.$slots.head.length > 0` — in Vue 3,
+`this.$slots.x` is a render function (or `undefined`), never an array, so
+this check was **always false** once the app ran on the Vue 3 runtime (which
+it already does — `content_scripts/UIApplication.js` was converted to
+`createApp()` in an earlier phase, so this bug has been live on this
+integration branch, silently hiding the dialog's head/foot wrapper divs,
+since whenever that landed). Fixed to `!!this.$slots.head` / `!!this.$slots.foot`.
+
+**A second, more serious bug turned up in `Button.vue` during self-review,
+also untracked by this doc and not itself part of the migration's known
+blocker list:** it had no Vue 3 `emits` option. Vue 3 only treats a `@click`
+listener as "consumed" by a component's own `$emit('click')` when the
+component declares `emits: ['click']` — without it, the parent's listener
+also falls through as a native `onClick` attribute and gets bound a second
+time directly on the component's root `<a>`, alongside the template's own
+`@click="handleClick"`. One physical click fired the parent handler twice:
+duplicate `addDownload` messages from `App.vue`'s download button,
+`PageSelector.vue`'s `selectAll`/`unselectAll` pushing every index twice,
+`selectInvert` cancelling itself out (visibly a no-op), and
+`ControlPanel.vue`'s panel handle toggling twice (never visibly opening).
+Confirmed against Vue 3's own documented attribute-inheritance behavior
+("if the root element already has a listener for the same event, both the
+inherited listener and the existing one will be triggered"), and confirmed
+empirically with a `@vue/test-utils` mount test (2 calls before the fix,
+1 after). Fixed by adding `emits: ['click']` to `Button.vue`. This bug
+predates this phase — it's been live since whichever earlier phase first
+ran this tree on the Vue 3 runtime — but Phase E is what exercises
+`Button.vue` end-to-end via the files it touches, so this was the point it
+surfaced.
+
+**Known follow-ups, not fixed in this phase (all pre-existing, none
+introduced by this phase's changes):**
+- `PageSelector.vue::updatePage`'s `Object({ page: url }, this.pages[index])`
+  drops the previous element's `selected` flag — `Object()` ignores its
+  second argument. Pre-existing (same bug existed under the old
+  `this.$set(...)` wrapper). Reachable only via PixivComic's `pageResolver`
+  flow.
+- `PageSelector.vue::selectAll` doesn't clear `selectedPageIndexes` before
+  appending, unlike `selectInvert`; repeated calls can duplicate indices.
+- Possible Firefox-specific `DataCloneError` sending Vue 3 reactive Proxies
+  (`this.resource.unpack()`, `selectedIndexes`) through
+  `browser.runtime.sendMessage`'s structured clone — unverified, would need a
+  live Firefox load exercising a `pageResolver`-driving resource to confirm.
+- Still no automated test coverage for `content_scripts/` (same gap Phase D
+  had for its own directory — see "Suggested sequencing" below).
+
+With this phase, `content_scripts/components` is fully Vue 3-clean and
+`docs/vue3-migration.md`'s "Framework-level breaking changes" list (the
+`beforeDestroy`/`.sync`/`$set`/`slot=` items) has no more instances anywhere
+under `src/` (confirmed via repo-wide grep). This is the last item in
+"Suggested sequencing" below — once this phase merges, the whole
+`feature/vue3-vuetify3-migration-26` branch is ready to merge to `main`.
+
 ## Suggested sequencing
 
 1. ~~Land the toolchain branch first~~ (done — Phase A, see the top of this doc).
@@ -377,8 +454,8 @@ selector was meant to be. Fixed to `.v-input-first`.
    now covers the leaf `option-items` and `options_page/components/options`
    trees by mounting the real `.vue` components with `shallowMountOption`,
    enforced by a coverage floor in `jest.config.js`; see `docs/testing.md`.
-   `content_scripts/components` is still untested. Since it migrates last
-   (step 5), that's the coverage gap left to close before this plan reaches it.
+   `content_scripts/components` is still untested (see step 7's "Phase E
+   notes" — the migration itself is done, tests remain a follow-up).
 3. ~~Migrate the leaf `option-items`~~ (done — Phase B; 4 files, this doc
    previously said 5: `DownloadSaveMode.vue`, `ZipDownloads.vue`,
    `CombineRenameRules.vue`, `DontCreateWorkFolder.vue` is the full set). See
@@ -392,10 +469,10 @@ selector was meant to be. Fixed to `.v-input-first`.
 6. ~~Dead-class cleanup pass, once Phase D is merged~~ (done — see "Dead-class
    cleanup notes" above; one stale selector found and fixed, no further
    Vuetify-class renames needed).
-7. `content_scripts/components` (6) last — those render into Pixiv's own pages
-   and are the hardest to verify. `PageSelector.vue`'s `this.$set`,
-   `beforeDestroy` (see "Phase D notes"), `.sync` modifier (`:show.sync`),
-   and `slot="..."` (two uses, `head`/`foot`) are all blockers here, and
-   `App.vue` has the same `beforeDestroy` issue.
+7. ~~`content_scripts/components` last~~ (done — Phase E; 5 files, this doc
+   previously said 6 — same count discrepancy as option-items/options above).
+   See "Phase E notes" above for what landed, including a bug this doc never
+   tracked (`Button.vue` missing `emits: ['click']`, causing double-fired
+   clicks under Vue 3).
 
 Budget this as a multi-week project, not a dependency bump.

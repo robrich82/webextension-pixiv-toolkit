@@ -25,6 +25,8 @@ export default {
     }
   },
 
+  emits: ['click'],
+
   computed: {
     classnames() {
       let classnames = [];
