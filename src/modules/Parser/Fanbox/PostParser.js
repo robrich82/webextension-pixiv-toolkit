@@ -124,17 +124,24 @@ class PostParser {
    */
    standardContext(context) {
     let dateFormatter = new DateFormatter(context.publishedDatetime);
+    let pages = this.findImages(context);
 
+    /**
+     * Most fanbox posts don't have a manually-set cover image, so
+     * coverImageUrl is often null. Fall back to the post's first image so
+     * the history entry still shows an actual thumbnail instead of the
+     * generic placeholder (issue #66).
+     */
     let sContext = {
       id: context.id,
       title: context.title,
-      cover: context.coverImageUrl,
+      cover: context.coverImageUrl || pages[0],
       userId: context.user.userId,
       userName: context.user.name,
       year: dateFormatter.getYear(),
       month: dateFormatter.getMonth(),
       day: dateFormatter.getDay(),
-      pages: this.findImages(context),
+      pages,
       r: context.hasAdultContent,
       __raw: context,
     };
