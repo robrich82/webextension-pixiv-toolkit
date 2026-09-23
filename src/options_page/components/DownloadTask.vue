@@ -3,7 +3,7 @@
     <v-card-title style="display:block;">
       <div class="download-task__title">{{ data.title }}</div>
       <div class="download-task__url">
-        <a :href="data.url" target="_blank">{{ data.url }}</a> <v-icon small>open_in_new</v-icon>
+        <a :href="data.url" target="_blank">{{ data.url }}</a> <v-icon size="small">mdi-open-in-new</v-icon>
       </div>
       <div class="download-task__progress" :title="(processProgress > 0 ? processProgress : downloadProgress) + '%'">
         <v-progress-linear v-if="processProgress == 0" v-model="downloadProgress" height="5"></v-progress-linear>

@@ -4,23 +4,20 @@
 
     <v-card style="margin-bottom:30px;">
       <v-list
-        two-line>
-        <v-list-tile
+        lines="two">
+        <v-list-item
           v-for="item in thirdPartList"
           ripple
           @click="openInNew(item.url)"
           :key="item.name">
-          <v-list-tile-content>
-            <v-list-tile-title>{{ item.name }} <span style="font-size:12px;">{{ item.version }}</span></v-list-tile-title>
-            <v-list-tile-sub-title>{{ item.desc }}</v-list-tile-sub-title>
-          </v-list-tile-content>
-
-          <v-list-tile-action>
-            <v-btn flat icon>
-              <v-icon>open_in_new</v-icon>
+          <template #title>{{ item.name }} <span style="font-size:12px;">{{ item.version }}</span></template>
+          <template #subtitle>{{ item.desc }}</template>
+          <template #append>
+            <v-btn variant="text" icon>
+              <v-icon>mdi-open-in-new</v-icon>
             </v-btn>
-          </v-list-tile-action>
-        </v-list-tile>
+          </template>
+        </v-list-item>
       </v-list>
     </v-card>
   </v-container>

@@ -11,14 +11,14 @@
         @delete="deleteDownloadTask"
         @show_in_folder="showInFolder"
       >
-        <template slot="actions">
+        <template #actions>
           <span v-if="item.downloadId" class="download-task__action" @click="showInFolder(item)">{{ tl('_show_in_folder') }}</span>
           <span class="download-task__action download-task__action--delete" @click="prepareDeleteDownloadTask(item)">{{ tl('_delete') }}</span>
         </template>
       </download-task>
     </recycle-scroller>
 
-    <v-dialog v-model.sync="confirmDialog"
+    <v-dialog v-model="confirmDialog"
       width="500"
     >
       <v-card>
@@ -28,9 +28,9 @@
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn depressed @click="deleteDownloadTask(preparedDeleteItem)"
+          <v-btn variant="flat" @click="deleteDownloadTask(preparedDeleteItem)"
             color="error">{{ tl('_delete') }}</v-btn>
-          <v-btn depressed @click="confirmDialog = false">{{ tl('_cancel') }}</v-btn>
+          <v-btn variant="flat" @click="confirmDialog = false">{{ tl('_cancel') }}</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -115,7 +115,7 @@ export default {
         while (this.downloads[index] && downloads.length > 0) {
           for (let i = 0; i < downloads.length; i++) {
             if (this.downloads[index].id === downloads[i].id) {
-              this.$set(this.downloads, index, downloads[i]);
+              this.downloads[index] = downloads[i];
               downloads.splice(i, 1);
               break;
             }

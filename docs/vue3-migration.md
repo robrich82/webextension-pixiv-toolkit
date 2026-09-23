@@ -9,8 +9,12 @@ also landed**, via `feature/vue3-phase-b-option-items-26` — see "Phase B
 discovery" below for what actually registering Vuetify 3's components turned
 up. **Phase C (`options_page/components/options`, 19 files) has also
 landed**, via `feature/vue3-phase-c-options-26` — see "Phase C notes" below.
-Every other `.vue` component template is still on Vuetify 1.5 markup; the
-phases below this point are what's left.
+**Phase D (the rest of the options page, 19 files) has also landed**, via
+`feature/vue3-phase-d-options-page-26` — see "Phase D notes" below, in
+particular the webpack config fix that every prior phase's browser-load claim
+turned out not to have actually exercised. Every other `.vue` component
+template is still on Vuetify 1.5 markup; the phases below this point are
+what's left.
 
 ## Why this was outstanding
 
@@ -240,6 +244,103 @@ things that weren't just renames:
   binding — none of these are markup issues, and fixing them wasn't part of
   this phase's scope.
 
+## Phase D notes: the rest of the options page (19 files)
+
+Scope: the 17 files directly under `options_page/components/*.vue` (not the
+`options/` subdirectory — that was Phase C) plus the 2 root layout files
+`options_page/Index.vue` and `options_page/Downloads.vue`. Same mechanical
+renames as Phase C (`v-list-tile*` → `v-list-item`, `mdi-*` icons,
+`depressed`/`flat`/`small` → `variant`/`size`), plus several things that were
+new to this phase:
+
+- **The blank-page bug, and why three prior phases didn't catch it.**
+  Loading the built (`pnpm run build`/`build:firefox`, i.e. production-mode)
+  extension in an actual browser for the first time (no prior phase's "Test
+  plan" had done this — all of them ran `pnpm test` against jsdom and/or a
+  jest-only DOM probe) threw `ReferenceError: __VUE_PROD_DEVTOOLS__ is not
+  defined`, before anything rendered. Cause: `config/webpack.base.config.js`'s
+  `DefinePlugin` only ever defined `PRESET_BROWSER` — never the
+  `__VUE_OPTIONS_API__`/`__VUE_PROD_DEVTOOLS__`/
+  `__VUE_PROD_HYDRATION_MISMATCH_DETAILS__` compile-time flags Vue 3 expects
+  a bundler to replace. The actual thrower is **vue-router** (bundled raw by
+  webpack, unlike `vue` itself which is loaded as an external global) — its
+  source references those flags as bare identifiers guarded only by
+  `process.env.NODE_ENV !== "production"`, so the crash is production-build-
+  only; `dev`/`dev:firefox` (no `NODE_ENV=production`) and `pnpm test`
+  (jsdom) never hit it, which is why the whole test suite stayed green while
+  every real (built) page load crashed to blank white. Fixed by adding the
+  three flags to the existing `DefinePlugin` call. **This means Phase A/B/C
+  were never actually verified rendering in a browser** — their "Test plan"
+  checklists' DOM-inspection claims were jest-only. Worth an explicit manual
+  sanity load of a production build after any future phase, not just
+  `pnpm test` + `pnpm run build`.
+- **`this.$set` in `DownloadManager.vue`** (the hard blocker this doc's
+  sequencing flagged) — replaced with a plain indexed assignment
+  (`this.downloads[index] = downloads[i]`); Vue 3's Proxy-based reactivity
+  tracks that natively.
+- **Vue 2's `slot="name"` template syntax is gone, silently** — Vue 3 only
+  understands `v-slot`/`#`. `DownloadManager.vue`'s `<template
+  slot="actions">` compiled to a plain (ignored) HTML attribute under Vue 3,
+  so `DownloadTask.vue`'s `#actions` slot never received content and the
+  delete/show-in-folder row silently stopped rendering. Fixed as `#actions`.
+  Grep the rest of the codebase for `slot="` before trusting any
+  not-yet-migrated file's slots work.
+- **`beforeDestroy`/`destroyed` lifecycle hooks are gone too, and just as
+  silently** — Vue 3 renamed them to `beforeUnmount`/`unmounted`; the old
+  names aren't recognized or errored on, just never called.
+  `History.vue`'s `beforeDestroy` (removing its `window` scroll listener)
+  never fired, a real leak. This wasn't in this doc's "Framework-level
+  breaking changes" list before now — **`content_scripts/App.vue` and
+  `PageSelector.vue` both still use `beforeDestroy` too** (grepped, unfixed,
+  out of this phase's scope) and need the same rename whenever that phase
+  lands.
+- **`v-navigation-drawer`/`v-toolbar` → `v-app-bar`/`v-main` layout
+  rewrite** in `Index.vue`/`Downloads.vue` (the "Phase B discovery" item
+  about the nav drawer overlaying content, now resolved): `app`, `clipped`,
+  `hide-overlay` are gone from `v-navigation-drawer` (Vuetify 3's layout
+  system auto-registers layout components, no `app` prop needed); the page
+  header toolbar became `v-app-bar` (`v-toolbar` itself dropped `app`/
+  `fixed`/`clipped-left`, and is no longer a layout-participating component
+  in v3); `v-content` → `v-main`. A self-review pass also flagged
+  `Index.vue`/`Downloads.vue`'s `<v-main style="padding-left:0;">` as a
+  likely regression — `v-main` sets its drawer offset via a
+  `--v-layout-left`-driven `padding-left` in its own stylesheet, and an
+  inline literal on the same property always wins the cascade regardless of
+  the CSS variable underneath. Confirmed by reading Vuetify 3's `VMain`
+  source (the inline style and the computed layout style get merged onto the
+  same element, so it's a plain specificity collision, not a JS-level prop
+  conflict) and removed the override in both files.
+- **`History.vue`'s `<style lang="scss">` block still targeted 3 dead
+  Vuetify 1.5 input classes**, caught by the same self-review pass:
+  `.v-input__slot` → `.v-field`, `.v-text-field__details` →
+  `.v-input__details`, `.v-input--selection-controls` →
+  `.v-selection-control` (confirmed via grepping `node_modules/vuetify/lib`
+  for both old and new names). Same failure class as the `.v-list__tile` bug
+  from Phase C's self-review.
+- **`v-layout row wrap` has no direct Vuetify 3 equivalent** (the grid
+  generally maps to `v-row`/`v-col`) — but `History.vue`'s usage had no
+  `v-flex`/`v-col` children (just one `recycle-scroller`), so it was
+  replaced with a plain `<div>` there rather than introducing `v-row`'s
+  unrelated negative-margin behavior for a single non-grid child.
+- **Typography/color utility classes changed shape, and this doesn't show up
+  in any test** — `.title`/`.headline` (Vuetify 1/2 typography) don't exist
+  in Vuetify 3 (→ `.text-h6`/`.text-h5`), and two-word color utilities
+  (`grey lighten-2`) became single hyphenated classes (`.bg-grey-lighten-2`).
+  `Index.vue`/`Downloads.vue`'s header title used `.title`; losing it
+  silently dropped the line-height that kept the small "Next vX.X.X" subtitle
+  from overlapping the line above — only visible on an actual page load, not
+  in `pnpm test` (jsdom applies no real layout) or `pnpm run build` (compiles
+  fine either way). This is the second reason the live-load check above
+  matters: CSS-only regressions like this are invisible to every other check
+  this project runs.
+- **No test coverage at all for this directory** (`options_page/components/`
+  outside `options/`, plus the 2 root `.vue` files) — component tests (#27)
+  only ever covered the leaf `option-items` and `options/` trees, not this
+  one. Wider gap than Phase C's (which at least had specs to update).
+  Verification here is build + the live-browser check above, not
+  `pnpm test`. Writing tests for this directory is its own follow-up, not
+  part of a markup migration phase.
+
 ## Suggested sequencing
 
 1. ~~Land the toolchain branch first~~ (done — Phase A, see the top of this doc).
@@ -255,12 +356,30 @@ things that weren't just renames:
    "Phase B discovery" below for what landed alongside the markup change.
 4. ~~Then `options_page/components/options`~~ (done — Phase C; 19 files, this
    doc previously said 20 — same count discrepancy as option-items above,
-   never had a 20th file). See "Phase C notes" above. The rest of the options
-   page (`options_page/components/*.vue`, 17 files) is still open —
-   `DownloadManager.vue`'s `this.$set` calls (see above) are a hard blocker
-   somewhere in that phase, not just a markup update.
-5. `content_scripts/components` (6) last — those render into Pixiv's own pages
-   and are the hardest to verify. `PageSelector.vue`'s `this.$set` calls are the
-   same kind of blocker here.
+   never had a 20th file). See "Phase C notes" above.
+5. ~~Then the rest of the options page~~ (done — Phase D; 19 files:
+   `options_page/components/*.vue` (17) + `Index.vue` + `Downloads.vue`). See
+   "Phase D notes" above.
+6. **Dead-class cleanup pass, once Phase D is merged** — Phase D's live-browser
+   check (see "Phase D notes") caught a dead `.title` selector and a stray
+   `.v-list__tile` (the latter also found and fixed independently during
+   Phase C's self-review) purely by *looking at the rendered page*; neither
+   showed up in `pnpm test` or `pnpm run build`. Those are unlikely to be the
+   only ones — audit every already-migrated file (Phase B + C + D: the leaf
+   `option-items`, `options_page/components/options/`, and
+   `options_page/components/` + the 2 root files) for scoped `<style>` blocks
+   still targeting pre-migration Vuetify class names (`.v-list__tile`,
+   `.v-list-tile*`, `.title`/`.headline`/`.subheading`, two-word color
+   utilities like `grey lighten-2`, `.v-btn--small`/`.v-icon--right` and
+   similar BEM-ish internal-class selectors whose Vuetify 3 name changed —
+   cross-check against `node_modules/vuetify/lib/**/*.css`, not guesswork).
+   A live extension load (build + manually load unpacked, or drive it via
+   browser automation) is the only reliable way to catch these — static
+   analysis and the test suite both miss them, as this phase demonstrated.
+7. `content_scripts/components` (6) last — those render into Pixiv's own pages
+   and are the hardest to verify. `PageSelector.vue`'s `this.$set`,
+   `beforeDestroy` (see "Phase D notes"), `.sync` modifier (`:show.sync`),
+   and `slot="..."` (two uses, `head`/`foot`) are all blockers here, and
+   `App.vue` has the same `beforeDestroy` issue.
 
 Budget this as a multi-week project, not a dependency bump.

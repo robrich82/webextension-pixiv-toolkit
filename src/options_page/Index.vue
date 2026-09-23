@@ -2,78 +2,63 @@
   <div id="app">
     <v-app>
       <v-navigation-drawer
-        app
         v-model="drawer"
-        clipped
-        hide-overlay
-        :temporary="drawerTemporary">
+        :temporary="drawerTemporary"
+        :scrim="false">
 
         <v-toolbar flat>
           <v-list>
-            <v-list-tile>
-              <v-list-tile-title>
+            <v-list-item>
+              <template #title>
                 {{ tl('Menu') }}
-              </v-list-tile-title>
-            </v-list-tile>
+              </template>
+            </v-list-item>
           </v-list>
         </v-toolbar>
 
-        <v-divider light></v-divider>
+        <v-divider></v-divider>
 
-        <v-list dense>
-          <v-list-tile
+        <v-list density="compact">
+          <v-list-item
             v-if="browserItems.enableSaveVisitHistory === true"
             ripple
             @click="goToHistory()">
-            <v-list-tile-content>
-              <span>{{ tl('_history') }}</span>
-            </v-list-tile-content>
-          </v-list-tile>
+            <span>{{ tl('_history') }}</span>
+          </v-list-item>
 
-          <v-divider light v-if="browserItems.enableSaveVisitHistory === true || browserItems.enableSaveDownloadHistory === 1"></v-divider>
+          <v-divider v-if="browserItems.enableSaveVisitHistory === true || browserItems.enableSaveDownloadHistory === 1"></v-divider>
 
-          <v-list-tile
+          <v-list-item
             ripple
             @click="openDownloadManager"
           >
-            <v-list-tile-content>
-              <span>{{ tl('_download_manager') }} <v-icon small>open_in_new</v-icon></span>
-            </v-list-tile-content>
-          </v-list-tile>
+            <span>{{ tl('_download_manager') }} <v-icon size="small">mdi-open-in-new</v-icon></span>
+          </v-list-item>
 
-          <v-divider light></v-divider>
+          <v-divider></v-divider>
 
-          <v-list-tile ripple @click="routeTo('Options')">
-            <v-list-tile-content>
-              <v-list-tile-title>{{ tl('settings') }}</v-list-tile-title>
-            </v-list-tile-content>
-          </v-list-tile>
-          <v-list-tile ripple @click="routeTo('ChangeLogs')">
-            <v-list-tile-content>
-              <v-list-tile-title>{{ tl('Change_History') }}</v-list-tile-title>
-            </v-list-tile-content>
-          </v-list-tile>
-          <v-list-tile ripple @click="routeTo('Sponsors')">
-            <v-list-tile-content>
-              <v-list-tile-title>{{ tl('Sponsors') }}😍</v-list-tile-title>
-            </v-list-tile-content>
-          </v-list-tile>
-          <v-divider light></v-divider>
-          <v-list-tile ripple @click="routeTo('ThirdParty')">
-            <v-list-tile-content>
-              <v-list-tile-title>{{ tl('Third_Party') }}</v-list-tile-title>
-            </v-list-tile-content>
-          </v-list-tile>
-          <v-divider light></v-divider>
+          <v-list-item ripple @click="routeTo('Options')">
+            <template #title>{{ tl('settings') }}</template>
+          </v-list-item>
+          <v-list-item ripple @click="routeTo('ChangeLogs')">
+            <template #title>{{ tl('Change_History') }}</template>
+          </v-list-item>
+          <v-list-item ripple @click="routeTo('Sponsors')">
+            <template #title>{{ tl('Sponsors') }}😍</template>
+          </v-list-item>
+          <v-divider></v-divider>
+          <v-list-item ripple @click="routeTo('ThirdParty')">
+            <template #title>{{ tl('Third_Party') }}</template>
+          </v-list-item>
+          <v-divider></v-divider>
         </v-list>
       </v-navigation-drawer>
-      <v-toolbar class="v-primary" app fixed clipped-left height="56">
-        <v-btn flat dark icon
+      <v-app-bar class="v-primary" height="56">
+        <v-btn variant="text" icon
           @click="drawer = !drawer" v-if="drawerTemporary">
-          <v-icon
-            dark>menu</v-icon>
+          <v-icon>mdi-menu</v-icon>
         </v-btn>
-        <span class="title v-primary header-title">
+        <span class="text-h6 v-primary header-title">
           Pixiv<strong>Toolkit</strong>
           <span style="font-size:12px">Next {{ version }}</span>
         </span>
@@ -83,10 +68,10 @@
         <supports style="margin-bottom:0"
           :show-sponsors-link="false"
           :show-inline-sponsors-link="true"></supports>
-      </v-toolbar>
-      <v-content style="padding-left:0;">
+      </v-app-bar>
+      <v-main>
         <router-view style="max-width: 800px;" />
-      </v-content>
+      </v-main>
 
       <update-notice></update-notice>
 
