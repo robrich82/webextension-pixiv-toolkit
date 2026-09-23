@@ -341,6 +341,35 @@ new to this phase:
   `pnpm test`. Writing tests for this directory is its own follow-up, not
   part of a markup migration phase.
 
+## Dead-class cleanup notes
+
+Audited every `<style>` block plus every `v-`-prefixed class used in
+templates across the three already-migrated trees (`option-items`, 4 files;
+`options_page/components/options/`, 18 files; `options_page/components/*.vue`
++ `Index.vue` + `Downloads.vue`, 19 files — 41 files total, 17 of which have a
+`<style>` block). Every Vuetify-prefixed class selector found
+(`.v-selection-control`, `.v-field`, `.v-input__details`, `.v-progress-linear`,
+`.v-list-item`, `.v-list-item-subtitle`, `.v-btn--size-small`, `.v-icon--end`,
+`.v-icon`, `.v-toolbar`) was cross-checked against
+`node_modules/vuetify/lib/**/*.css` and confirmed to exist and to still target
+a rendered element (traced each descendant selector back to a template that
+actually emits that class, e.g. `.download-task-settings .v-list-item`
+against the `v-list-item`s rendered by the option components nested inside
+each expansion panel). None were stale — Phase D's self-review had already
+caught the `.v-list__tile`/`.v-input__slot`-class of bug for this batch of
+files, and no further instances turned up. `.v-primary` (used in
+`Index.vue`/`Downloads.vue`) isn't a Vuetify class at all — it's a
+pre-existing app-defined utility class, coincidentally named, applied and
+styled consistently.
+
+One dead selector did turn up, unrelated to the Vuetify rename pattern:
+`RenameDialog.vue`'s scoped `<style>` had a bare `v-input { margin-top: 0; }`
+element selector — invalid, since Vuetify never renders a literal `<v-input>`
+tag in Vue 2 or Vue 3, so the rule never matched anything since it was
+written (pre-dates the migration; not a regression). The template applies an
+unstyled `class="v-input-first"` right next to it, which is clearly what the
+selector was meant to be. Fixed to `.v-input-first`.
+
 ## Suggested sequencing
 
 1. ~~Land the toolchain branch first~~ (done — Phase A, see the top of this doc).
@@ -360,22 +389,9 @@ new to this phase:
 5. ~~Then the rest of the options page~~ (done — Phase D; 19 files:
    `options_page/components/*.vue` (17) + `Index.vue` + `Downloads.vue`). See
    "Phase D notes" above.
-6. **Dead-class cleanup pass, once Phase D is merged** — Phase D's live-browser
-   check (see "Phase D notes") caught a dead `.title` selector and a stray
-   `.v-list__tile` (the latter also found and fixed independently during
-   Phase C's self-review) purely by *looking at the rendered page*; neither
-   showed up in `pnpm test` or `pnpm run build`. Those are unlikely to be the
-   only ones — audit every already-migrated file (Phase B + C + D: the leaf
-   `option-items`, `options_page/components/options/`, and
-   `options_page/components/` + the 2 root files) for scoped `<style>` blocks
-   still targeting pre-migration Vuetify class names (`.v-list__tile`,
-   `.v-list-tile*`, `.title`/`.headline`/`.subheading`, two-word color
-   utilities like `grey lighten-2`, `.v-btn--small`/`.v-icon--right` and
-   similar BEM-ish internal-class selectors whose Vuetify 3 name changed —
-   cross-check against `node_modules/vuetify/lib/**/*.css`, not guesswork).
-   A live extension load (build + manually load unpacked, or drive it via
-   browser automation) is the only reliable way to catch these — static
-   analysis and the test suite both miss them, as this phase demonstrated.
+6. ~~Dead-class cleanup pass, once Phase D is merged~~ (done — see "Dead-class
+   cleanup notes" above; one stale selector found and fixed, no further
+   Vuetify-class renames needed).
 7. `content_scripts/components` (6) last — those render into Pixiv's own pages
    and are the hardest to verify. `PageSelector.vue`'s `this.$set`,
    `beforeDestroy` (see "Phase D notes"), `.sync` modifier (`:show.sync`),
