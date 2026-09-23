@@ -10,7 +10,7 @@
     <v-card-text>
       <p style="font-size:16px;font-weight: 500;">{{ tl('_new_settings') }}</p>
 
-      <v-list two-line>
+      <v-list lines="two">
         <DownloadSaveMode />
         <ZipDownloads />
         <DontCreateWorkFolder />

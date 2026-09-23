@@ -1,7 +1,6 @@
 <template>
   <div class="container container--small page-history">
     <v-alert
-      :value="true"
       type="warning"
       v-if="!enableSaveVisitHistory">{{ tl('_save_visit_history_has_been_disabled') }}</v-alert>
 
@@ -10,7 +9,7 @@
       <v-text-field class="search-panel"
         label="Solo"
         single-line
-        solo
+        variant="solo"
         flat
         :placeholder="tl('_search_history')"
         v-model="searchQuery"
@@ -20,15 +19,15 @@
 
     <div class="history__header-action">
       <v-btn
-        flat
+        variant="text"
         icon
         @click="disableBlurOnRClicked"
       >
-        <v-icon>{{ disableBlurOnR ? 'visibility' : 'visibility_off' }}</v-icon>
+        <v-icon>{{ disableBlurOnR ? 'mdi-eye' : 'mdi-eye-off' }}</v-icon>
       </v-btn>
     </div>
 
-    <v-layout row wrap
+    <div
       class="history-items"
       v-if="historyItems.length > 0"
     >
@@ -62,12 +61,12 @@
               >{{ tl('_downloaded') }}</span>
               {{ item.title }}
             </div>
-            <div class="history-item__info-entity history-item__info-entity--sub"><a :href="item.url" target="_blank">{{ item.url }}</a> <v-icon small>open_in_new</v-icon></div>
+            <div class="history-item__info-entity history-item__info-entity--sub"><a :href="item.url" target="_blank">{{ item.url }}</a> <v-icon size="small">mdi-open-in-new</v-icon></div>
             <div class="history-item__info-entity history-item__info-entity--sub">{{ castDate(item.visited_at) }}</div>
           </div>
           <div class="history-item__actions">
             <v-btn class="history-item__actions-btn"
-              flat icon small
+              variant="text" icon size="small"
               @click="deleteOne(item)"
             >
               <svg class="c01204" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2048 2048" width="16" height="16">
@@ -77,7 +76,7 @@
           </div>
         </v-card>
       </recycle-scroller>
-    </v-layout>
+    </div>
 
     <p v-if="!loading && statusNotice"
       class="history__status-notice"
@@ -165,7 +164,7 @@ export default {
     window.addEventListener('scroll', this.handleScroll);
   },
 
-  beforeDestroy() {
+  beforeUnmount() {
     window.removeEventListener('scroll', this.handleScroll);
   },
 
@@ -363,7 +362,7 @@ export default {
       margin-left: 0;
     }
 
-    .v-input--selection-controls {
+    .v-selection-control {
       display: inline-block;
       box-sizing: border-box;
       margin-top: 5px;
@@ -381,11 +380,11 @@ export default {
     top: 80px;
     z-index: 5;
 
-    .v-input__slot {
+    .v-field {
       box-shadow: 0 0 3px 0 rgba(0,0,0,.3);
     }
 
-    .v-text-field__details {
+    .v-input__details {
       display: none;
     }
   }
@@ -514,7 +513,7 @@ export default {
   margin: 10px 0;
   box-shadow: none;
 
-  .v-input__slot {
+  .v-field {
     box-shadow: none !important;
     border: 1px solid #dedede;
     border-radius: 100px !important;

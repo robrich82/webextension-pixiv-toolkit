@@ -45,7 +45,14 @@ module.exports = env => {
     },
     plugins: [
       new webpack.DefinePlugin({
-        PRESET_BROWSER: JSON.stringify(process.env.PLATFORM_ENV)
+        PRESET_BROWSER: JSON.stringify(process.env.PLATFORM_ENV),
+        // Vue 3 compile-time feature flags a bundler must replace (vite/vue-cli
+        // do this automatically). Without them, vue-router throws
+        // `ReferenceError: __VUE_PROD_DEVTOOLS__ is not defined` in production
+        // builds -- see docs/vue3-migration.md's Phase D notes.
+        __VUE_OPTIONS_API__: JSON.stringify(true),
+        __VUE_PROD_DEVTOOLS__: JSON.stringify(false),
+        __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: JSON.stringify(false)
       })
     ],
     externals: {
