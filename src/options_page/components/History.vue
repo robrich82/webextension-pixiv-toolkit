@@ -171,7 +171,7 @@ export default {
   computed: {
     statusNotice() {
       if (this.historyItems.length <= 0) {
-        return 'There is no any history';
+        return this.tl('_there_is_no_any_history');
       } else {
         return '';
       }
@@ -504,8 +504,7 @@ export default {
     font-size: 14px;
     text-align: center;
     line-height: 4;
-    color: #dedede;
-    text-shadow: 0 -1px 0 #555;
+    color: #999;
   }
 }
 

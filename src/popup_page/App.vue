@@ -143,27 +143,24 @@ export default {
 
       this.downloadManagerOpenning = true;
 
-      let response;
+      try {
+        const tab = await browser.runtime.sendMessage({
+          to: 'ws',
+          action: 'download:getDownloadManagerTab'
+        }).catch(() => undefined);
 
-      let timeout = setTimeout(() => {
-        window.open(browser.runtime.getURL('options_page/downloads.html'), '_blank');
+        if (tab) {
+          await browser.windows.update(tab.windowId, { focused: true });
+          browser.tabs.update(tab.id, { active: true });
+        } else {
+          browser.tabs.create({
+            url: browser.runtime.getURL('options_page/downloads.html'),
+            active: true
+          });
+        }
+      } finally {
         this.downloadManagerOpenning = false;
-      }, 600);
-
-      response = await browser.runtime.sendMessage({
-        action: 'download:checkIfDownloadManagerOpened'
-      }).catch(() => undefined);
-
-      clearTimeout(timeout);
-
-      if (response && response.result) {
-        await browser.windows.update(response.data.windowId, { focused: true });
-        browser.tabs.update(response.data.tabId, { active: true });
-      } else {
-        window.open(browser.runtime.getURL('options_page/downloads.html'), '_blank');
       }
-
-      this.downloadManagerOpenning = false;
     },
 
     reloadExtension() {

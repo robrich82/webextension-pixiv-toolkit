@@ -6,7 +6,7 @@ export default class RendererPort extends IllustHistoryPort {
   constructor() {
     super();
 
-    this.createPort(IllustHistoryPort.portName);
+    this.connect();
   }
 
   /**
@@ -20,11 +20,29 @@ export default class RendererPort extends IllustHistoryPort {
     return RendererPort.instance = new RendererPort();
   }
 
+  connect() {
+    this.createPort(IllustHistoryPort.portName);
+
+    /**
+     * The background page can be suspended and dropped this port while this
+     * instance sat idle (e.g. the options page was left open). Without this,
+     * `this.port` keeps pointing at a dead port and every future message
+     * silently fails in the catch below.
+     */
+    this.port.onDisconnect.addListener(() => {
+      this.port = null;
+    });
+  }
+
   postMessage(args) {
+    if (!this.port) {
+      this.connect();
+    }
+
     try {
       this.port.postMessage(args)
     } catch (e) {
-      // console.log(e)
+      this.port = null;
     }
   }
 

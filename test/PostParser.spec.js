@@ -147,6 +147,15 @@ describe('an image post in the older, flat response shape', () => {
 
     expect(context.r).toBe(true);
   });
+
+  test('falls back to the first image as cover when coverImageUrl is null', async () => {
+    // Most fanbox posts never get a manually-set cover image, so history
+    // entries showed the generic placeholder logo instead of a thumbnail
+    // (issue #66).
+    const { context } = await parse(imageUrl, clone(legacyImagePost));
+
+    expect(context.cover).toBe('https://downloads.fanbox.cc/images/post/60000002/img1.png');
+  });
 });
 
 describe('a response missing a field we depend on', () => {
