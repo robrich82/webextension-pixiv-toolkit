@@ -3,83 +3,73 @@
     <span class="option-card-title">{{ tl('Downloads') }}</span>
 
     <v-card style="margin-bottom:30px;">
-      <v-list two-line>
-        <v-list-tile>
-          <v-list-tile-content>
-            <v-list-tile-title>{{ tl('_max_process_download_tasks') }}</v-list-tile-title>
-            <v-list-tile-sub-title style="color:brown">{{ tl('_running_too_many_download_tasks_at_same_time_may_be_cause_high_CPU_usage') }}</v-list-tile-sub-title>
-          </v-list-tile-content>
-          <v-list-tile-action>
+      <v-list lines="two">
+        <v-list-item>
+          <template #title>{{ tl('_max_process_download_tasks') }}</template>
+          <template #subtitle><span style="color:brown">{{ tl('_running_too_many_download_tasks_at_same_time_may_be_cause_high_CPU_usage') }}</span></template>
+          <template #append>
             <v-text-field
               reverse
               v-model="maxProcessDownloadTasks"
               type="number"
               style="width:100px;"
             ></v-text-field>
-          </v-list-tile-action>
-        </v-list-tile>
+          </template>
+        </v-list-item>
 
-        <!-- <v-list-tile>
-          <v-list-tile-content>
-            <v-list-tile-title>{{ tl('_create_a_specified_number_of_download_tasks') }}</v-list-tile-title>
-            <v-list-tile-sub-title>{{ tl('_create_a_specified_number_of_download_tasks_when_downloading_illustration_or_manga') }}</v-list-tile-sub-title>
-          </v-list-tile-content>
-          <v-list-tile-action>
+        <!-- <v-list-item>
+          <template #title>{{ tl('_create_a_specified_number_of_download_tasks') }}</template>
+          <template #subtitle>{{ tl('_create_a_specified_number_of_download_tasks_when_downloading_illustration_or_manga') }}</template>
+          <template #append>
             <v-select
               :items="[1, 2, 3, 4, 5]"
               v-model="downloadTasksWhenDownloadingImages"
               type="value"
               style="width:100px;"
             ></v-select>
-          </v-list-tile-action>
-        </v-list-tile> -->
+          </template>
+        </v-list-item> -->
 
-        <v-list-tile>
-          <v-list-tile-content>
-            <v-list-tile-title>{{ tl('_download_metadata') }}</v-list-tile-title>
-            <v-list-tile-sub-title>{{ tl('_download_metadata_when_downloading_works_only_support_works_from_pixiv_main_site') }}</v-list-tile-sub-title>
-          </v-list-tile-content>
-          <v-list-tile-action>
+        <v-list-item>
+          <template #title>{{ tl('_download_metadata') }}</template>
+          <template #subtitle>{{ tl('_download_metadata_when_downloading_works_only_support_works_from_pixiv_main_site') }}</template>
+          <template #append>
             <v-switch v-model="enableDownloadMetadata"></v-switch>
-          </v-list-tile-action>
-        </v-list-tile>
+          </template>
+        </v-list-item>
 
         <downloads-shelf-option v-if="$_browser !== 'firefox'"></downloads-shelf-option>
 
-        <v-list-tile>
-          <v-list-tile-content>
-            <v-list-tile-title>{{ tl('setting_relative_location') }}</v-list-tile-title>
-            <v-list-tile-sub-title>{{ downloadRelativeLocationPreview }}</v-list-tile-sub-title>
-          </v-list-tile-content>
-          <v-list-tile-action>
-            <v-btn depressed
+        <v-list-item>
+          <template #title>{{ tl('setting_relative_location') }}</template>
+          <template #subtitle>{{ downloadRelativeLocationPreview }}</template>
+          <template #append>
+            <v-btn variant="flat"
               @click="openDownloadRelativeLocationDialog()"
             >{{ tl('Change') }}</v-btn>
-          </v-list-tile-action>
-        </v-list-tile>
+          </template>
+        </v-list-item>
 
-        <v-list-tile>
-          <v-list-tile-content>
-            <v-list-tile-title>
-              {{ tl('_multiple_downloads_time_gap') }} {{ tl('_unit_ms') }}
-            </v-list-tile-title>
-            <v-list-tile-sub-title>
-              {{ tl('_add_time_gap_between_each_file_download_to_prevent_download_issue') }}
-            </v-list-tile-sub-title>
-          </v-list-tile-content>
-          <v-list-tile-action>
+        <v-list-item>
+          <template #title>
+            {{ tl('_multiple_downloads_time_gap') }} {{ tl('_unit_ms') }}
+          </template>
+          <template #subtitle>
+            {{ tl('_add_time_gap_between_each_file_download_to_prevent_download_issue') }}
+          </template>
+          <template #append>
             <v-text-field
               reverse
               v-model="multipleDownloadsGapTime"
               type="number"
               style="width:100px;"
             ></v-text-field>
-          </v-list-tile-action>
-        </v-list-tile>
+          </template>
+        </v-list-item>
       </v-list>
     </v-card>
 
-    <v-dialog v-model.sync="showDownloadRelativeLocationDialog" max-width="560">
+    <v-dialog v-model="showDownloadRelativeLocationDialog" max-width="560">
       <v-card>
         <v-card-text>
           <h2>{{ tl('setting_relative_location') }}</h2>

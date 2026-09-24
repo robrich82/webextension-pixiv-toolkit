@@ -7,6 +7,9 @@ const base = {
   ],
   moduleNameMapper: {
     '^@/modules/Extension/browser$': '<rootDir>/test/doubles/browser.js',
+    // Vuetify 3 components import their own co-located stylesheet (e.g.
+    // VApp.js does `import './VApp.css'`), which babel-jest can't parse as JS.
+    '\\.(css|s[ac]ss)$': '<rootDir>/test/doubles/styleMock.js',
     '^@@/(.*)$': '<rootDir>/src/options_page/$1',
     '^@/(.*)$': '<rootDir>/src/$1'
   },
@@ -72,8 +75,21 @@ module.exports = {
       ],
       transform: {
         ...base.transform,
-        '\\.vue$': '@vue/vue2-jest'
+        '\\.vue$': '@vue/vue3-jest'
       },
+      // Vuetify 3 ships ESM-only; babel-jest has to transpile it like any
+      // other source file instead of Jest's default of skipping node_modules.
+      // pnpm resolves every package through node_modules/.pnpm/<name>@<version>/,
+      // so matching on that literal segment (rather than a generic
+      // `node_modules/(?!vuetify)`, which false-matches on vuetify's own
+      // nested node_modules/vuetify re-export) is what actually excludes it.
+      transformIgnorePatterns: [
+        'node_modules[\\\\/]\\.pnpm[\\\\/](?!vuetify@)'
+      ],
+      setupFilesAfterEnv: [
+        ...base.setupFilesAfterEnv,
+        '<rootDir>/test/setup/jsdomGlobals.js'
+      ],
       testRegex: '/test/components/.*\\.spec\\.js$'
     }
   ]

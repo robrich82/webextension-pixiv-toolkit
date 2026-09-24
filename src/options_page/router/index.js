@@ -1,12 +1,10 @@
 import Options from '@@/components/Options'
-import Router from 'vue-router'
+import { createRouter, createWebHashHistory } from 'vue-router'
 import Sponsors from '@@/components/Sponsors';
 import ThirdParty from '@@/components/ThirdParty';
-import Vue from 'vue';
 
-Vue.use(Router)
-
-export default new Router({
+export default createRouter({
+  history: createWebHashHistory(),
   routes: [
     {
       path: '/',

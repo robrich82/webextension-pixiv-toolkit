@@ -13,7 +13,7 @@
   >
     <v-card>
 
-      <v-card-title class="headline grey lighten-2" primary-title>Change Log</v-card-title>
+      <v-card-title class="text-h5 bg-grey-lighten-2">Change Log</v-card-title>
 
       <v-card-text>
         <div style="font-size:20px;font-weight:700;margin-bottom:10px;text-align:center;">✨{{ tl('_sponsors') }}✨</div>
@@ -36,7 +36,7 @@
 
       <v-card-actions>
         <v-spacer></v-spacer>
-        <v-btn color="primary" flat @click="closeNotice">{{ tl('_close') }}</v-btn>
+        <v-btn color="primary" variant="text" @click="closeNotice">{{ tl('_close') }}</v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>

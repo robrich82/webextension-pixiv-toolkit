@@ -1,17 +1,15 @@
-import 'vuetify/dist/vuetify.min.css'
+import 'vuetify/styles'
+import '@mdi/font/css/materialdesignicons.css'
 
 import '@/core/global';
 import Index from './Index.vue'
 import Browser from '@/modules/Browser/Browser'
 import I18n from '@/modules/I18n';
 import SuperMixin from '@/mixins/SuperMixin';
-import Vue from 'vue'
-import Vuetify from 'vuetify';
+import { createApp, h } from 'vue'
+import { createAppVuetify } from './vuetify';
 import moment from 'moment';
 import router from './router';
-
-Vue.config.productionTip = false;
-Vue.mixin(SuperMixin);
 
 try {
   (function(browser) {
@@ -56,19 +54,12 @@ try {
     browser.storage.local.get(null, items => {
       const i18n = I18n.i18n(items.language, browser.i18n.getUILanguage());
 
-      moment.locale(i18n.locale);
+      moment.locale(i18n.global.locale);
 
-      Vue.use(Vuetify)
+      const vuetify = createAppVuetify();
 
-      /* eslint-disable no-new */
-      new Vue({
-        el: '#app',
-
-        router,
-
-        i18n,
-
-        render: h => h(Index),
+      const app = createApp({
+        render: () => h(Index),
 
         data() {
           return {
@@ -87,12 +78,12 @@ try {
 
               if (key === 'language') {
                 if (items[key].newValue === 'default') {
-                  i18n.locale = chrome.i18n.getUILanguage().replace('-', '_');
+                  i18n.global.locale = chrome.i18n.getUILanguage().replace('-', '_');
                 } else {
-                  i18n.locale = items[key].newValue;
+                  i18n.global.locale = items[key].newValue;
                 }
 
-                moment.locale(i18n.locale);
+                moment.locale(i18n.global.locale);
               } else if (key === 'disableDownloadsShelf') {
                 browser.downloads.setShelfEnabled(!items[key].newValue);
               }
@@ -113,7 +104,13 @@ try {
             }
           });
         }
-      })
+      });
+
+      app.mixin(SuperMixin);
+      app.use(router);
+      app.use(i18n);
+      app.use(vuetify);
+      app.mount('#app-mount');
     });
   })(Browser.getBrowser());
 } catch (e) {

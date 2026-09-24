@@ -6,6 +6,8 @@
  * @FilePath: \webextension-pixiv-toolkit\src\options_page\components\options\option-items\DownloadSaveMode.vue
 -->
 <script>
+import browser from '@/modules/Extension/browser';
+
 export default {
   name: 'DownloadSaveMode',
 
@@ -52,16 +54,16 @@ export default {
 </script>
 
 <template>
-  <v-list-tile>
-    <v-list-tile-content>
-      <v-list-tile-title>{{ tl('_download_save_mode') }}</v-list-tile-title>
-      <v-list-tile-sub-title>{{ subTitle }}</v-list-tile-sub-title>
-    </v-list-tile-content>
-    <v-list-tile-action>
+  <v-list-item>
+    <template #title>{{ tl('_download_save_mode') }}</template>
+    <template #subtitle>{{ subTitle }}</template>
+    <template #append>
       <v-select :items="options"
+        item-title="text"
+        item-value="value"
         v-model="value"
         style="width:200px;"
       ></v-select>
-    </v-list-tile-action>
-  </v-list-tile>
+    </template>
+  </v-list-item>
 </template>

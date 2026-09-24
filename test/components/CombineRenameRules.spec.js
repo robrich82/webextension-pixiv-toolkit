@@ -9,7 +9,7 @@ describe('CombineRenameRules', () => {
     });
 
     expect(wrapper.vm.showThis).toBe(false);
-    expect(wrapper.find('v-list-tile-stub').exists()).toBe(false);
+    expect(wrapper.find('v-list-item-stub').exists()).toBe(false);
   });
 
   test('shows itself and adopts the stored value when downloadSaveMode is 1', () => {
@@ -19,7 +19,7 @@ describe('CombineRenameRules', () => {
 
     expect(wrapper.vm.showThis).toBe(true);
     expect(wrapper.vm.value).toBe(1);
-    expect(wrapper.find('v-list-tile-stub').exists()).toBe(true);
+    expect(wrapper.find('v-list-item-stub').exists()).toBe(true);
   });
 
   test('exposes the enable/disable options in the expected order', () => {

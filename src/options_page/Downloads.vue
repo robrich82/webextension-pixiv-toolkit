@@ -2,51 +2,44 @@
   <div id="app">
     <v-app>
       <v-navigation-drawer
-        app
         v-model="drawer"
-        clipped
-        hide-overlay
-        :temporary="drawerTemporary">
+        :temporary="drawerTemporary"
+        :scrim="false">
 
         <v-toolbar flat>
           <v-list>
-            <v-list-tile>
-              <v-list-tile-title>
+            <v-list-item>
+              <template #title>
                 {{ tl('_download_manager') }}
-              </v-list-tile-title>
-            </v-list-tile>
+              </template>
+            </v-list-item>
           </v-list>
         </v-toolbar>
 
-        <v-divider light></v-divider>
+        <v-divider></v-divider>
 
-        <v-list dense>
-          <v-list-tile
+        <v-list density="compact">
+          <v-list-item
             ripple
           >
-            <v-list-tile-content>
-              <span>{{ tl('_all') }}</span>
-            </v-list-tile-content>
-          </v-list-tile>
+            <span>{{ tl('_all') }}</span>
+          </v-list-item>
         </v-list>
 
-        <v-divider light></v-divider>
+        <v-divider></v-divider>
 
-        <v-list dense>
-          <v-list-tile ripple @click="openSettings">
-            <v-list-tile-content>
-              <span>{{ tl('_settings') }} <v-icon small>open_in_new</v-icon></span>
-            </v-list-tile-content>
-          </v-list-tile>
+        <v-list density="compact">
+          <v-list-item ripple @click="openSettings">
+            <span>{{ tl('_settings') }} <v-icon size="small">mdi-open-in-new</v-icon></span>
+          </v-list-item>
         </v-list>
       </v-navigation-drawer>
-      <v-toolbar class="v-primary" app fixed clipped-left height="56">
-        <v-btn flat dark icon
+      <v-app-bar class="v-primary" height="56">
+        <v-btn variant="text" icon
           @click="drawer = !drawer" v-if="drawerTemporary">
-          <v-icon
-            dark>menu</v-icon>
+          <v-icon>mdi-menu</v-icon>
         </v-btn>
-        <span class="title v-primary header-title">
+        <span class="text-h6 v-primary header-title">
           Pixiv<strong>Toolkit</strong>
           <span style="font-size:12px">Next</span>
         </span>
@@ -57,19 +50,19 @@
           :show-sponsors-link="false"
           :show-inline-sponsors-link="true"
           :open-sponsors-in-new="true"></supports>
-      </v-toolbar>
-      <v-content style="padding-left:0;">
+      </v-app-bar>
+      <v-main>
         <download-manager v-if="openedTabId <= 0"
           class="container conatiner-small" style="max-width:800px;"
         ></download-manager>
         <div v-else class="container container small" style="max-width:800px;">
-          <v-alert :value="true" type="warning">
+          <v-alert type="warning">
             {{ tl('_download_manager_is_already_opened') }}
             <a style="text-decoration: underline;color:#fff;" @click="switchToActive">{{ tl('_switch_to_it_and_close') }}</a>
-            <v-icon style="font-size:16px;color:#fff">open_in_new</v-icon>
+            <v-icon style="font-size:16px;color:#fff">mdi-open-in-new</v-icon>
           </v-alert>
         </div>
-      </v-content>
+      </v-main>
     </v-app>
   </div>
 </template>

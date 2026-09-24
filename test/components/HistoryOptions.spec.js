@@ -1,5 +1,5 @@
 import browser from '../doubles/browser';
-import { shallowMountOption } from '../helpers/mountOptionComponent';
+import { mountOption, shallowMountOption } from '../helpers/mountOptionComponent';
 import HistoryOptions from '@/options_page/components/options/HistoryOptions.vue';
 
 const browserItems = {
@@ -15,6 +15,15 @@ const browserItems = {
 describe('HistoryOptions', () => {
   afterEach(() => {
     delete window.confirm;
+  });
+
+  // shallowMount stubs `v-list-item` and only renders its default slot, so it
+  // can't see this component's `#title`/`#subtitle`/`#append` named slots
+  // (see DownloadSaveMode.spec.js for the same pattern).
+  test('renders the title through the migrated named slots', () => {
+    const wrapper = mountOption(HistoryOptions, { browserItems });
+
+    expect(wrapper.text()).toContain('Enable_save_visit_history.message');
   });
 
   test('adopts every stored value before mount', () => {
