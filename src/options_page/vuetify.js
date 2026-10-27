@@ -1,14 +1,74 @@
 import { createVuetify } from 'vuetify';
-import * as components from 'vuetify/components';
-import * as directives from 'vuetify/directives';
+import {
+  VAlert,
+  VApp,
+  VAppBar,
+  VBtn,
+  VCard,
+  VCardActions,
+  VCardText,
+  VCardTitle,
+  VContainer,
+  VDialog,
+  VDivider,
+  VExpansionPanel,
+  VExpansionPanelText,
+  VExpansionPanelTitle,
+  VExpansionPanels,
+  VIcon,
+  VList,
+  VListItem,
+  VMain,
+  VMenu,
+  VNavigationDrawer,
+  VProgressCircular,
+  VProgressLinear,
+  VSelect,
+  VSpacer,
+  VSwitch,
+  VTextField,
+  VToolbar,
+  VTooltip
+} from 'vuetify/components';
 
 /**
- * `createVuetify()` on its own registers nothing -- omitting `components`/
- * `directives` here previously shipped as a silent bug where every Vuetify
- * tag rendered as an inert unresolved element, in production and in tests
- * alike. Centralized so the two entry points and the test helper can't drift
- * out of sync with each other again.
+ * Only the components the options page uses, so webpack can tree-shake the
+ * rest of Vuetify (#97). An unregistered tag silently renders as an inert
+ * element in production; vuetifyRegistration.spec.js fails if this list
+ * doesn't match the `<v-*>` tags in src.
  */
+const components = {
+  VAlert,
+  VApp,
+  VAppBar,
+  VBtn,
+  VCard,
+  VCardActions,
+  VCardText,
+  VCardTitle,
+  VContainer,
+  VDialog,
+  VDivider,
+  VExpansionPanel,
+  VExpansionPanelText,
+  VExpansionPanelTitle,
+  VExpansionPanels,
+  VIcon,
+  VList,
+  VListItem,
+  VMain,
+  VMenu,
+  VNavigationDrawer,
+  VProgressCircular,
+  VProgressLinear,
+  VSelect,
+  VSpacer,
+  VSwitch,
+  VTextField,
+  VToolbar,
+  VTooltip
+};
+
 export function createAppVuetify(options) {
-  return createVuetify({ components, directives, ...options });
+  return createVuetify({ components, ...options });
 }
