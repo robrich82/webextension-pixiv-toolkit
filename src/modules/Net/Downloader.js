@@ -151,7 +151,8 @@ class Downloader extends Event {
     downloadFilePort.onMessage.addListener(message => {
       if (message.event === 'progress') {
         const { totalLength, loadedLength } = message.data.progress;
-        this.progresses[downloadFile.seq] = loadedLength / totalLength;
+        // totalLength is 0 when the response has no Content-Length
+        this.progresses[downloadFile.seq] = totalLength > 0 ? Math.min(loadedLength / totalLength, 1) : 0;
 
         this.dispatch('progress', [{
           progress: this.progresses.reduce((previousValue, currentValue) => previousValue + currentValue, 0) / this.files.length,
@@ -177,6 +178,8 @@ class Downloader extends Event {
         this.downloadNext();
       } else if (message.event === 'complete') {
         const { data, mimeType } = message.data;
+
+        this.progresses[downloadFile.seq] = 1;
 
         fetch(data).then(response => {
           response.blob().then(data => {
