@@ -350,9 +350,4 @@ configured and for the extension API double the specs run against.
 
 ## Known remaining issues
 
-- **`worker-loader` is unmaintained.** webpack 5 supports
-  `new Worker(new URL('./x.worker.js', import.meta.url))` natively, but it emits
-  the worker as a separate chunk rather than inlining it, which for a content
-  script would need a `web_accessible_resources` entry. `worker-loader`'s
-  `inline: "no-fallback"` avoids that. Worth revisiting, but it is a runtime
-  behaviour change, not a drop-in swap.
+None.
