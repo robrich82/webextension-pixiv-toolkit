@@ -179,7 +179,7 @@ export default {
     },
 
     updatePage(index, url) {
-      this.pages[index] = Object({ page: url }, this.pages[index]);
+      this.pages[index] = Object.assign({}, this.pages[index], { page: url });
     }
   }
 }
