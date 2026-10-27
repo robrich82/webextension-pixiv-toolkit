@@ -1,11 +1,11 @@
 /**
  * `Util/APNG` is UPNG with its encoder replaced: the same chunk assembly, plus
- * the progress and debug hooks `APngGenerator.worker.js` reports through. It
+ * the progress and debug hooks its callers report through. It
  * works on raw RGBA buffers and pako, with no canvas anywhere, so it can be run
  * for real here rather than mocked.
  *
  * The tests round-trip through UPNG's own decoder — encode frames, decode the
- * bytes back, compare pixels — which covers what the worker depends on, that an
+ * bytes back, compare pixels — which covers what its callers depend on, that an
  * animation survives the trip, without pinning byte offsets that any honest
  * change to the encoder would break.
  *
@@ -236,7 +236,7 @@ describe('progress reporting', () => {
   });
 
   test('finishes on the total, whatever it counted along the way', () => {
-    // `complete()` snaps the counter to the total, which is what the worker's
+    // `complete()` snaps the counter to the total, which is what the
     // progress bar ends on.
     expect(encodeTwice().pop()).toEqual([1000, 1000]);
   });
@@ -245,7 +245,7 @@ describe('progress reporting', () => {
     // `setTotalProgress` clears the stages but not `currentProgress`, so every
     // encode after the first counts up from where the last one finished — 1000,
     // the total — and reports progress beyond 100% until `complete()` pulls it
-    // back. One encode per worker is why this has not shown up in the UI.
+    // back. Only encoding once is why this has not shown up in the UI.
     const reported = encodeTwice().map(([current]) => current);
 
     expect(reported[0]).toBeGreaterThan(1000);
@@ -284,9 +284,7 @@ describe('debug output', () => {
   test('logs on every encode, although it reads as switched off', () => {
     // `APNG.debug` declares `enable: false` and then a method of the same name,
     // so the method wins and the flag every guard tests — `if (!this.enable)
-    // return;` — is a function, which is never falsy. `APngGenerator.worker.js`
-    // keeps its `APNG.debug.enable()` call commented out on the understanding
-    // that debug is off; it is not.
+    // return;` — is a function, which is never falsy, so debug logging is never off.
     APNG.encode([solidFrame([1, 2, 3, 255])], WIDTH, HEIGHT, 0, [40]);
 
     expect(typeof enableAsDeclared).toBe('function');
