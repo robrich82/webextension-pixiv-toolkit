@@ -44,6 +44,18 @@ module.exports = {
       functions: 67,
       lines: 76
     },
+    './src/content_scripts/components/': {
+      statements: 92,
+      branches: 78,
+      functions: 85,
+      lines: 92
+    },
+    './src/content_scripts/UIApplication.js': {
+      statements: 100,
+      branches: 100,
+      functions: 100,
+      lines: 100
+    },
     './src/options_page/components/options/': {
       statements: 88,
       branches: 78,
