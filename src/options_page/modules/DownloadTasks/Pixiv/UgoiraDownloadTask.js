@@ -205,86 +205,90 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
     /**
      * FFmpeg loaded as external library
      */
-    let { createFFmpeg } = FFmpeg;
-    this.ffmpeg = new createFFmpeg({
-      log: true,
-      corePath: browser.runtime.getURL('lib/ffmpeg/ffmpeg-core.js'),
-    });
-    this.ffmpeg.setProgress(progress => {
-      this.processProgress = progress.ratio;
+    let { FFmpeg } = FFmpegWASM;
+    this.ffmpeg = new FFmpeg();
+    this.ffmpeg.on('log', ({ message }) => console.log(message));
+    this.ffmpeg.on('progress', ({ progress }) => {
+      this.processProgress = progress;
 
       this.dispatch('progress', [this.processProgress]);
     });
 
-    await this.ffmpeg.load();
+    try {
+      const ffmpegBaseUrl = browser.runtime.getURL('lib/ffmpeg/');
+      await this.ffmpeg.load({
+        coreURL: ffmpegBaseUrl + 'ffmpeg-core.js',
+        wasmURL: ffmpegBaseUrl + 'ffmpeg-core.wasm',
+      });
 
-    let framesContent = '';
-    let loadedFiles = [];
-
-    /**
-     * Add files to ffmpeg file system
-     */
-    for (let i = 0; i < this.options.frames.length; i++) {
-      let frame = this.options.frames[i];
-      let data = await this.zip.file(frame.file).async('uint8array');
-      let indexStr = i + '';
-      let filename = '0'.repeat(6 - indexStr.length) + i + '.jpg';
-      this.ffmpeg.FS('writeFile', filename, data);
-      loadedFiles.push(filename);
+      let framesContent = '';
+      let loadedFiles = [];
 
       /**
-       * Build frames information
+       * Add files to ffmpeg file system
        */
-      framesContent += `file '${frame.file}'` + "\r\n";
-      framesContent += `duration ${frame.delay / 1000}` + "\r\n";
-    }
+      for (let i = 0; i < this.options.frames.length; i++) {
+        let frame = this.options.frames[i];
+        let data = await this.zip.file(frame.file).async('uint8array');
+        let indexStr = i + '';
+        let filename = '0'.repeat(6 - indexStr.length) + i + '.jpg';
+        await this.ffmpeg.writeFile(filename, data);
+        loadedFiles.push(filename);
 
-    /**
-     * Add frames to ffmpeg file system
-     */
-    this.ffmpeg.FS('writeFile', 'input.txt', framesContent);
-    loadedFiles.push('input.txt');
+        /**
+         * Build frames information
+         */
+        framesContent += `file '${frame.file}'` + "\r\n";
+        framesContent += `duration ${frame.delay / 1000}` + "\r\n";
+      }
 
-    /**
-     * parse ffmpeg command line(s)
-     */
-    const ffmpegCommands = [];
-    const ffmpegCommandSetting = this.options.ffmpegCommandArgs ?
-      this.options.ffmpegCommandArgs.trim() :
-      null;
+      /**
+       * Add frames to ffmpeg file system
+       */
+      await this.ffmpeg.writeFile('input.txt', framesContent);
+      loadedFiles.push('input.txt');
 
-    if (!ffmpegCommandSetting) {
-      ffmpegCommands.push(['-f', 'concat', '-i', 'input.txt', '-plays', 0, 'out.gif']);
-    } else {
-      const lines = ffmpegCommandSetting.split(/\r\n|\n|\r/);
+      /**
+       * parse ffmpeg command line(s)
+       */
+      const ffmpegCommands = [];
+      const ffmpegCommandSetting = this.options.ffmpegCommandArgs ?
+        this.options.ffmpegCommandArgs.trim() :
+        null;
 
-      lines.forEach(line => {
-        ffmpegCommands.push(line.trim().split(' '));
+      if (!ffmpegCommandSetting) {
+        ffmpegCommands.push(['-f', 'concat', '-i', 'input.txt', '-plays', '0', 'out.gif']);
+      } else {
+        const lines = ffmpegCommandSetting.split(/\r\n|\n|\r/);
+
+        lines.forEach(line => {
+          ffmpegCommands.push(line.trim().split(' '));
+        });
+      }
+
+      const lastCommand = ffmpegCommands[ffmpegCommands.length - 1];
+      const outputFilename = lastCommand[lastCommand.length - 1];
+
+      for (const seq in ffmpegCommands) {
+        console.log(ffmpegCommands[seq]);
+        await this.ffmpeg.exec(ffmpegCommands[seq]);
+      }
+
+      await completeHandler.call(this, {
+        data: await this.ffmpeg.readFile(outputFilename),
+        outputFilename
       });
+
+      loadedFiles.push(outputFilename);
+
+      /**
+       * Clearup assets
+       */
+      await Promise.all(loadedFiles.map(file => this.ffmpeg.deleteFile(file)));
+    } finally {
+      this.ffmpeg.terminate();
+      this.ffmpeg = null;
     }
-
-    const lastCommand = ffmpegCommands[ffmpegCommands.length - 1];
-    const outputFilename = lastCommand[lastCommand.length - 1];
-
-    for (const seq in ffmpegCommands) {
-      console.log(ffmpegCommands[seq]);
-      await this.ffmpeg.run.apply(this.ffmpeg, ffmpegCommands[seq]);
-    }
-
-    await completeHandler.call(this, {
-      data: this.ffmpeg.FS('readFile', outputFilename),
-      outputFilename
-    });
-
-    loadedFiles.push(outputFilename);
-
-    /**
-     * Clearup assets
-     */
-    loadedFiles.forEach(file => this.ffmpeg.FS('unlink', file));
-
-    this.ffmpeg.exit();
-    this.ffmpeg = null;
   }
 
   /**
@@ -388,7 +392,7 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
     }
 
     if (this.ffmpeg) {
-      this.ffmpeg.exit();
+      this.ffmpeg.terminate();
       this.processProgress = this.processedFramesCount = 0;
     }
   }

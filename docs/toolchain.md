@@ -181,10 +181,9 @@ guarantee npm's flat tree cannot offer at all.
 
 Almost every dependency sits on a caret range, and that is deliberate: caret
 never crosses a major, so a plain `pnpm install` cannot pull in a breaking
-release on its own. The two `0.x` pins are tighter still — caret on a `0.x`
-version locks the *minor*, so `@ffmpeg/core: ^0.11.0` resolves
-`>=0.11.0 <0.12.0` and holds the ffmpeg upgrade shut until someone does all
-three parts of it at once (see Known remaining issues).
+release on its own. The `0.x` pins are tighter still — caret on a `0.x`
+version locks the *minor*, so `@ffmpeg/core: ^0.12.10` resolves
+`>=0.12.10 <0.13.0`.
 
 Vue 2's tooling (`@vue/test-utils@1`, `@vue/vue2-jest`, `vue-template-compiler`)
 used to be exact-pinned here, since those were abandoned last-Vue-2-compatible
@@ -303,11 +302,14 @@ byte-identical. Anyone diffing `dist/` across this migration should expect
 renamed numeric chunks and no size change worth noticing.
 
 `config/webpack.background.config.js` copies five paths out of `node_modules`
-(`vue`, `vue-i18n`, `pouchdb` ×2, and the `@ffmpeg/core/dist` directory). All
-five are direct dependencies, so pnpm's symlinked top level exposes them and
-`copy-webpack-plugin` resolves through the symlinks into `node_modules/.pnpm`
-without help. This is verified by the builds, not just reasoned about — but it
-is the thing to check first if a copied asset ever goes missing.
+(`vue`, `vue-i18n`, `pouchdb` ×2, and the `@ffmpeg/core/dist/umd` directory —
+`umd/` specifically, not the whole `dist/`, since `@ffmpeg/core` 0.12 also
+ships an `esm/` build of the same ~32MB core+wasm pair that nothing here
+loads). All five are direct dependencies, so pnpm's symlinked top level
+exposes them and `copy-webpack-plugin` resolves through the symlinks into
+`node_modules/.pnpm` without help. This is verified by the builds, not just
+reasoned about — but it is the thing to check first if a copied asset ever
+goes missing.
 
 Because pnpm's `node_modules` is strict and non-flat, anything the build imports
 without declaring will now fail where npm's flat tree let it through. That is
@@ -348,13 +350,6 @@ configured and for the extension API double the specs run against.
 
 ## Known remaining issues
 
-- **ffmpeg is pinned to 0.11.** `@ffmpeg/core` is copied into `lib/ffmpeg`, but
-  the code loads a *vendored* `src/statics/lib/ffmpeg/ffmpeg.min.js` (0.11.6) as
-  a `FFmpeg` global and uses the 0.11 API (`createFFmpeg`, `.FS()`,
-  `.setProgress()`). `@ffmpeg/ffmpeg` is a devDependency only because
-  `UgoiraDownloadTask.js` references its type in a JSDoc comment. Upgrading to
-  0.12 means replacing the vendored file *and* rewriting the call sites against
-  the new class/worker API — do all three together or not at all.
 - **`worker-loader` is unmaintained.** webpack 5 supports
   `new Worker(new URL('./x.worker.js', import.meta.url))` natively, but it emits
   the worker as a separate chunk rather than inlining it, which for a content

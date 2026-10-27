@@ -430,14 +430,6 @@ export default {
 
     passToPixivOmina() {
       window.location.assign(`pixiv-omina://create-download?url=${encodeURIComponent(window.location.href)}`);
-    },
-
-    test() {
-      const { createFFmpeg } = FFmpeg;
-      this.ffmpeg = new createFFmpeg({
-        log: true,
-        corePath: browser.runtime.getURL('lib/ffmpeg/ffmpeg-core.js'),
-      });
     }
   }
 }

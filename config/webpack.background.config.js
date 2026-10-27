@@ -86,7 +86,14 @@ module.exports = env => {
             to: utils.resolve(`dist/${platform}/lib/pouchdb.find.min.js`),
             info: alreadyMinimized
           }, {
-            from: utils.resolve('node_modules/@ffmpeg/core/dist'),
+            /**
+             * @ffmpeg/core 0.12 ships both an esm/ and a umd/ build of the
+             * same ~32MB core+wasm pair. Only umd/ is used (the vendored
+             * ffmpeg.js loads it via importScripts in a classic worker), so
+             * copying the whole dist/ directory would double the shipped
+             * wasm for no reason.
+             */
+            from: utils.resolve('node_modules/@ffmpeg/core/dist/umd'),
             to: utils.resolve(`dist/${platform}/lib/ffmpeg`),
             info: alreadyMinimized
           }, {
