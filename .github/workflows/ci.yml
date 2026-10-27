@@ -47,14 +47,18 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # The only advisory that reaches the shipped bundle (`pnpm audit -P`) is
-      # the Vue 2 EOL ReDoS one, which is `low` and cannot be cleared without
-      # the Vue 3 migration. This step runs the full audit including dev
-      # dependencies, though, so a build-toolchain advisory can and does fail
-      # it too -- see docs/toolchain.md. Failing at `moderate` keeps new
-      # problems from getting lost in the standing Vue 2 noise.
+      # This step runs the full audit including dev dependencies, so a
+      # build-toolchain advisory can and does fail it too -- see
+      # docs/toolchain.md. Failing at `moderate` keeps new problems from
+      # getting lost in noise.
+      #
+      # --ignore GHSA-86w9-cpqp-85rv: node-forge's PKCS#1 v1.5 signature
+      # advisory has no patched version as of this writing (latest is still
+      # 1.4.0). It reaches us only via web-ext>@devicefarmer/adbkit, used for
+      # Android debugging in `web-ext run`, which this project never invokes.
+      # Drop the ignore once upstream ships a fix.
       - name: Audit dependencies
-        run: pnpm audit --audit-level=moderate
+        run: pnpm audit --audit-level=moderate --ignore GHSA-86w9-cpqp-85rv
 
       - name: Run tests
         run: pnpm test
