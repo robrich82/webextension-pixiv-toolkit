@@ -45,10 +45,10 @@ module.exports = {
       lines: 76
     },
     './src/content_scripts/components/': {
-      statements: 92,
-      branches: 78,
-      functions: 85,
-      lines: 92
+      statements: 94,
+      branches: 80,
+      functions: 88,
+      lines: 94
     },
     './src/content_scripts/UIApplication.js': {
       statements: 100,

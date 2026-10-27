@@ -6,7 +6,6 @@ const mountSelector = (items = ['a.jpg', 'b.jpg', 'c.jpg']) => mount(PageSelecto
   global: { mocks: { tl: key => key } }
 });
 
-// Foot buttons, in template order.
 const footButton = (wrapper, key) => wrapper.findAll('.ptk__dialog-foot a').find(a => a.text() === key);
 
 describe('PageSelector', () => {
@@ -60,7 +59,7 @@ describe('PageSelector', () => {
     const wrapper = mountSelector();
     const previews = wrapper.findAll('.ptk__page-preview');
 
-    // The emitted payload is the live pages/indexes state, so check it per click.
+    // The emitted indexes array and page objects are live state, so check per click.
     await previews[1].trigger('click');
     expect(previews[1].classes()).toContain('ptk__page-preview--selected');
     expect(wrapper.emitted('select').at(-1)).toEqual([[{ page: 'b.jpg', selected: true }], [1]]);
@@ -97,12 +96,24 @@ describe('PageSelector', () => {
     expect(wrapper.emitted('download')).toEqual([[{ selectedPageIndexes: [2] }]]);
   });
 
-  test('new items replace the pages with nothing selected', async () => {
+  test('new items replace the pages, unselected', async () => {
     const wrapper = mountSelector();
 
     wrapper.vm.selectPage(0);
     await wrapper.setProps({ items: ['x.jpg'] });
 
     expect(wrapper.vm.pages).toEqual([{ page: 'x.jpg', selected: false }]);
+  });
+
+  // The items watcher rebuilds pages but keeps selectedPageIndexes, so moving
+  // between two multi-page works carries the old picks over. Remove
+  // `.failing` once that's fixed.
+  test.failing('new items clear the selected indexes', async () => {
+    const wrapper = mountSelector();
+
+    wrapper.vm.selectPage(0);
+    await wrapper.setProps({ items: ['x.jpg'] });
+
+    expect(wrapper.vm.selectedPageIndexes).toEqual([]);
   });
 });

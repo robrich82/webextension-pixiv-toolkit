@@ -49,6 +49,10 @@ describe('ControlPanel', () => {
 
     expect(wrapper.find('.ptk__container__body').classes()).not.toContain('ptk__container__body--collapse');
     expect(browser.storage.local.set).toHaveBeenCalledWith({ guideShowed: true });
+
+    await wrapper.find('#ptk__new-handler').trigger('click');
+
+    expect(wrapper.find('.ptk__container__body').classes()).toContain('ptk__container__body--collapse');
   });
 
   test('with an error the handler alerts instead of toggling', async () => {
@@ -87,16 +91,22 @@ describe('ControlPanel', () => {
   });
 
   test('follows the page theme', async () => {
+    const switchTheme = async theme => {
+      window.localStorage.setItem('theme', theme);
+      window.dispatchEvent(new Event('storage'));
+      await wrapper.vm.$nextTick();
+    };
+
     window.localStorage.setItem('theme', 'dark');
 
     const wrapper = mountPanel();
 
     expect(wrapper.attributes('id')).toBe('ptk-theme__dark');
 
-    window.localStorage.setItem('theme', 'light');
-    window.dispatchEvent(new Event('storage'));
-    await wrapper.vm.$nextTick();
+    await switchTheme('light');
+    expect(wrapper.attributes('id')).toBe('');
 
-    expect(wrapper.attributes('id')).not.toBe('ptk-theme__dark');
+    await switchTheme('dark');
+    expect(wrapper.attributes('id')).toBe('ptk-theme__dark');
   });
 });

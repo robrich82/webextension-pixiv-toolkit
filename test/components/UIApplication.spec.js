@@ -1,22 +1,24 @@
-import browser from '@/modules/Extension/browser';
 import { flushPromises } from '@vue/test-utils';
+import browser from '@/modules/Extension/browser';
 import DownloadTaskObserver from '@/content_scripts/modules/DownloadTaskObserver';
 import { fakeResource } from '../helpers/fakeResource';
 
-// vue-i18n resolves to its ESM browser build under jsdom, which Jest can't
-// load; I18n has its own spec, so a stand-in exposing `global.locale` will do.
+// Neither vue-i18n's ESM browser build (what jsdom resolves) nor the
+// webpack-only `locales` alias loads under Jest; I18n has its own spec, so a
+// stand-in exposing `global.locale` will do.
 let mockI18n;
 jest.mock('@/modules/I18n', () => ({
-  i18n: locale => {
+  i18n: jest.fn(locale => {
     mockI18n = { global: { locale }, install: app => { app.config.globalProperties.$t = key => key; } };
     return mockI18n;
-  }
+  })
 }));
 
 // webpack's DefinePlugin constant, read by '@/core/global' at import time.
 globalThis.PRESET_BROWSER = 'chrome';
 
 const { default: UIApplication } = require('@/content_scripts/UIApplication');
+const I18n = require('@/modules/I18n');
 
 describe('UIApplication', () => {
   let app;
@@ -36,7 +38,12 @@ describe('UIApplication', () => {
 
   test('mounts into a fixed container appended to the body', () => {
     expect(document.getElementById('__ptk-app')).toBe(app.container);
+    expect(app.container.style).toMatchObject({ position: 'fixed', left: '0px', bottom: '0px' });
     expect(window.$extension).toBe(app.app);
+  });
+
+  test('starts in the stored language, falling back to the browser one', () => {
+    expect(I18n.i18n).toHaveBeenLastCalledWith('en', 'en-US');
   });
 
   test('loadData shows the panel through the $eventBus and unload hides it', async () => {

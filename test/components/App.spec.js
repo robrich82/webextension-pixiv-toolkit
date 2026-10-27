@@ -44,11 +44,13 @@ const installEventBus = () => {
   window.$eventBus = { $on: emitter.on, $off: emitter.off, $emit: emitter.emit };
 };
 
-// Answers runtime messages by action; unlisted actions resolve to undefined.
+// Answers runtime messages by action, with a value or a function of the
+// message; unlisted actions resolve to undefined.
 const respondTo = responses => {
   browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.action in responses) {
-      sendResponse(responses[message.action]);
+      const response = responses[message.action];
+      sendResponse(typeof response === 'function' ? response(message) : response);
     }
   });
 };
@@ -57,33 +59,34 @@ const sentMessages = action => browser.runtime.sendMessage.mock.calls
   .map(([message]) => message)
   .filter(message => message.action === action);
 
-const mountWithPage = async resourceOptions => {
+const mountLive = () => {
   installEventBus();
+
+  return mount(App, { global: { mocks: { tl: key => key, browserItems: { guideShowed: true } } } });
+};
+
+const mountWithPage = async resourceOptions => {
+  const wrapper = mountLive();
+
   window.$app = { resource: fakeResource(resourceOptions) };
-
-  const wrapper = mount(App, {
-    global: { mocks: { tl: key => key, browserItems: { guideShowed: true } } }
-  });
-
   window.$eventBus.$emit('pagechange', { url: window.$app.resource.getUrl(), type: 'illust' });
   await flushPromises();
 
   return wrapper;
 };
 
-const actionLabels = wrapper => wrapper.findAll('.ptk__action__wrapper__body > a').map(a => a.text());
+const actionButtons = wrapper => wrapper.findAll('.ptk__action__wrapper__body > a');
+const actionLabels = wrapper => actionButtons(wrapper).map(a => a.text());
+const observerPort = () => browser.runtime.ports.at(-1);
+const ugoira = { context: { type: 'Illust', illustType: 2 } };
+
+afterEach(() => {
+  jest.restoreAllMocks();
+});
 
 describe('App page lifecycle', () => {
-  afterEach(() => {
-    jest.restoreAllMocks();
-  });
-
   test('stays hidden until a page loads', () => {
-    installEventBus();
-
-    const wrapper = mount(App, { global: { mocks: { tl: key => key, browserItems: {} } } });
-
-    expect(wrapper.find('.ptk__container').exists()).toBe(false);
+    expect(mountLive().find('.ptk__container').exists()).toBe(false);
   });
 
   test('a pagechange shows the panel, records the visit and checks history', async () => {
@@ -112,51 +115,70 @@ describe('App page lifecycle', () => {
     expect((await mountWithPage({ pages: ['a.jpg', 'b.jpg'] })).find('.ptk__page-selector').exists()).toBe(true);
   });
 
-  test('a page resolver fills the selector in one page at a time', async () => {
+  test('a page resolver fills in each selector page', async () => {
     const wrapper = await mountWithPage({
       pages: ['a', 'b'],
       pageResolver: async page => `${page}-resolved.jpg`
     });
-    await flushPromises();
 
     expect(wrapper.findComponent({ name: 'page-selector' }).vm.pages.map(p => p.page))
       .toEqual(['a-resolved.jpg', 'b-resolved.jpg']);
   });
 
   test('ugoira pages offer one button per format', async () => {
-    const wrapper = await mountWithPage({ context: { type: 'Illust', illustType: 2 } });
+    const wrapper = await mountWithPage(ugoira);
 
     expect(actionLabels(wrapper)).toEqual([
       '_download_apng', '_download_gif', '_download_webm', '_download_mp4', '_download_custom'
     ]);
   });
 
+  test.each([
+    ['an illust', {}, ['task']],
+    ['an ugoira', ugoira, ['task-gif', 'task-apng', 'task-mp4', 'task-webm', 'task-custom']]
+  ])('%s observes its download task ids', async (_, resourceOptions, downloadTaskIds) => {
+    await mountWithPage(resourceOptions);
+
+    expect(observerPort().postedMessages).toEqual([{ args: { downloadTaskIds } }]);
+  });
+
   test('download task status updates the button progress', async () => {
     const wrapper = await mountWithPage();
 
-    DownloadTaskObserver.getObserver().dispatch('status', [{
-      downloadTasksStatus: [{ type: 'PIXIV_ILLUST', progress: 0.5 }]
-    }]);
+    observerPort().peer.postMessage({ downloadTasksStatus: [{ type: 'PIXIV_ILLUST', progress: 0.5 }] });
     await flushPromises();
 
     expect(actionLabels(wrapper)).toEqual(['_download 50.00%']);
   });
 
   test('ugoira task status updates the matching format button', async () => {
-    const wrapper = await mountWithPage({ context: { type: 'Illust', illustType: 2 } });
+    const wrapper = await mountWithPage(ugoira);
 
-    DownloadTaskObserver.getObserver().dispatch('status', [{
+    observerPort().peer.postMessage({
       downloadTasksStatus: [
         { type: 'PIXIV_UGOIRA', convertType: 'gif', progress: 0.25, processProgress: 0 },
         { type: 'PIXIV_UGOIRA', convertType: 'mp4', progress: 1, processProgress: 0.5 },
         { type: 'PIXIV_UGOIRA', convertType: 'webm', progress: 1, processProgress: 1 }
       ]
-    }]);
+    });
     await flushPromises();
 
     expect(actionLabels(wrapper)).toEqual([
       '_download_apng', '_download_gif (D:25.00%)', '_download_webm ✔', '_download_mp4 (P:50.00%)', '_download_custom'
     ]);
+  });
+
+  // ugoiraProgress() assigns to the read-only downloadButtonType computed, so
+  // the write is dropped. Remove `.failing` once that's fixed.
+  test.failing('a finished ugoira conversion marks the panel as downloaded', async () => {
+    const wrapper = await mountWithPage(ugoira);
+
+    observerPort().peer.postMessage({
+      downloadTasksStatus: [{ type: 'PIXIV_UGOIRA', convertType: 'gif', progress: 1, processProgress: 1 }]
+    });
+    await flushPromises();
+
+    expect(wrapper.find('.ptk__container').classes()).toContain('success');
   });
 
   test('unmounting stops observing download tasks', async () => {
@@ -170,64 +192,97 @@ describe('App page lifecycle', () => {
 });
 
 describe('App download', () => {
-  afterEach(() => {
-    jest.restoreAllMocks();
-  });
-
-  const clickDownload = async wrapper => {
-    await wrapper.find('.ptk__action__wrapper__body > a').trigger('click');
+  const clickAndFlush = async button => {
+    await button.trigger('click');
     await flushPromises();
   };
 
+  const addsDownloads = { 'download:ensureDownloadManagerOpen': true, 'download:addDownload': { result: true } };
+
   test('adds the download and records it in history', async () => {
-    respondTo({
-      'download:getDownloadManagerTab': true,
-      'download:ensureDownloadManagerOpen': true,
-      'download:addDownload': { result: true }
-    });
+    respondTo({ 'download:getDownloadManagerTab': true, ...addsDownloads });
     const wrapper = await mountWithPage();
 
-    await clickDownload(wrapper);
+    await clickAndFlush(actionButtons(wrapper)[0]);
 
     expect(sentMessages('download:addDownload')[0].args).toEqual({
       unpackedResource: { type: 'Illust' },
       options: { selectedIndexes: [], redownload: false }
     });
     expect(sentMessages('history:itemDownload')).toHaveLength(1);
+    expect(wrapper.find('.ptk__download-added-notice').isVisible()).toBe(true);
     expect(wrapper.find('.ptk__download-added-notice').text()).toBe('_download_added');
   });
 
-  test('sends the pages picked in the selector', async () => {
-    respondTo({
-      'download:ensureDownloadManagerOpen': true,
-      'download:addDownload': { result: true }
-    });
+  test('the notice hides itself after three seconds', async () => {
+    jest.useFakeTimers();
+    try {
+      respondTo(addsDownloads);
+      const wrapper = await mountWithPage();
+
+      await clickAndFlush(actionButtons(wrapper)[0]);
+      jest.advanceTimersByTime(3000);
+      await flushPromises();
+
+      expect(wrapper.find('.ptk__download-added-notice').isVisible()).toBe(false);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  test.each([
+    ['_download_apng', 'apng'],
+    ['_download_gif', 'gif'],
+    ['_download_webm', 'webm'],
+    ['_download_mp4', 'mp4'],
+    ['_download_custom', undefined]
+  ])('the %s button sends its convert type', async (label, ugoiraConvertType) => {
+    respondTo(addsDownloads);
+    const wrapper = await mountWithPage(ugoira);
+
+    await clickAndFlush(actionButtons(wrapper).find(a => a.text() === label));
+
+    expect(sentMessages('download:addDownload')[0].args.options.ugoiraConvertType).toBe(ugoiraConvertType);
+  });
+
+  test("the selector's own download button sends the picked pages", async () => {
+    respondTo(addsDownloads);
     const wrapper = await mountWithPage({ pages: ['a.jpg', 'b.jpg'] });
 
     await wrapper.findAll('.ptk__page-preview')[1].trigger('click');
-    await clickDownload(wrapper);
+    await clickAndFlush(wrapper.findAll('.ptk__dialog-foot a').find(a => a.text() === '_download'));
 
     expect(sentMessages('download:addDownload')[0].args.options.selectedIndexes).toEqual([1]);
   });
 
+  const existsUntilRedownload = {
+    'download:ensureDownloadManagerOpen': true,
+    'download:addDownload': message => (message.args.options.redownload
+      ? { result: true }
+      : { result: false, errorName: 'DownloadTaskExistsError' })
+  };
+
   test('asks before re-adding a task that already exists', async () => {
     const confirm = jest.spyOn(window, 'confirm').mockReturnValue(true);
-    browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
-      if (message.action === 'download:ensureDownloadManagerOpen') {
-        sendResponse(true);
-      } else if (message.action === 'download:addDownload') {
-        sendResponse(message.args.options.redownload
-          ? { result: true }
-          : { result: false, errorName: 'DownloadTaskExistsError' });
-      }
-    });
+    respondTo(existsUntilRedownload);
     const wrapper = await mountWithPage();
 
-    await clickDownload(wrapper);
+    await clickAndFlush(actionButtons(wrapper)[0]);
 
     expect(confirm).toHaveBeenCalledWith('_the_resource_is_already_in_download_manager');
     expect(sentMessages('download:addDownload').map(message => message.args.options.redownload))
       .toEqual([false, true]);
+  });
+
+  test('declining the re-add prompt sends nothing more', async () => {
+    jest.spyOn(window, 'confirm').mockReturnValue(false);
+    respondTo(existsUntilRedownload);
+    const wrapper = await mountWithPage();
+
+    await clickAndFlush(actionButtons(wrapper)[0]);
+
+    expect(sentMessages('download:addDownload')).toHaveLength(1);
+    expect(sentMessages('history:itemDownload')).toHaveLength(0);
   });
 
   test('alerts on any other add failure', async () => {
@@ -238,7 +293,7 @@ describe('App download', () => {
     });
     const wrapper = await mountWithPage();
 
-    await clickDownload(wrapper);
+    await clickAndFlush(actionButtons(wrapper)[0]);
 
     expect(alert).toHaveBeenCalledWith('_unkown_error: SomethingElse');
     expect(sentMessages('history:itemDownload')).toHaveLength(0);
@@ -247,9 +302,10 @@ describe('App download', () => {
   test('tells the user when the download manager will not open', async () => {
     const wrapper = await mountWithPage();
 
-    await clickDownload(wrapper);
+    await clickAndFlush(actionButtons(wrapper)[0]);
 
     expect(sentMessages('download:addDownload')).toHaveLength(0);
+    expect(wrapper.find('.ptk__download-added-notice').isVisible()).toBe(true);
     expect(wrapper.find('.ptk__download-added-notice').text())
       .toBe('_cant_open_download_manager_please_open_manully');
   });
