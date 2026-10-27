@@ -311,7 +311,8 @@ export default {
       this.adapter.abort();
       this.resource = null;
       this.downloadedAt = 0;
-      this.pages = this.selectedIndexes = [];
+      this.pages = [];
+      this.selectedIndexes = [];
     },
 
     /**
