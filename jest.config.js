@@ -1,6 +1,6 @@
 const base = {
   transform: {
-    '\\.js$': 'babel-jest'
+    '\\.m?js$': 'babel-jest'
   },
   modulePathIgnorePatterns: [
     '<rootDir>/dist/'
@@ -77,14 +77,15 @@ module.exports = {
         ...base.transform,
         '\\.vue$': '@vue/vue3-jest'
       },
-      // Vuetify 3 ships ESM-only; babel-jest has to transpile it like any
-      // other source file instead of Jest's default of skipping node_modules.
+      // Vuetify 3 and nostics (pulled in by vue-router 5) ship ESM-only;
+      // babel-jest has to transpile them like any other source file instead
+      // of Jest's default of skipping node_modules.
       // pnpm resolves every package through node_modules/.pnpm/<name>@<version>/,
       // so matching on that literal segment (rather than a generic
       // `node_modules/(?!vuetify)`, which false-matches on vuetify's own
       // nested node_modules/vuetify re-export) is what actually excludes it.
       transformIgnorePatterns: [
-        'node_modules[\\\\/]\\.pnpm[\\\\/](?!vuetify@)'
+        'node_modules[\\\\/]\\.pnpm[\\\\/](?!vuetify@|nostics@)'
       ],
       setupFilesAfterEnv: [
         ...base.setupFilesAfterEnv,
