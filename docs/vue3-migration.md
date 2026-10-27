@@ -16,9 +16,8 @@ turned out not to have actually exercised. **The dead-class cleanup pass has
 also landed** (PR #74) — see "Dead-class cleanup notes" below. **Phase E
 (`content_scripts/components`, the last unmigrated tree) has also landed**,
 via `feature/vue3-phase-e-content-scripts-26` — see "Phase E notes" below.
-The migration merged to `main` as PR #77. Open follow-ups are tracked as
-issues: #93–#96 (`PageSelector`/`App.vue` bugs, possible Firefox
-`DataCloneError`), #97 (Vuetify bundle size) and #98 (test coverage).
+The migration merged to `main` as PR #77. The follow-ups #93–#97 are fixed;
+#98 (test coverage) is still open.
 
 ## Why this was outstanding
 
@@ -177,13 +176,15 @@ its own phase already plans to make; nothing here needs doing early, but the
 "Vuetify component inventory" table above and the per-phase file lists are
 where to check before assuming a given tag is fine as-is.
 
-**Bundle size:** `createVuetify({ components, directives })` passes whole
+**Bundle size:** `createVuetify({ components, directives })` passed whole
 namespace objects, which defeats webpack tree-shaking — the whole Vuetify 3
-library is now bundled regardless of what's used. Measured: `index.js` and
+library was bundled regardless of what's used. Measured: `index.js` and
 `downloads.js` each grew by ~540 KB JS / ~310 KB CSS. The fix is necessary
 (nothing rendered without it) so this isn't worth blocking on mid-migration,
-but it should not be the end state. **Still unresolved** — the migration
-merged with the whole library bundled; tracked in #97.
+but it should not be the end state. **Resolved in #97:** `vuetify.js` now
+registers an explicit component list (no directives), cutting each bundle by
+~320 KB JS / ~170 KB CSS; `test/components/vuetifyRegistration.spec.js` fails
+if that list doesn't match the `<v-*>` tags in src.
 
 ## Phase C notes: `options_page/components/options` (19 files)
 
