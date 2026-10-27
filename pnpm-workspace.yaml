@@ -134,6 +134,10 @@ overrides:
   # adm-zip <=0.6.0 (GHSA-vwc7-r8mq-g2x9): extraction follows destination
   # symlinks, allowing an arbitrary file overwrite, patched 0.6.1.
   'adm-zip@<=0.6.0': ^0.6.1
+  # postcss-selector-parser (css-loader's postcss-modules-*): GHSA-rj75-hqrm-r3gf
+  # -- quadratic complexity in flat selector parsing allows CPU exhaustion,
+  # patched 7.1.6.
+  'postcss-selector-parser@<7.1.6': ^7.1.6
 
 auditConfig:
   ignoreGhsas:
