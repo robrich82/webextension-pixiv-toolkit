@@ -16,8 +16,9 @@ turned out not to have actually exercised. **The dead-class cleanup pass has
 also landed** (PR #74) — see "Dead-class cleanup notes" below. **Phase E
 (`content_scripts/components`, the last unmigrated tree) has also landed**,
 via `feature/vue3-phase-e-content-scripts-26` — see "Phase E notes" below.
-This closes out the migration; `feature/vue3-vuetify3-migration-26` is ready
-to merge to `main`.
+The migration merged to `main` as PR #77. Open follow-ups are tracked as
+issues: #93–#96 (`PageSelector`/`App.vue` bugs, possible Firefox
+`DataCloneError`), #97 (Vuetify bundle size) and #98 (test coverage).
 
 ## Why this was outstanding
 
@@ -85,12 +86,10 @@ just renamed.
   app-level mixin. Done in Phase A for all four root entry points.
 - **`this.$set`/`this.$delete` are removed** (Vue 3's reactivity doesn't need
   them for already-declared properties). Live call sites, found during Phase
-  A's review but out of that phase's scope to fix: `src/content_scripts/
-  components/PageSelector.vue` (5 call sites) and `src/options_page/
-  components/DownloadManager.vue` (1). Both throw `TypeError: this.$set is
-  not a function` the moment those code paths run — a hard blocker for
-  whichever phase touches each file (DownloadManager.vue below, PageSelector.vue
-  in the content_scripts phase).
+  A's review: `src/content_scripts/components/PageSelector.vue` (5 call sites)
+  and `src/options_page/components/DownloadManager.vue` (1). Both threw
+  `TypeError: this.$set is not a function`; fixed in Phases E and D
+  respectively.
 - **Filters are removed** in Vue 3 — grep for `|` in templates.
 - **`v-model` on components** changed prop/event names (`value`/`input` →
   `modelValue`/`update:modelValue`). This hits every `option-items` component.
@@ -106,8 +105,9 @@ just renamed.
   the vue-i18n 9+ default for `fallbackLocale` changed to the current locale
   itself rather than `'en'`, so it now has to be set explicitly.
 - **`vue-virtual-scroller` 1 → 3** (2.x was skipped; 3.x is the first Vue-3-
-  compatible major) — dependency bumped in Phase A, but `DownloadManager.vue`
-  and `History.vue`'s actual usage is unmigrated. `vuedraggable` turned out to
+  compatible major) — dependency bumped in Phase A, usage in
+  `DownloadManager.vue` and `History.vue` moved to the v3 `v-slot` API in
+  Phase D. `vuedraggable` turned out to
   be unused (zero imports in `src/`) and was dropped entirely in Phase A
   rather than migrated.
 
@@ -138,6 +138,8 @@ every component spec, for the whole lifetime of Phase A. Phase B fixed this
 (now centralized in `src/options_page/vuetify.js`, imported by both entry
 points and by `test/helpers/mountOptionComponent.js`, so the three copies
 can't drift apart again the way they just did).
+
+*Historical: every breakage listed below was fixed by Phases C–E.*
 
 **This has a blast radius far wider than the 4 migrated files.** Registering
 the real component set means every *unmigrated* Vuetify tag whose name still
@@ -180,9 +182,8 @@ namespace objects, which defeats webpack tree-shaking — the whole Vuetify 3
 library is now bundled regardless of what's used. Measured: `index.js` and
 `downloads.js` each grew by ~540 KB JS / ~310 KB CSS. The fix is necessary
 (nothing rendered without it) so this isn't worth blocking on mid-migration,
-but it should not be the end state — investigate a webpack per-component
-auto-import setup (the webpack analogue of `vite-plugin-vuetify`) before the
-final phase merges to `main`.
+but it should not be the end state. **Still unresolved** — the migration
+merged with the whole library bundled; tracked in #97.
 
 ## Phase C notes: `options_page/components/options` (19 files)
 
@@ -294,9 +295,8 @@ new to this phase:
   `History.vue`'s `beforeDestroy` (removing its `window` scroll listener)
   never fired, a real leak. This wasn't in this doc's "Framework-level
   breaking changes" list before now — **`content_scripts/App.vue` and
-  `PageSelector.vue` both still use `beforeDestroy` too** (grepped, unfixed,
-  out of this phase's scope) and need the same rename whenever that phase
-  lands.
+  `PageSelector.vue` both still used `beforeDestroy` too** (renamed in
+  Phase E).
 - **`v-navigation-drawer`/`v-toolbar` → `v-app-bar`/`v-main` layout
   rewrite** in `Index.vue`/`Downloads.vue` (the "Phase B discovery" item
   about the nav drawer overlaying content, now resolved): `app`, `clipped`,
@@ -425,27 +425,23 @@ ran this tree on the Vue 3 runtime — but Phase E is what exercises
 surfaced.
 
 **Known follow-ups, not fixed in this phase (all pre-existing, none
-introduced by this phase's changes):**
-- `PageSelector.vue::updatePage`'s `Object({ page: url }, this.pages[index])`
-  drops the previous element's `selected` flag — `Object()` ignores its
-  second argument. Pre-existing (same bug existed under the old
-  `this.$set(...)` wrapper). Reachable only via PixivComic's `pageResolver`
-  flow.
-- `PageSelector.vue::selectAll` doesn't clear `selectedPageIndexes` before
-  appending, unlike `selectInvert`; repeated calls can duplicate indices.
-- Possible Firefox-specific `DataCloneError` sending Vue 3 reactive Proxies
+introduced by this phase's changes), now tracked as issues:**
+- #93 — `PageSelector.vue::updatePage`'s `Object({ page: url }, ...)` drops the
+  previous entry (`Object()` ignores its second argument).
+- #94 — `PageSelector.vue::selectAll` doesn't clear `selectedPageIndexes`
+  first; repeated calls duplicate indices.
+- #95 — `App.vue::abortAdapterParse`'s `this.pages = this.selectedIndexes = []`
+  makes both properties one array.
+- #96 — possible Firefox `DataCloneError` sending Vue 3 reactive Proxies
   (`this.resource.unpack()`, `selectedIndexes`) through
-  `browser.runtime.sendMessage`'s structured clone — unverified, would need a
-  live Firefox load exercising a `pageResolver`-driving resource to confirm.
-- Still no automated test coverage for `content_scripts/` (same gap Phase D
-  had for its own directory — see "Suggested sequencing" below).
+  `browser.runtime.sendMessage` (unverified).
+- #98 — no automated test coverage for `content_scripts/`.
 
 With this phase, `content_scripts/components` is fully Vue 3-clean and
-`docs/vue3-migration.md`'s "Framework-level breaking changes" list (the
+the "Framework-level breaking changes" list (the
 `beforeDestroy`/`.sync`/`$set`/`slot=` items) has no more instances anywhere
-under `src/` (confirmed via repo-wide grep). This is the last item in
-"Suggested sequencing" below — once this phase merges, the whole
-`feature/vue3-vuetify3-migration-26` branch is ready to merge to `main`.
+under `src/` (confirmed via repo-wide grep). This was the last item in
+"Suggested sequencing" below.
 
 ## Suggested sequencing
 
@@ -454,8 +450,8 @@ under `src/` (confirmed via repo-wide grep). This is the last item in
    now covers the leaf `option-items` and `options_page/components/options`
    trees by mounting the real `.vue` components with `shallowMountOption`,
    enforced by a coverage floor in `jest.config.js`; see `docs/testing.md`.
-   `content_scripts/components` is still untested (see step 7's "Phase E
-   notes" — the migration itself is done, tests remain a follow-up).
+   `content_scripts/` and the rest of the options page are still untested
+   (#98).
 3. ~~Migrate the leaf `option-items`~~ (done — Phase B; 4 files, this doc
    previously said 5: `DownloadSaveMode.vue`, `ZipDownloads.vue`,
    `CombineRenameRules.vue`, `DontCreateWorkFolder.vue` is the full set). See
