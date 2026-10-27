@@ -34,12 +34,6 @@ module.exports = env => {
           test: /\.js$/,
           loader: 'babel-loader',
           include: [utils.resolve('src')]
-        }, {
-          test: /\.worker\.js$/,
-          loader: 'worker-loader',
-          options: {
-            inline: "no-fallback"
-          }
         }
       ]
     },
