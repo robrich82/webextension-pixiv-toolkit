@@ -10,6 +10,7 @@ const base = {
     // Vuetify 3 components import their own co-located stylesheet (e.g.
     // VApp.js does `import './VApp.css'`), which babel-jest can't parse as JS.
     '\\.(css|s[ac]ss)$': '<rootDir>/test/doubles/styleMock.js',
+    '\\.(png|svg)$': '<rootDir>/test/doubles/fileMock.js',
     '^@@/(.*)$': '<rootDir>/src/options_page/$1',
     '^@/(.*)$': '<rootDir>/src/$1'
   },
@@ -55,6 +56,24 @@ module.exports = {
       branches: 100,
       functions: 100,
       lines: 100
+    },
+    './src/options_page/components/': {
+      statements: 85,
+      branches: 79,
+      functions: 89,
+      lines: 85
+    },
+    './src/options_page/Index.vue': {
+      statements: 96,
+      branches: 92,
+      functions: 90,
+      lines: 96
+    },
+    './src/options_page/Downloads.vue': {
+      statements: 72,
+      branches: 60,
+      functions: 75,
+      lines: 75
     },
     './src/options_page/components/options/': {
       statements: 88,
