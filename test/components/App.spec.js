@@ -168,9 +168,7 @@ describe('App page lifecycle', () => {
     ]);
   });
 
-  // ugoiraProgress() assigns to the read-only downloadButtonType computed, so
-  // the write is dropped. Remove `.failing` once that's fixed.
-  test.failing('a finished ugoira conversion marks the panel as downloaded', async () => {
+  test('a finished ugoira conversion marks the panel as downloaded', async () => {
     const wrapper = await mountWithPage(ugoira);
 
     observerPort().peer.postMessage({

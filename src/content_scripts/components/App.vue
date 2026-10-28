@@ -123,7 +123,9 @@ export default {
     },
 
     downloadButtonType() {
-      return this.downloadedAt > 0 ? 'success' : '';
+      const ugoiraConverted = Object.values(this.ugoiraTaskProgresses).some(progress => progress.p === 1);
+
+      return this.downloadedAt > 0 || ugoiraConverted ? 'success' : '';
     },
 
     isUgoira() {
@@ -274,7 +276,6 @@ export default {
 
       if (progress) {
         if (progress.p === 1) {
-          this.downloadButtonType = 'success';
           return ' ✔';
         } else if (progress.p > 0) {
           return ` (P:${(progress.p * 100).toFixed(2)}%)`;
