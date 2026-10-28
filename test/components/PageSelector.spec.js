@@ -105,10 +105,7 @@ describe('PageSelector', () => {
     expect(wrapper.vm.pages).toEqual([{ page: 'x.jpg', selected: false }]);
   });
 
-  // The items watcher rebuilds pages but keeps selectedPageIndexes, so moving
-  // between two multi-page works carries the old picks over. Remove
-  // `.failing` once that's fixed.
-  test.failing('new items clear the selected indexes', async () => {
+  test('new items clear the selected indexes', async () => {
     const wrapper = mountSelector();
 
     wrapper.vm.selectPage(0);
