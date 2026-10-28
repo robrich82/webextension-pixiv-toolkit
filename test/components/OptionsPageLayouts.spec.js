@@ -6,20 +6,22 @@ import Sponsors from '@/options_page/components/Sponsors.vue';
 import ThirdParty from '@/options_page/components/ThirdParty.vue';
 
 // These pages only arrange other components; the specs pin which ones.
+const missing = (wrapper, names) => names.filter(name => !wrapper.find(`${name}-stub`).exists());
+
 describe('layout pages', () => {
   test('Options shows every settings section except the disabled search one', () => {
     const wrapper = shallowMountOption(Options);
 
-    expect(['download-task-settings', 'download-options', 'history-options', 'interface-options', 'other-options']
-      .map(name => wrapper.find(`${name}-stub`).exists())).toEqual([true, true, true, true, true]);
+    expect(missing(wrapper, ['download-task-settings', 'download-options', 'history-options', 'interface-options', 'other-options']))
+      .toEqual([]);
     expect(wrapper.find('search-options-stub').exists()).toBe(false);
   });
 
   test('NewSettings lists the newest option items', () => {
     const wrapper = shallowMountOption(NewSettings);
 
-    expect(['download-save-mode', 'zip-downloads', 'dont-create-work-folder', 'combine-rename-rules']
-      .map(name => wrapper.find(`${name}-stub`).exists())).toEqual([true, true, true, true]);
+    expect(missing(wrapper, ['download-save-mode', 'zip-downloads', 'dont-create-work-folder', 'combine-rename-rules']))
+      .toEqual([]);
   });
 
   test('ChangeLogs titles and wraps the change log', () => {

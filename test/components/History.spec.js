@@ -14,14 +14,6 @@ jest.mock('@/modules/Db/Db', () => ({
   default: { getDb: () => ({ historyRepo: () => mockRepo }) }
 }));
 
-// See DownloadManager.spec.js: ESM-only, and it renders no rows under jsdom.
-jest.mock('vue-virtual-scroller', () => ({
-  RecycleScroller: {
-    props: ['items'],
-    template: '<div><template v-for="item in items" :key="item.id"><slot :item="item" /></template></div>'
-  }
-}));
-
 const item = (id, overrides) => ({
   id, uid: `illust:${id}`, title: `Work ${id}`, url: `https://www.pixiv.net/artworks/${id}`,
   cover: `${id}.jpg`, type: 'pixiv_illust', r: false, visited_at: 1700000000, ...overrides
@@ -47,6 +39,8 @@ const mountHistory = (browserItems = {}, locale = 'en') => {
 };
 
 const titles = wrapper => wrapper.findAll('.history-item__info-entity--blod').map(e => e.text());
+const dialogButton = (wrapper, label) => wrapper.find('v-dialog-stub').findAll('v-btn-stub').find(b => b.text() === label);
+const scroll = () => window.dispatchEvent(new Event('scroll'));
 
 describe('History', () => {
   afterEach(() => {
@@ -86,7 +80,7 @@ describe('History', () => {
     await flushPromises();
 
     for (let i = 0; i < 3; i++) {
-      window.dispatchEvent(new Event('scroll'));
+      scroll();
       await flushPromises();
     }
 
@@ -103,10 +97,54 @@ describe('History', () => {
     wrapper.unmount();
     mounted = [];
 
-    window.dispatchEvent(new Event('scroll'));
+    scroll();
     await flushPromises();
 
     expect(mockRepo.getItems).toHaveBeenCalledTimes(1);
+  });
+
+  test('scrolling far from the bottom loads nothing', async () => {
+    servePages(mockRepo.getItems, [item(1)], [item(2)]);
+    jest.spyOn(document.documentElement, 'scrollHeight', 'get').mockReturnValue(10000);
+
+    mountHistory();
+    await flushPromises();
+    scroll();
+    await flushPromises();
+
+    expect(mockRepo.getItems).toHaveBeenCalledTimes(1);
+  });
+
+  test('a scroll while a page is still loading does not fetch it twice', async () => {
+    servePages(mockRepo.getItems, [item(1)], [item(2)]);
+
+    const wrapper = mountHistory();
+    await flushPromises();
+    scroll();
+    scroll();
+    await flushPromises();
+
+    expect(mockRepo.getItems.mock.calls.map(([args]) => args.page)).toEqual([1, 2]);
+    expect(titles(wrapper)).toEqual(['Work 1', 'Work 2']);
+  });
+
+  test('scrolling during a search pages the search, not the full history', async () => {
+    jest.useFakeTimers();
+    servePages(mockRepo.getItems, [item(1)]);
+    servePages(mockRepo.searchItems, [item(2)], [item(3)]);
+
+    const wrapper = mountHistory();
+    await flushPromises();
+    await wrapper.setData({ searchQuery: 'Work' });
+    jest.advanceTimersByTime(600);
+    await flushPromises();
+
+    scroll();
+    await flushPromises();
+
+    expect(mockRepo.searchItems.mock.calls).toEqual([[{ page: 1, query: 'Work' }], [{ page: 2, query: 'Work' }]]);
+    expect(mockRepo.getItems).toHaveBeenCalledTimes(1);
+    expect(titles(wrapper)).toEqual(['Work 2', 'Work 3']);
   });
 
   test('a search query reloads from page 1 after a 600ms pause; clearing it lists everything again', async () => {
@@ -145,13 +183,27 @@ describe('History', () => {
     await wrapper.findAll('.history-item__actions-btn')[1].trigger('click');
     expect(wrapper.vm.confirmDialog).toBe(true);
 
-    wrapper.vm.deleteIllust();
+    await dialogButton(wrapper, '_delete.message').trigger('click');
     await flushPromises();
 
     expect(titles(wrapper)).toEqual(['Work 1', 'Work 3']);
     expect(browser.runtime.sendMessage).toHaveBeenCalledWith({
       to: 'ws', action: 'history:deleteItem', args: { uid: 'illust:2' }
     });
+  });
+
+  test('keeping the item closes the prompt without deleting', async () => {
+    servePages(mockRepo.getItems, [item(1)]);
+
+    const wrapper = mountHistory();
+    await flushPromises();
+
+    await wrapper.find('.history-item__actions-btn').trigger('click');
+    await dialogButton(wrapper, '_keep.message').trigger('click');
+
+    expect(wrapper.vm.confirmDialog).toBe(false);
+    expect(titles(wrapper)).toEqual(['Work 1']);
+    expect(browser.runtime.sendMessage).not.toHaveBeenCalled();
   });
 
   test('R-18 covers are blurred until the eye toggle is clicked', async () => {
@@ -163,7 +215,7 @@ describe('History', () => {
 
     expect(blurred()).toBe(1);
 
-    await wrapper.find('.history__header-action v-btn-stub, .history__header-action .v-btn').trigger('click');
+    await wrapper.find('.history__header-action v-btn-stub').trigger('click');
 
     expect(blurred()).toBe(0);
   });

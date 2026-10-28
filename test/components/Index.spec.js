@@ -3,22 +3,9 @@ import browser from '../doubles/browser';
 import { mountOption, shallowMountOption } from '../helpers/mountOptionComponent';
 import Index from '@/options_page/Index.vue';
 
-const mountIndex = (browserItems = {}) => {
+const mountIndex = (browserItems = {}, mount = shallowMountOption) => {
   const push = jest.fn(() => Promise.resolve());
-  const wrapper = shallowMountOption(Index, {
-    browserItems,
-    mocks: { $router: { push } },
-    global: { stubs: { 'router-view': true, 'update-notice': true, supports: true } }
-  });
-
-  return { wrapper, push };
-};
-
-// The menu items use #title slots, which shallowMount's stubs don't render, and
-// declare onClick as a prop, which a stub stringifies.
-const mountMenu = (browserItems = {}) => {
-  const push = jest.fn(() => Promise.resolve());
-  const wrapper = mountOption(Index, {
+  const wrapper = mount(Index, {
     browserItems,
     mocks: { $router: { push } },
     global: { stubs: { 'router-view': true, 'update-notice': true, supports: true, 'app-suggest': true } }
@@ -26,6 +13,10 @@ const mountMenu = (browserItems = {}) => {
 
   return { wrapper, push };
 };
+
+// A real mount: the menu items use #title slots, which shallowMount's stubs
+// don't render, and declare onClick as a prop, which a stub stringifies.
+const mountMenu = browserItems => mountIndex(browserItems, mountOption);
 
 const menuItem = (wrapper, label) => wrapper.findAll('.v-list-item').find(item => item.text().includes(label));
 
@@ -36,6 +27,7 @@ describe('Index', () => {
 
   afterEach(() => {
     jest.useRealTimers();
+    jest.restoreAllMocks();
   });
 
   test('shows the extension version in the app bar', () => {
@@ -44,9 +36,10 @@ describe('Index', () => {
 
   test('the drawer is pinned on wide windows and becomes a toggled overlay on narrow ones', async () => {
     const { wrapper } = mountIndex();
+    const menuButton = () => wrapper.find('v-app-bar-stub v-btn-stub');
 
     expect(wrapper.vm.drawer).toBe(true);
-    expect(wrapper.find('.v-primary v-btn-stub').exists()).toBe(false);
+    expect(menuButton().exists()).toBe(false);
 
     window.innerWidth = 1000;
     window.dispatchEvent(new Event('resize'));
@@ -55,7 +48,7 @@ describe('Index', () => {
     expect(wrapper.vm.drawerTemporary).toBe(true);
     expect(wrapper.vm.drawer).toBe(false);
 
-    await wrapper.find('v-app-bar-stub v-btn-stub').trigger('click');
+    await menuButton().trigger('click');
     expect(wrapper.vm.drawer).toBe(true);
 
     window.innerWidth = 1600;
@@ -63,7 +56,7 @@ describe('Index', () => {
     await wrapper.vm.$nextTick();
 
     expect(wrapper.vm.drawerTemporary).toBe(false);
-    expect(wrapper.find('v-app-bar-stub v-btn-stub').exists()).toBe(false);
+    expect(menuButton().exists()).toBe(false);
   });
 
   test.each([
@@ -85,7 +78,9 @@ describe('Index', () => {
     await menuItem(wrapper, '_history.message').trigger('click');
 
     expect(push).toHaveBeenCalledWith({ name: 'History' });
-    expect(menuItem(mountMenu({ enableSaveVisitHistory: false }).wrapper, '_history.message')).toBeUndefined();
+
+    const withoutHistory = mountMenu({ enableSaveVisitHistory: false }).wrapper;
+    expect(menuItem(withoutHistory, '_history.message')).toBeUndefined();
   });
 
   test('suggests Pixiv Omina on x86 Windows, sliding it in after a second', async () => {
@@ -145,6 +140,14 @@ describe('Index', () => {
         url: expect.stringMatching(/options_page\/downloads\.html$/),
         active: true
       });
+    });
+
+    test('opens a new tab when the background is not listening', async () => {
+      browser.runtime.sendMessage.mockRejectedValueOnce(new Error('Receiving end does not exist.'));
+
+      await clickDownloadManager(mountMenu().wrapper);
+
+      expect(browser.tabs.create).toHaveBeenCalledTimes(1);
     });
 
     test('ignores clicks while a previous one is still opening', async () => {

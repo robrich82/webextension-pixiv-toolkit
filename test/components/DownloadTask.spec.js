@@ -40,6 +40,17 @@ describe('DownloadTask', () => {
     expect(wrapper.find('.download-task__progress').attributes('title')).toBe('25%');
   });
 
+  // The validator's `!x instanceof T` checks are always false and its
+  // `progress instanceof Number` rejects every primitive. Remove `.failing` once fixed.
+  test.failing('a well-formed task passes the data validator', () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    mountOption(DownloadTask, { props: { data: task() } });
+
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
   test('is Untagged without a tag', () => {
     expect(mountOption(DownloadTask, { props: { data: task() } }).find('.download-task__type-tag').text()).toBe('Untagged');
   });

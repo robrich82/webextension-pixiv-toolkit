@@ -11,6 +11,7 @@ const base = {
     // VApp.js does `import './VApp.css'`), which babel-jest can't parse as JS.
     '\\.(css|s[ac]ss)$': '<rootDir>/test/doubles/styleMock.js',
     '\\.(png|svg)$': '<rootDir>/test/doubles/fileMock.js',
+    '^vue-virtual-scroller$': '<rootDir>/test/doubles/vueVirtualScroller.js',
     '^@@/(.*)$': '<rootDir>/src/options_page/$1',
     '^@/(.*)$': '<rootDir>/src/$1'
   },
@@ -24,7 +25,9 @@ module.exports = {
   collectCoverageFrom: [
     'src/**/*.js',
     'src/**/*.vue',
-    '!src/statics/lib/**'
+    '!src/statics/lib/**',
+    // Manual debug page: routed, but not linked from the menu.
+    '!src/options_page/components/Test.vue'
   ],
   coverageThreshold: {
     global: {
@@ -57,11 +60,13 @@ module.exports = {
       functions: 100,
       lines: 100
     },
-    './src/options_page/components/': {
-      statements: 85,
-      branches: 79,
-      functions: 89,
-      lines: 85
+    // A glob applies per file, so each top-level component keeps its own
+    // floor; a directory key would also pool in options/.
+    './src/options_page/components/*.vue': {
+      statements: 67,
+      branches: 59,
+      functions: 85,
+      lines: 67
     },
     './src/options_page/Index.vue': {
       statements: 96,

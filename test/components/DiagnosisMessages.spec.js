@@ -12,9 +12,8 @@ describe('DiagnosisMessages', () => {
       }
     });
 
-    const wrapper = shallowMountOption(DiagnosisMessages, {
-      browserItems: { language: 'en', historyBackup: [{ id: 1 }] }
-    });
+    const browserItems = { language: 'en', historyBackup: [{ id: 1 }] };
+    const wrapper = shallowMountOption(DiagnosisMessages, { browserItems });
     await flushPromises();
 
     const [permissions, settings, historyBackup, errors] = wrapper.findAll('textarea').map(t => t.element.value);
@@ -22,6 +21,7 @@ describe('DiagnosisMessages', () => {
     expect(JSON.parse(permissions)).toEqual({ permissions: ['downloads'], origins: [] });
     expect(JSON.parse(settings)).toEqual({ language: 'en' });
     expect(JSON.parse(historyBackup)).toEqual([{ id: 1 }]);
+    expect(browserItems.historyBackup).toEqual([{ id: 1 }]);
     // A textarea's value normalises the component's \r\n to \n.
     expect(errors).toBe('first error\nsecond error\n');
   });

@@ -3,14 +3,12 @@ import browser from '../doubles/browser';
 import { mountOption, shallowMountOption } from '../helpers/mountOptionComponent';
 import Downloads from '@/options_page/Downloads.vue';
 
-// Stubbed below, but DownloadManager's imports still load: the scroller is
-// ESM-only and DownloadsApplication boots the whole app.
-jest.mock('vue-virtual-scroller', () => ({ RecycleScroller: {} }));
+// The download-manager stub doesn't stop DownloadManager.vue's imports
+// loading, and DownloadsApplication boots the whole app.
 jest.mock('@/options_page/DownloadsApplication', () => ({ app: () => ({ getService: () => ({}) }) }));
 
-// Downloads reads the already-open manager tab off $root, which in a test is
-// the test-utils host; only it (the parentless instance) gets these fields, so
-// they don't shadow Downloads' own computed of the same names.
+// Downloads reads openedTabId/openedWindowId off $root, which in a test is the
+// test-utils host. The $parent guard keeps them off Downloads' own same-named computeds.
 const mountDownloads = ({ openedTabId = 0, openedWindowId = 0 } = {}, mount = shallowMountOption) => mount(Downloads, {
   global: {
     mixins: [{ data() { return this.$parent ? {} : { openedTabId, openedWindowId }; } }],

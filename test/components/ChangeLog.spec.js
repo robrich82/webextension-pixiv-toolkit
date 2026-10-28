@@ -7,9 +7,11 @@ const history = 'v2.0.0\nAdd a thing;\nFix a bug.\n\nv1.0.0\nFirst release.\n';
 
 describe('ChangeLog', () => {
   let xhr;
+  let body;
 
   beforeEach(() => {
-    xhr = installFakeXhr(() => history);
+    body = history;
+    xhr = installFakeXhr(() => body);
   });
 
   afterEach(() => {
@@ -28,8 +30,7 @@ describe('ChangeLog', () => {
   });
 
   test('handles CRLF line endings', async () => {
-    xhr.restore();
-    xhr = installFakeXhr(() => history.replace(/\n/g, '\r\n'));
+    body = history.replace(/\n/g, '\r\n');
 
     const wrapper = mountChangeLog('en');
     await flushPromises();

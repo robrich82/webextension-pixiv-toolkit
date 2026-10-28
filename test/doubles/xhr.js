@@ -1,8 +1,6 @@
 /**
- * Swaps `window.XMLHttpRequest` for a double that answers every request with
- * `respond(url)` on a later microtask, calling `onload` with the request as
- * `this` (SponsorsCard reads `this.responseText`). Returns the requested URLs
- * and a `restore()`.
+ * Fake `window.XMLHttpRequest`: answers each request with `respond(url)` on a
+ * microtask, calling `onload` with the request as `this`. Returns `{ urls, restore }`.
  */
 export function installFakeXhr(respond) {
   const original = window.XMLHttpRequest;

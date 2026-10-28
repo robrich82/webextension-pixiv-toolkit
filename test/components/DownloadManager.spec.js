@@ -12,16 +12,9 @@ jest.mock('@/options_page/DownloadsApplication', () => ({
   app: () => ({ getService: () => mockDownloadService })
 }));
 
-// The real RecycleScroller is ESM-only and sizes rows from a viewport jsdom
-// doesn't have; this stand-in renders every item through the slot.
-jest.mock('vue-virtual-scroller', () => ({
-  RecycleScroller: {
-    props: ['items'],
-    template: '<div><template v-for="item in items" :key="item.id"><slot :item="item" /></template></div>'
-  }
-}));
-
-const task = (id, overrides) => ({ id, title: `Task ${id}`, url: 'u', progress: 0, state: 1, type: 'PIXIV_ILLUST', ...overrides });
+const task = (id, overrides) => ({
+  id, title: `Task ${id}`, url: 'u', progress: 0, state: 1, type: 'PIXIV_ILLUST', ...overrides
+});
 
 describe('DownloadManager', () => {
   let wrapper;
@@ -48,6 +41,7 @@ describe('DownloadManager', () => {
   };
 
   const titles = () => wrapper.findAll('.download-task__title').map(t => t.text());
+  const dialogButton = label => wrapper.find('v-dialog-stub').findAll('v-btn-stub').find(b => b.text() === label);
 
   test('shows the empty notice until tasks arrive', async () => {
     expect(wrapper.find('.dataset-empty-notice').exists()).toBe(true);
@@ -58,7 +52,18 @@ describe('DownloadManager', () => {
     expect(titles()).toEqual(['Task 1']);
   });
 
-  test('polls every 600ms, updating known tasks in place and appending new ones', async () => {
+  test('polls every 600ms', () => {
+    jest.advanceTimersByTime(599);
+    expect(mockDownloadService.flushChangedTasks).not.toHaveBeenCalled();
+
+    jest.advanceTimersByTime(1);
+    expect(mockDownloadService.flushChangedTasks).toHaveBeenCalledTimes(1);
+
+    jest.advanceTimersByTime(600);
+    expect(mockDownloadService.flushChangedTasks).toHaveBeenCalledTimes(2);
+  });
+
+  test('updates known tasks in place and appends new ones', async () => {
     await poll(task(1), task(2));
     await poll(task(2, { title: 'Task 2 renamed' }), task(3));
 
@@ -82,18 +87,28 @@ describe('DownloadManager', () => {
   });
 
   test('delete asks first, then removes the task from the service and the list', async () => {
-    await poll(task(1), task(2));
+    await poll(task(1), task(2), task(3));
 
-    await wrapper.findAll('.download-task__action--delete')[0].trigger('click');
+    await wrapper.findAll('.download-task__action--delete')[1].trigger('click');
     expect(wrapper.vm.confirmDialog).toBe(true);
     expect(mockDownloadService.deleteDownload).not.toHaveBeenCalled();
 
-    wrapper.vm.deleteDownloadTask(wrapper.vm.preparedDeleteItem);
-    await wrapper.vm.$nextTick();
+    await dialogButton('_delete.message').trigger('click');
 
-    expect(mockDownloadService.deleteDownload).toHaveBeenCalledWith(1);
+    expect(mockDownloadService.deleteDownload).toHaveBeenCalledWith(2);
     expect(wrapper.vm.confirmDialog).toBe(false);
-    expect(titles()).toEqual(['Task 2']);
+    expect(titles()).toEqual(['Task 1', 'Task 3']);
+  });
+
+  test('cancelling the delete keeps the task', async () => {
+    await poll(task(1));
+
+    await wrapper.find('.download-task__action--delete').trigger('click');
+    await dialogButton('_cancel.message').trigger('click');
+
+    expect(wrapper.vm.confirmDialog).toBe(false);
+    expect(mockDownloadService.deleteDownload).not.toHaveBeenCalled();
+    expect(titles()).toEqual(['Task 1']);
   });
 
   test('show in folder is offered only once the browser download exists', async () => {
