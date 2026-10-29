@@ -2,5 +2,12 @@
     "$schema": "https://docs.renovatebot.com/renovate-schema.json",
     "extends": [
         "config:recommended"
+    ],
+    "packageRules": [
+        {
+            "description": "uuid 12+ is ESM-only; pouchdb require()s it. The override only exists for pnpm audit (see docs/toolchain.md).",
+            "matchPackageNames": ["uuid"],
+            "allowedVersions": "<12"
+        }
     ]
 }
