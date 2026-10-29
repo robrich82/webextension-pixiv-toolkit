@@ -69,10 +69,24 @@ jobs:
       - name: Build extension for Firefox
         run: pnpm run build:firefox
 
-      # Loads dist/chrome into Playwright's bundled Chromium against mocked
-      # pixiv responses -- see docs/testing.md. Needs the Chrome build above.
+      - name: Upload Chrome build
+        uses: actions/upload-artifact@v7
+        with:
+          name: chrome
+          path: dist/chrome/
+
+      - name: Upload Firefox build
+        uses: actions/upload-artifact@v7
+        with:
+          name: firefox
+          path: dist/firefox/
+
+      # After the uploads, so a failing E2E run still leaves the builds to
+      # debug with. --with-deps apt-installs Chromium's system libraries;
+      # --no-shell skips the headless shell, which can't load extensions and
+      # so is never launched -- see docs/testing.md.
       - name: Install Chromium for E2E
-        run: pnpm exec playwright install --with-deps chromium
+        run: pnpm exec playwright install --with-deps --no-shell chromium
 
       - name: Run E2E tests
         run: pnpm run test:e2e
@@ -85,15 +99,3 @@ jobs:
           path: |
             playwright-report/
             test-results/
-
-      - name: Upload Chrome build
-        uses: actions/upload-artifact@v7
-        with:
-          name: chrome
-          path: dist/chrome/
-
-      - name: Upload Firefox build
-        uses: actions/upload-artifact@v7
-        with:
-          name: firefox
-          path: dist/firefox/

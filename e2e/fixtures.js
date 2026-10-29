@@ -1,10 +1,11 @@
+const fs = require('fs');
 const path = require('path');
-const { test: base, chromium } = require('@playwright/test');
+const { test: base, expect, chromium } = require('@playwright/test');
 
 const EXTENSION_PATH = path.join(__dirname, '..', 'dist', 'chrome');
 const FIXTURES = path.join(__dirname, '..', 'test', 'fixtures');
 
-// 1x1 transparent PNG, served for every pximg.net image request.
+// 1x1 transparent PNG, served for every i.pximg.net request.
 const PIXEL = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
   'base64'
@@ -12,14 +13,14 @@ const PIXEL = Buffer.from(
 
 /**
  * Serve pixiv from test/fixtures instead of the network. `ajax` maps an
- * `/ajax/...` path to a fixture file; anything unmapped on a pixiv host 404s,
- * and every other http(s) request is aborted so a test can never reach the
- * real site.
+ * `/ajax/...` path on www.pixiv.net to a fixture file; an unmapped `/ajax/`
+ * path 404s, any other www.pixiv.net page is a blank document, and every
+ * other http(s) request is aborted so a test can never reach the real site.
  *
  * @param {import('@playwright/test').BrowserContext} context
- * @param {{ ajax?: Record<string, string> }} routes
+ * @param {{ ajax: Record<string, string> }} routes
  */
-async function mockPixiv(context, { ajax = {} } = {}) {
+async function mockPixiv(context, { ajax }) {
   await context.route(/^https?:\/\//, route => {
     const url = new URL(route.request().url());
 
@@ -48,11 +49,16 @@ async function mockPixiv(context, { ajax = {} } = {}) {
   });
 }
 
+const isExtensionWorker = worker => worker.url().startsWith('chrome-extension://');
+
 const test = base.extend({
-  // eslint-disable-next-line no-empty-pattern
   context: async ({}, use) => {
+    if (!fs.existsSync(path.join(EXTENSION_PATH, 'manifest.json'))) {
+      throw new Error(`No extension build at ${EXTENSION_PATH}; run \`pnpm run build\` first.`);
+    }
+
     const context = await chromium.launchPersistentContext('', {
-      // The bundled Chromium, not branded Chrome, which ignores --load-extension.
+      // Full Chromium: the default headless shell can't load extensions.
       channel: 'chromium',
       args: [
         `--disable-extensions-except=${EXTENSION_PATH}`,
@@ -60,10 +66,10 @@ const test = base.extend({
       ]
     });
 
-    // Don't navigate before the extension has loaded, or the first page can
-    // race its content script registration.
-    if (!context.serviceWorkers().length) {
-      await context.waitForEvent('serviceworker');
+    // The serviceWorker fixture reads the worker synchronously, so make sure
+    // it exists before any test runs.
+    if (!context.serviceWorkers().some(isExtensionWorker)) {
+      await context.waitForEvent('serviceworker', isExtensionWorker);
     }
 
     await use(context);
@@ -71,7 +77,7 @@ const test = base.extend({
   },
 
   serviceWorker: async ({ context }, use) => {
-    await use(context.serviceWorkers()[0]);
+    await use(context.serviceWorkers().find(isExtensionWorker));
   },
 
   extensionId: async ({ serviceWorker }, use) => {
@@ -79,4 +85,4 @@ const test = base.extend({
   }
 });
 
-module.exports = { test, expect: test.expect, mockPixiv };
+module.exports = { test, expect, mockPixiv };

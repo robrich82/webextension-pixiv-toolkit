@@ -330,7 +330,8 @@ reason.
 
 The job then runs `pnpm install --frozen-lockfile`,
 `pnpm audit --audit-level=moderate`, `pnpm test`, and the Chrome and Firefox
-builds, uploading each `dist/` directory as an artifact.
+builds, uploading each `dist/` directory as an artifact, and finally the
+Playwright E2E suite against `dist/chrome` (see `docs/testing.md`).
 
 The audit gate is set at `moderate`. As of the Vue 3 migration's Phase A,
 `pnpm audit -P` reports no known vulnerabilities at all — the Vue 2 EOL
