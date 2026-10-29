@@ -10,6 +10,8 @@ const base = {
     // Vuetify 3 components import their own co-located stylesheet (e.g.
     // VApp.js does `import './VApp.css'`), which babel-jest can't parse as JS.
     '\\.(css|s[ac]ss)$': '<rootDir>/test/doubles/styleMock.js',
+    '\\.(png|svg)$': '<rootDir>/test/doubles/fileMock.js',
+    '^vue-virtual-scroller$': '<rootDir>/test/doubles/vueVirtualScroller.js',
     '^@@/(.*)$': '<rootDir>/src/options_page/$1',
     '^@/(.*)$': '<rootDir>/src/$1'
   },
@@ -23,7 +25,9 @@ module.exports = {
   collectCoverageFrom: [
     'src/**/*.js',
     'src/**/*.vue',
-    '!src/statics/lib/**'
+    '!src/statics/lib/**',
+    // Manual debug page: routed, but not linked from the menu.
+    '!src/options_page/components/Test.vue'
   ],
   coverageThreshold: {
     global: {
@@ -43,6 +47,38 @@ module.exports = {
       branches: 66,
       functions: 67,
       lines: 76
+    },
+    './src/content_scripts/components/': {
+      statements: 94,
+      branches: 80,
+      functions: 88,
+      lines: 94
+    },
+    './src/content_scripts/UIApplication.js': {
+      statements: 100,
+      branches: 100,
+      functions: 100,
+      lines: 100
+    },
+    // A glob applies per file, so each top-level component keeps its own
+    // floor; a directory key would also pool in options/.
+    './src/options_page/components/*.vue': {
+      statements: 67,
+      branches: 59,
+      functions: 85,
+      lines: 67
+    },
+    './src/options_page/Index.vue': {
+      statements: 96,
+      branches: 92,
+      functions: 90,
+      lines: 96
+    },
+    './src/options_page/Downloads.vue': {
+      statements: 72,
+      branches: 60,
+      functions: 75,
+      lines: 75
     },
     './src/options_page/components/options/': {
       statements: 88,

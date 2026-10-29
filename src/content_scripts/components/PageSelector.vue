@@ -77,6 +77,7 @@ export default {
             selected: false
           }
         });
+        this.selectedPageIndexes = [];
       }
     }
   },
@@ -132,6 +133,8 @@ export default {
     },
 
     selectAll() {
+      this.selectedPageIndexes = [];
+
       for (let idx in this.pages) {
         this.pages[idx] = Object.assign(this.pages[idx], { selected: true });
         this.selectedPageIndexes.push(parseInt(idx));

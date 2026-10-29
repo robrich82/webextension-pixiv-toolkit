@@ -123,7 +123,9 @@ export default {
     },
 
     downloadButtonType() {
-      return this.downloadedAt > 0 ? 'success' : '';
+      const ugoiraConverted = Object.values(this.ugoiraTaskProgresses).some(progress => progress.p === 1);
+
+      return this.downloadedAt > 0 || ugoiraConverted ? 'success' : '';
     },
 
     isUgoira() {
@@ -274,7 +276,6 @@ export default {
 
       if (progress) {
         if (progress.p === 1) {
-          this.downloadButtonType = 'success';
           return ' ✔';
         } else if (progress.p > 0) {
           return ` (P:${(progress.p * 100).toFixed(2)}%)`;
@@ -311,7 +312,8 @@ export default {
       this.adapter.abort();
       this.resource = null;
       this.downloadedAt = 0;
-      this.pages = this.selectedIndexes = [];
+      this.pages = [];
+      this.selectedIndexes = [];
     },
 
     /**
@@ -356,13 +358,14 @@ export default {
     },
 
     getDownloadArgs({ ugoiraConvertType }) {
-      return {
+      // Reactive proxies throw DataCloneError in Firefox's structured clone; the JSON round-trip matches what Chrome sends.
+      return JSON.parse(JSON.stringify({
         unpackedResource: this.resource.unpack(),
         options: {
           ugoiraConvertType,
           selectedIndexes: this.selectedIndexes
         }
-      };
+      }));
     },
 
     async downloadWithDownloadManager({ ugoiraConvertType, redownload = false }) {
