@@ -5,7 +5,7 @@
         <div v-if="!browserItems.guideShowed"
           class="ptk__guide">
           <div class="ptk__guide-body">
-            <ptk-button style="display: block">P*</ptk-button>
+            <ptk-button style="display: block">Pixiv Toolkit</ptk-button>
             <svg viewBox="0 0 10 15" id="ptk__guide-arrow" width="10" height="15" style="position: relative; top: 3px" xmlns="http://www.w3.org/2000/svg" xmlns:svg="http://www.w3.org/2000/svg">
               <path d="M5 0 L5 15 L10 10 M5 15 L0 10" :stroke="isDark ? '#fff' : '#333'" stroke-width="2" fill="transparent" />
             </svg>
