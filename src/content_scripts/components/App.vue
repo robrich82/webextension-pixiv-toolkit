@@ -194,7 +194,11 @@ export default {
       }
     });
 
+    this.pageChangeToken = 0;
+
     window.$eventBus.$on('pagechange', page => {
+      const pageChangeToken = ++this.pageChangeToken;
+
       this.initialProgress();
 
       this.abortAdapterParse();
@@ -236,6 +240,11 @@ export default {
               }
 
               const url = await pageResolver(page);
+
+              // A later pagechange owns the selector now.
+              if (pageChangeToken !== this.pageChangeToken) {
+                return;
+              }
 
               if (this.$refs.pageSelector) {
                 this.$refs.pageSelector.updatePage(index, url);
