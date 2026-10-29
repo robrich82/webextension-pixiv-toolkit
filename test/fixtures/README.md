@@ -1,7 +1,8 @@
 # Response fixtures
 
-Saved API responses for the parser specs. Each file is the body of one request,
-trimmed to the shape the parser under test actually reads.
+Saved API responses for the parser specs and the E2E suite (`e2e/`). Each file
+is the body of one request, trimmed to the shape the parser under test actually
+reads.
 
 ## What these do and don't catch
 

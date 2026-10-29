@@ -7,3 +7,5 @@ package-lock.json
 .vscode/*
 /coverage
 /bundleAnalyzer/
+/test-results/
+/playwright-report/

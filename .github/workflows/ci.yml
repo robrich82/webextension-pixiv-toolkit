@@ -80,3 +80,22 @@ jobs:
         with:
           name: firefox
           path: dist/firefox/
+
+      # After the uploads, so a failing E2E run still leaves the builds to
+      # debug with. --with-deps apt-installs Chromium's system libraries;
+      # --no-shell skips the headless shell, which can't load extensions and
+      # so is never launched -- see docs/testing.md.
+      - name: Install Chromium for E2E
+        run: pnpm exec playwright install --with-deps --no-shell chromium
+
+      - name: Run E2E tests
+        run: pnpm run test:e2e
+
+      - name: Upload E2E report
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
