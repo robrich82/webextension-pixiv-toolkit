@@ -41,6 +41,15 @@ describe('ChangeLog', () => {
     ]);
   });
 
+  test('keeps an entry containing | as one item', async () => {
+    body = 'v1.0.0\nSupport a | b.\n';
+
+    const wrapper = mountChangeLog('en');
+    await flushPromises();
+
+    expect(wrapper.vm.updateList).toEqual([{ version: 'v1.0.0', list: ['Support a | b.'] }]);
+  });
+
   test.each([
     ['zh_CN', 'HISTORY_zh-CN'],
     ['en', 'HISTORY_en-US'],
