@@ -20,6 +20,9 @@ overrides:
   adm-zip@<=0.6.0: ^0.6.1
   postcss-selector-parser@<7.1.6: ^7.1.6
 
+patchedDependencies:
+  '@vue/vue3-jest': 3481f507e577701814273beed7d3dffee247b51938bea49f178f152803fa651e
+
 importers:
 
   .:
@@ -99,7 +102,7 @@ importers:
         version: 2.5.1(@vue/compiler-dom@3.5.44)(@vue/server-renderer@3.5.44)(vue@3.5.44)
       '@vue/vue3-jest':
         specifier: ^29.2.6
-        version: 29.2.6(@babel/core@7.29.7(supports-color@8.1.1))(babel-jest@30.5.2(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(jest@30.5.2(@types/node@26.2.0)(supports-color@8.1.1))(supports-color@8.1.1)(vue@3.5.44)
+        version: 29.2.6(patch_hash=3481f507e577701814273beed7d3dffee247b51938bea49f178f152803fa651e)(@babel/core@7.29.7(supports-color@8.1.1))(babel-jest@30.5.2(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(jest@30.5.2(@types/node@26.2.0)(supports-color@8.1.1))(supports-color@8.1.1)(vue@3.5.44)
       autoprefixer:
         specifier: ^10.6.1
         version: 10.6.1(postcss@8.5.31)
@@ -5975,7 +5978,7 @@ snapshots:
     optionalDependencies:
       '@vue/server-renderer': 3.5.44
 
-  '@vue/vue3-jest@29.2.6(@babel/core@7.29.7(supports-color@8.1.1))(babel-jest@30.5.2(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(jest@30.5.2(@types/node@26.2.0)(supports-color@8.1.1))(supports-color@8.1.1)(vue@3.5.44)':
+  '@vue/vue3-jest@29.2.6(patch_hash=3481f507e577701814273beed7d3dffee247b51938bea49f178f152803fa651e)(@babel/core@7.29.7(supports-color@8.1.1))(babel-jest@30.5.2(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(jest@30.5.2(@types/node@26.2.0)(supports-color@8.1.1))(supports-color@8.1.1)(vue@3.5.44)':
     dependencies:
       '@babel/core': 7.29.7(supports-color@8.1.1)
       '@babel/plugin-transform-modules-commonjs': 7.29.7(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1)

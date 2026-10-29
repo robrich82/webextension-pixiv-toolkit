@@ -131,3 +131,8 @@ overrides:
 auditConfig:
   ignoreGhsas:
     - GHSA-86w9-cpqp-85rv
+
+# @vue/vue3-jest (latest 29.2.6) calls Babel's `transform` synchronously, which
+# Babel 8 rejects; the patch swaps in `transformSync` (also valid on Babel 7).
+patchedDependencies:
+  '@vue/vue3-jest': patches/@vue__vue3-jest.patch
