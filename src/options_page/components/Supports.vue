@@ -103,22 +103,20 @@ export default {
   },
 
   mounted() {
-    let vm = this;
+    this.resizeHandle();
 
-    if (window.innerWidth < 950) {
-      this.largeWindow = false;
-    }
+    window.addEventListener('resize', this.resizeHandle);
+  },
 
-    window.addEventListener('resize', () => {
-      if (window.innerWidth < 950) {
-        this.largeWindow = false;
-      } else {
-        this.largeWindow = true;
-      }
-    })
+  beforeUnmount() {
+    window.removeEventListener('resize', this.resizeHandle);
   },
 
   methods: {
+    resizeHandle() {
+      this.largeWindow = window.innerWidth >= 950;
+    },
+
     openInNewTab(url) {
       window.open(url, "_blank");
     }

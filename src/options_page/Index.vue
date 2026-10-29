@@ -144,6 +144,10 @@ export default {
     });
   },
 
+  beforeUnmount() {
+    window.removeEventListener('resize', this.resizeHandle);
+  },
+
   methods: {
     resizeHandle() {
       if (window.innerWidth < 1400) {

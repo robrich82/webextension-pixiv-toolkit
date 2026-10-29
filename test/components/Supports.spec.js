@@ -88,6 +88,15 @@ describe('Supports', () => {
     expect(labelShown(wrapper)).toBe(true);
   });
 
+  test('unmounting stops listening for resizes', () => {
+    const wrapper = mountAs('chrome');
+    wrapper.unmount();
+
+    resizeTo(900);
+
+    expect(wrapper.vm.largeWindow).toBe(true);
+  });
+
   test('starts with labels hidden on a narrow window', async () => {
     window.innerWidth = 800;
 

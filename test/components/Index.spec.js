@@ -59,6 +59,16 @@ describe('Index', () => {
     expect(menuButton().exists()).toBe(false);
   });
 
+  test('unmounting stops listening for resizes', () => {
+    const { wrapper } = mountIndex();
+    wrapper.unmount();
+
+    window.innerWidth = 1000;
+    window.dispatchEvent(new Event('resize'));
+
+    expect(wrapper.vm.drawerTemporary).toBe(false);
+  });
+
   test.each([
     ['Options', 'settings.message'],
     ['ChangeLogs', 'Change_History.message'],
