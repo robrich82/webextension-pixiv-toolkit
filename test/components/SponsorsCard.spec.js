@@ -28,7 +28,10 @@ describe('SponsorsCard', () => {
 
   test.each([
     ['an empty list', '[]'],
-    ['a non-list', '{}']
+    ['a non-list', '{}'],
+    ['a non-JSON body', '<html>rate limited</html>'],
+    ['an HTTP error', { status: 404, body: JSON.stringify([{ name: 'Alice', level: 1 }]) }],
+    ['a network error', { networkError: true }]
   ])('shows the be-the-first message for %s', async (_, body) => {
     xhr = installFakeXhr(() => body);
 
