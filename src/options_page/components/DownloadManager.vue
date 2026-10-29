@@ -88,6 +88,11 @@ export default {
     this.loadDownloads();
   },
 
+  beforeUnmount() {
+    clearTimeout(this.loadDownloadsTimer);
+    window.onbeforeunload = null;
+  },
+
   methods: {
     getDownloadTaskTag(download) {
       if (download.type === 'PIXIV_UGOIRA') {
@@ -108,7 +113,7 @@ export default {
     },
 
     loadDownloads() {
-      setTimeout(() => {
+      this.loadDownloadsTimer = setTimeout(() => {
         let downloads = this.downloadService.flushChangedTasks();
         let index = 0;
 

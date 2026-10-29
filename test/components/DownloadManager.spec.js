@@ -28,7 +28,9 @@ describe('DownloadManager', () => {
   });
 
   afterEach(() => {
-    wrapper.unmount();
+    if (!wrapper.vm.$.isUnmounted) {
+      wrapper.unmount();
+    }
     jest.clearAllTimers();
     jest.useRealTimers();
     jest.clearAllMocks();
@@ -127,5 +129,14 @@ describe('DownloadManager', () => {
 
     expect(window.onbeforeunload(event)).toBe(event.returnValue);
     expect(event.returnValue).toMatch(/lose all download process/);
+  });
+
+  test('unmounting stops polling and the close-tab warning', () => {
+    jest.advanceTimersByTime(600);
+    wrapper.unmount();
+    jest.advanceTimersByTime(1200);
+
+    expect(mockDownloadService.flushChangedTasks).toHaveBeenCalledTimes(1);
+    expect(window.onbeforeunload).toBeNull();
   });
 });

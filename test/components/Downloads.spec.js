@@ -63,6 +63,16 @@ describe('Downloads', () => {
     expect(open).toHaveBeenCalledWith(expect.stringMatching(/options_page\/index\.html$/), '_blank');
   });
 
+  test('unmounting stops listening for resizes', () => {
+    const wrapper = mountDownloads();
+    wrapper.unmount();
+
+    window.innerWidth = 1000;
+    window.dispatchEvent(new Event('resize'));
+
+    expect(wrapper.vm.drawerTemporary).toBe(false);
+  });
+
   test('the drawer becomes a toggled overlay on narrow windows', async () => {
     window.innerWidth = 1000;
 
