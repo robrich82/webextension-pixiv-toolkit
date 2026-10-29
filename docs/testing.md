@@ -283,3 +283,26 @@ with a `methods:` override supplying a no-op handler for the dead reference.
 If a future spec's watcher assertions mysteriously stop firing with no thrown
 error, a stale `@event` handler reference recently triggered elsewhere in the
 same file is worth checking before anything else.
+
+## End-to-end tests
+
+`pnpm run test:e2e` runs Playwright over `e2e/*.e2e.js` (not `.spec.js`, which
+Jest would claim). Each test launches Playwright's bundled Chromium with
+`dist/chrome` loaded, so run `pnpm run build` first, and once per machine
+`pnpm exec playwright install chromium`. Branded Chrome ignores
+`--load-extension`, so the bundled build is the one that works.
+
+Pixiv is never contacted. `mockPixiv()` in `e2e/fixtures.js` serves `/ajax/...`
+paths from `test/fixtures`, a blank document for every other `www.pixiv.net`
+page, a 1x1 PNG for `i.pximg.net`, and aborts everything else. The fixtures
+also expose the extension's `serviceWorker`, for reading `chrome.downloads`
+state from a test.
+
+Two limits worth knowing before adding a test:
+
+- Downloads made through `chrome.downloads` fire no Playwright `download`
+  event and are saved under Playwright's artifact ids, so a test can check
+  that a download completed but not the filename the extension chose. That is
+  covered by the `NameFormatter` unit tests instead.
+- Firefox is not covered. Playwright cannot load an extension into Firefox;
+  doing so would need a WebDriver BiDi or geckodriver runner alongside it.
