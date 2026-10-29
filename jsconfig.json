@@ -1,9 +1,8 @@
 {
     "compilerOptions": {
-        "baseUrl": "./",
         "paths": {
-            "@/*": ["src/*"],
-            "@@/*": ["src/moduels/*"]
+            "@/*": ["./src/*"],
+            "@@/*": ["./src/options_page/*"]
         }
     },
     "exclude": [
@@ -11,7 +10,7 @@
         "dist"
     ],
     "vueCompilerOptions": {
-        "target": 2,
+        "target": 3.5,
         "extensions": [
             ".vue"
         ]
