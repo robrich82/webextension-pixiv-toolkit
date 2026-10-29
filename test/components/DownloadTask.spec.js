@@ -40,15 +40,25 @@ describe('DownloadTask', () => {
     expect(wrapper.find('.download-task__progress').attributes('title')).toBe('25%');
   });
 
-  // The validator's `!x instanceof T` checks are always false and its
-  // `progress instanceof Number` rejects every primitive. Remove `.failing` once fixed.
-  test.failing('a well-formed task passes the data validator', () => {
+  test('a well-formed task passes the data validator', () => {
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
 
     mountOption(DownloadTask, { props: { data: task() } });
 
     expect(warn).not.toHaveBeenCalled();
     warn.mockRestore();
+  });
+
+  test.each([
+    ['a non-string id', { id: 1 }],
+    ['a missing title', { title: undefined }],
+    ['a non-numeric progress', { progress: null }],
+    ['a non-numeric processProgress', { processProgress: '0.5' }],
+    ['a non-numeric state', { state: '2' }]
+  ])('the data validator rejects %s', (_, overrides) => {
+    const { validator } = DownloadTask.props.data;
+
+    expect(validator(task(overrides))).toBe(false);
   });
 
   test('is Untagged without a tag', () => {

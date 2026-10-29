@@ -27,35 +27,23 @@ export default {
   props: {
     data: {
       validator(data) {
-        if (!data instanceof Object) {
+        if (!data || typeof data !== 'object') {
           return false;
         }
 
-        if (!data.id instanceof String) {
+        if (typeof data.id !== 'string' || typeof data.title !== 'string' || typeof data.url !== 'string') {
           return false;
         }
 
-        if (!data.title instanceof String) {
+        if (typeof data.progress !== 'string' && typeof data.progress !== 'number') {
           return false;
         }
 
-        if (!data.url instanceof String) {
+        if (data.processProgress && typeof data.processProgress !== 'number') {
           return false;
         }
 
-        if (!(data.progress instanceof String || data.progress instanceof Number)) {
-          return false;
-        }
-
-        if (data.processProgress && !data.processProgress instanceof Number) {
-          return false;
-        }
-
-        if (data.state instanceof Number) {
-          return false;
-        }
-
-        return true;
+        return typeof data.state === 'number';
       }
     },
 
