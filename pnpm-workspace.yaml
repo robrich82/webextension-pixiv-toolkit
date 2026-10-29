@@ -99,7 +99,7 @@ overrides:
   # GHSA-qhr7-859c-m2p7, GHSA-6j4f-fj2g-mc7p -- ReDoS and stack-exhaustion DoS
   # via crafted brace patterns, each patched per major line below.
   'brace-expansion@<1.1.21': ^5.0.0
-  'brace-expansion@>=2.0.0 <2.1.7': ^2.1.7
+  'brace-expansion@>=2.0.0 <2.1.7': ^5.0.0
   'brace-expansion@>=4.0.0 <5.0.12': ^5.0.12
   # source-map-js (vue/postcss, everywhere): GHSA-68fv-2mgg-jv7q -- a crafted
   # indexed source-map section offset can hang the event loop, patched 1.2.2.
