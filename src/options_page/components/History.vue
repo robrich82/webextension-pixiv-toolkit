@@ -148,6 +148,8 @@ export default {
      */
     this.enableSaveVisitHistory = this.browserItems.enableSaveVisitHistory;
     this.latestListDate = null;
+    // Bumped whenever the list is reset, so pages still in flight are discarded
+    this.listGeneration = 0;
 
     if (this.$i18n.locale === 'zh_CN') {
       this.dateFormat = 'YYYY[年]MMMMDD[日] dddd';
@@ -234,6 +236,8 @@ export default {
         this.page = 1;
         this.totalLoaded = 0;
         this.allLoaded = false;
+        this.listGeneration++;
+        this.loading = false;
 
         if (val.trim().length > 0) {
           this.searchHistoryItems();
@@ -288,8 +292,12 @@ export default {
     deleteIllust() {
       this.confirmDialog = false
 
-      this.historyItems.splice(this.historyItems.indexOf(this.itemDeleteReady), 1);
-      this.total--;
+      let index = this.historyItems.indexOf(this.itemDeleteReady);
+
+      if (index > -1) {
+        this.historyItems.splice(index, 1);
+        this.total--;
+      }
 
       browser.runtime.sendMessage({
         to: 'ws',
@@ -310,7 +318,12 @@ export default {
 
       this.loading = true;
 
+      let generation = this.listGeneration;
       let items = await this.historyRepo.getItems({ page: this.page });
+
+      if (generation !== this.listGeneration) {
+        return;
+      }
 
       if (items.length > 0) {
         this.historyItems = this.historyItems.concat(items);
@@ -332,7 +345,12 @@ export default {
 
       this.loading = true;
 
+      let generation = this.listGeneration;
       let items = await this.historyRepo.searchItems({ page: this.page, query: this.searchQuery });
+
+      if (generation !== this.listGeneration) {
+        return;
+      }
 
       if (items.length > 0) {
         this.historyItems = this.historyItems.concat(items);

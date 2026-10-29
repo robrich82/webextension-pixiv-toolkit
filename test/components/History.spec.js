@@ -174,6 +174,49 @@ describe('History', () => {
     expect(titles(wrapper)).toEqual(['Work 1', 'Work 2']);
   });
 
+  test('a search typed while a page is loading runs at once and drops that stale page', async () => {
+    jest.useFakeTimers();
+    let resolveLoad;
+    mockRepo.getItems.mockReturnValueOnce(new Promise(resolve => { resolveLoad = resolve; }));
+    servePages(mockRepo.searchItems, [item(2)]);
+
+    const wrapper = mountHistory();
+    await wrapper.setData({ searchQuery: 'Work 2' });
+    jest.advanceTimersByTime(600);
+    await flushPromises();
+
+    expect(mockRepo.searchItems.mock.calls).toEqual([[{ page: 1, query: 'Work 2' }]]);
+
+    resolveLoad([item(1)]);
+    await flushPromises();
+
+    expect(titles(wrapper)).toEqual(['Work 2']);
+    expect(wrapper.vm.page).toBe(2);
+    expect(wrapper.vm.loading).toBe(false);
+  });
+
+  test('confirming a delete after the list was reset leaves the new list alone', async () => {
+    jest.useFakeTimers();
+    servePages(mockRepo.getItems, [item(1)]);
+    servePages(mockRepo.searchItems, [item(2), item(3)]);
+
+    const wrapper = mountHistory();
+    await flushPromises();
+    await wrapper.find('.history-item__actions-btn').trigger('click');
+
+    await wrapper.setData({ searchQuery: 'Work' });
+    jest.advanceTimersByTime(600);
+    await flushPromises();
+
+    await dialogButton(wrapper, '_delete.message').trigger('click');
+    await flushPromises();
+
+    expect(titles(wrapper)).toEqual(['Work 2', 'Work 3']);
+    expect(browser.runtime.sendMessage).toHaveBeenCalledWith({
+      to: 'ws', action: 'history:deleteItem', args: { uid: 'illust:1' }
+    });
+  });
+
   test('deleting asks first, then drops the item and tells the background', async () => {
     servePages(mockRepo.getItems, [item(1), item(2), item(3)]);
 
