@@ -1,0 +1,4 @@
+contact_links:
+  - name: Report a security vulnerability / 报告安全漏洞
+    url: https://github.com/robrich82/webextension-pixiv-toolkit/security/advisories/new
+    about: Please report security issues privately, not as a public issue. / 请私下报告安全问题，不要公开提交。

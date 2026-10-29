@@ -1,0 +1,20 @@
+name: Code issue
+description: A defect or debt found by reading the code, not by using the extension
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What the code does wrong, naming the files or functions involved.
+    validations:
+      required: true
+  - type: textarea
+    id: consequence
+    attributes:
+      label: Consequence
+      description: What a user or developer would hit because of it.
+  - type: textarea
+    id: fix
+    attributes:
+      label: Likely fix
+      description: Optional. Related issues or PRs too.

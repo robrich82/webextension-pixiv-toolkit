@@ -1,0 +1,15 @@
+name: Feature request / 功能建议
+description: Suggest something the extension should do / 建议扩展新增的功能
+labels: [enhancement]
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: What do you want to do? / 你想做什么？
+      description: The task you're trying to get done, and what gets in the way today. / 你想完成的事情，以及目前遇到的阻碍。
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: How could the extension help? / 扩展可以怎样帮助你？
