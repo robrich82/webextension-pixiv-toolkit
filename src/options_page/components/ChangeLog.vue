@@ -41,7 +41,7 @@ export default {
         update = update.trim();
 
         if (update !== '') {
-          let _update = update.split(/[\r\n|\r|\n]/g);
+          let _update = update.split(/\r\n|\r|\n/);
 
           updateList.push({
             version: _update.shift(),
