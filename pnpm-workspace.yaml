@@ -94,7 +94,7 @@ overrides:
   # fast-uri (ajv, via webpack/css-loader/etc.): GHSA-hrr3-gc8f-f4qj,
   # GHSA-w74x-v6f9-j3xg, GHSA-wjr9-j795-jxcr -- host/scheme confusion and
   # case-normalization bugs, all patched by 3.1.9.
-  'fast-uri@<3.1.9': ^3.1.9
+  'fast-uri@<3.1.9': ^4.0.0
   # brace-expansion (minimatch, via jest/@vue/test-utils): GHSA-q2hr-2g5m-vwhr,
   # GHSA-qhr7-859c-m2p7, GHSA-6j4f-fj2g-mc7p -- ReDoS and stack-exhaustion DoS
   # via crafted brace patterns, each patched per major line below.
