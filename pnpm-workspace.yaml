@@ -1,14 +1,3 @@
-# pnpm configuration. This file is the single source of truth for pnpm's
-# settings; `.npmrc` now only carries the one key npm itself reads.
-
-# --- Install-time toolchain check -------------------------------------------
-# `engines.pnpm` is enforced unconditionally, but `engines.node` is only
-# enforced because this is set to true -- drop it and an out-of-range Node
-# installs anyway (verified: pnpm 11.24.0, no engineStrict, out-of-range Node
-# still exits 0). This also extends the check to dependencies: nothing
-# installs that declares itself incompatible with the running Node. Combined
-# with the bounded ranges in `engines`, an out-of-range Node fails here rather
-# than producing a tree nobody has tested.
 engineStrict: true
 
 # --- Supply chain -----------------------------------------------------------
@@ -100,7 +89,7 @@ trustPolicyExclude:
 # Drop them and the advisories come back.
 overrides:
   uuid: ^11.1.1
-  'js-yaml@>=4.0.0 <4.3.2': ^4.3.2
+  'js-yaml@>=4.0.0 <4.3.2': ^5.0.0
   'js-yaml@<3.15.2': ^3.15.2
   # fast-uri (ajv, via webpack/css-loader/etc.): GHSA-hrr3-gc8f-f4qj,
   # GHSA-w74x-v6f9-j3xg, GHSA-wjr9-j795-jxcr -- host/scheme confusion and
