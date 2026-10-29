@@ -1,0 +1,46 @@
+name: Bug report / 错误报告
+description: Something in the extension doesn't work / 扩展的某个功能不正常
+labels: [bug]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened / 发生了什么
+      description: What you did, what you expected, and what happened instead. / 你做了什么、期望的结果、实际的结果。
+    validations:
+      required: true
+  - type: input
+    id: url
+    attributes:
+      label: Work URL / 作品链接
+      description: The pixiv or fanbox page where it happens, if any. / 出现问题的 pixiv 或 fanbox 页面（如有）。
+      placeholder: https://www.pixiv.net/artworks/...
+  - type: dropdown
+    id: browser
+    attributes:
+      label: Browser / 浏览器
+      options:
+        - Chrome
+        - Edge
+        - Firefox
+        - Other / 其他
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Browser and extension version / 浏览器与扩展版本
+      description: Extension version is shown on chrome://extensions or about:addons. / 扩展版本可在 chrome://extensions 或 about:addons 查看。
+      placeholder: Chrome 141, extension 6.4.6
+    validations:
+      required: true
+  - type: textarea
+    id: settings
+    attributes:
+      label: Settings / 扩展设置
+      description: Export your settings from the options page and paste them here, if the bug might depend on them. / 如果问题可能与设置有关，请在设置页导出设置并粘贴到这里。
+      render: json
+  - type: textarea
+    id: extra
+    attributes:
+      label: Screenshots, console errors, anything else / 截图、控制台错误及其他信息
