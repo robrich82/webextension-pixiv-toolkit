@@ -125,6 +125,23 @@ describe('App page lifecycle', () => {
       .toEqual(['a-resolved.jpg', 'b-resolved.jpg']);
   });
 
+  test("a previous page's resolver stops once the page changes", async () => {
+    let resolveOld;
+    const wrapper = await mountWithPage({
+      pages: ['old-a', 'old-b'],
+      pageResolver: () => new Promise(resolve => { resolveOld = resolve; })
+    });
+
+    window.$app = { resource: fakeResource({ pages: ['new-a.jpg', 'new-b.jpg'] }) };
+    window.$eventBus.$emit('pagechange', { url: window.$app.resource.getUrl(), type: 'illust' });
+    await flushPromises();
+    resolveOld('old-a-resolved.jpg');
+    await flushPromises();
+
+    expect(wrapper.findComponent({ name: 'page-selector' }).vm.pages.map(p => p.page))
+      .toEqual(['new-a.jpg', 'new-b.jpg']);
+  });
+
   test('ugoira pages offer one button per format', async () => {
     const wrapper = await mountWithPage(ugoira);
 
