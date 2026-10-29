@@ -38,9 +38,19 @@ export default {
     xhr.open('get', sponsorsUrl);
 
     xhr.onload = function () {
-      let sponsors = JSON.parse(this.responseText);
+      let sponsors = null;
+
+      if (this.status >= 200 && this.status < 300) {
+        try {
+          sponsors = JSON.parse(this.responseText);
+        } catch (e) {}
+      }
 
       vm.sponsors = (Object.prototype.toString.call(sponsors) === '[object Array]' && sponsors.length > 0) ? sponsors : [];
+    };
+
+    xhr.onerror = function () {
+      vm.sponsors = [];
     };
 
     xhr.send();
