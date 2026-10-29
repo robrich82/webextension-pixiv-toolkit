@@ -111,7 +111,7 @@ overrides:
   # undici (web-ext>addons-linter>cheerio, dev-only): GHSA-4qv8-2p9j-2685,
   # GHSA-f72v-6w45-q472, GHSA-xjj6-f33q-929c -- EventSource memory DoS, SRI
   # algorithm-case bypass, and unhandled-encoding DoS, all patched by 7.30.1.
-  'undici@<7.30.1': ^7.30.1
+  'undici@<7.30.1': ^8.0.0
   # serialize-javascript (copy-webpack-plugin): GHSA-m5mm-p8h7-m29v -- an
   # unescaped `</script` in a serialized function body can break out of the
   # surrounding tag, patched 7.1.3.
