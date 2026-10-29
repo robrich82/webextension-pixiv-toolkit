@@ -46,7 +46,10 @@ module.exports = env => {
         // builds -- see docs/vue3-migration.md's Phase D notes.
         __VUE_OPTIONS_API__: JSON.stringify(true),
         __VUE_PROD_DEVTOOLS__: JSON.stringify(false),
-        __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: JSON.stringify(false)
+        __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: JSON.stringify(false),
+        // @vuetify/v0 reads this at module load; webpack 5 has no `process`
+        // polyfill, so unreplaced it throws and the options page never mounts.
+        'process.env.VITE_LOGGER_ENABLED': 'undefined'
       })
     ],
     externals: {
