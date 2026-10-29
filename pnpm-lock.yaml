@@ -5,7 +5,7 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
-  uuid: ^11.1.1
+  uuid: ^14.0.0
   js-yaml@>=4.0.0 <4.3.2: ^5.0.0
   js-yaml@<3.15.2: ^3.15.2
   fast-uri@<3.1.9: ^4.0.0
@@ -4198,8 +4198,8 @@ packages:
   utila@0.4.0:
     resolution: {integrity: sha512-Z0DbgELS9/L/75wZbro8xAnT50pBVFQZ+hUEueGDU5FN51YSCYM+jdxsfCiHjwNP/4LCDD0i/graKpeBnOXKRA==}
 
-  uuid@11.1.1:
-    resolution: {integrity: sha512-vIYxrBCC/N/K+Js3qSN88go7kIfNPssr/hHCesKCQNAjmgvYS2oqr69kIufEG+O4+PfezOH4EbIeHCfFov8ZgQ==}
+  uuid@14.0.3:
+    resolution: {integrity: sha512-Sc5u1VVln93y1Xnz4R+CunOZc7R9LUcTmhj7Rc7Eg3HVcf7rVn2FOoa812fe0W8p3jD7xeoGSYbfqCGGH2B6xw==}
     hasBin: true
 
   v8-to-istanbul@9.3.0:
@@ -8315,7 +8315,7 @@ snapshots:
     dependencies:
       pouchdb-errors: 9.0.0
       pouchdb-md5: 9.0.0
-      uuid: 11.1.1
+      uuid: 14.0.3
 
   pouchdb@9.0.0:
     dependencies:
@@ -8331,7 +8331,7 @@ snapshots:
       readable-stream: 1.1.14
       spark-md5: 3.0.2
       through2: 3.0.2
-      uuid: 11.1.1
+      uuid: 14.0.3
       vuvuzela: 1.0.3
     transitivePeerDependencies:
       - encoding
@@ -8874,7 +8874,7 @@ snapshots:
 
   utila@0.4.0: {}
 
-  uuid@11.1.1: {}
+  uuid@14.0.3: {}
 
   v8-to-istanbul@9.3.0:
     dependencies:

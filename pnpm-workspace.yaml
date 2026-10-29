@@ -88,7 +88,7 @@ trustPolicyExclude:
 # pnpm does not read npm's top-level `overrides` field, so these live here.
 # Drop them and the advisories come back.
 overrides:
-  uuid: ^11.1.1
+  uuid: ^14.0.0
   'js-yaml@>=4.0.0 <4.3.2': ^5.0.0
   'js-yaml@<3.15.2': ^3.15.2
   # fast-uri (ajv, via webpack/css-loader/etc.): GHSA-hrr3-gc8f-f4qj,
