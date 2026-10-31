@@ -1,4 +1,4 @@
-const { test, expect, mockPixiv } = require('./fixtures');
+const { test, expect, mockPixiv, collectErrors, openPanel, waitForDownloads } = require('./fixtures');
 
 const ILLUST_URL = 'https://www.pixiv.net/en/artworks/10000001';
 
@@ -12,26 +12,10 @@ test.beforeEach(async ({ context }) => {
 });
 
 /**
- * Collect uncaught errors from every page in the context, the download
- * manager tab included.
  * @param {import('@playwright/test').BrowserContext} context
  */
-function collectErrors(context) {
-  const errors = [];
-  context.on('weberror', webError => errors.push(webError.error()));
-
-  return errors;
-}
-
-/**
- * Open the illust page and expand the collapsed panel the way a user would.
- * @param {import('@playwright/test').BrowserContext} context
- */
-async function openPanel(context) {
-  const page = await context.newPage();
-  await page.goto(ILLUST_URL);
-  await page.locator('#ptk__new-handler').click();
-
+async function openIllustPanel(context) {
+  const page = await openPanel(context, ILLUST_URL);
   const downloadButton = page.getByText('Download', { exact: true });
   await expect(downloadButton).toBeInViewport();
 
@@ -41,13 +25,13 @@ async function openPanel(context) {
 test('injects the download panel on an illust page', async ({ context }) => {
   const errors = collectErrors(context);
 
-  await openPanel(context);
+  await openIllustPanel(context);
 
   expect(errors).toEqual([]);
 });
 
 test('removes the panel when pixiv navigates to a page it has no adapter for', async ({ context }) => {
-  const { page } = await openPanel(context);
+  const { page } = await openIllustPanel(context);
 
   // pixiv is a SPA: the URL changes without a load, and the content script
   // notices on the next DOM mutation.
@@ -61,7 +45,7 @@ test('removes the panel when pixiv navigates to a page it has no adapter for', a
 
 test('download opens the download manager and saves the image', async ({ context, serviceWorker }) => {
   const errors = collectErrors(context);
-  const { downloadButton } = await openPanel(context);
+  const { downloadButton } = await openIllustPanel(context);
 
   await Promise.all([
     context.waitForEvent('page', p => p.url().includes('/options_page/downloads.html')),
@@ -70,12 +54,7 @@ test('download opens the download manager and saves the image', async ({ context
     downloadButton.click()
   ]);
 
-  // Playwright renames saved files to its own artifact ids and fires no
-  // `download` event for chrome.downloads, so only the state is checkable here.
-  await expect.poll(() => serviceWorker.evaluate(async () => {
-    const items = await chrome.downloads.search({});
-    return items.map(item => item.error || item.state);
-  }), { timeout: 15000 }).toEqual(['complete']);
+  await waitForDownloads(serviceWorker, 1);
   expect(errors).toEqual([]);
 });
 

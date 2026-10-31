@@ -295,15 +295,15 @@ extensions, and branded Chrome ignores `--load-extension`.
 
 Pixiv is never contacted. `mockPixiv()` in `e2e/fixtures.js` serves mapped
 `/ajax/...` paths from `test/fixtures` and 404s the rest, returns a blank
-document for every other `www.pixiv.net` page and a 1x1 PNG for `i.pximg.net`,
-and aborts all other http(s) requests. The fixtures also expose the
-extension's `serviceWorker`, for reading `chrome.downloads` state, and its
-`extensionId`, for opening extension pages.
+document for every other `www.pixiv.net` page and a 1x1 PNG for unmapped
+`i.pximg.net` paths, and aborts all other http(s) requests. The fixtures also
+expose the extension's `serviceWorker`, for reading `chrome.downloads` state,
+and its `extensionId`, for opening extension pages.
 
 Two limits worth knowing before adding a test:
 
 - Downloads made through `chrome.downloads` fire no Playwright `download`
   event and are saved under Playwright's artifact ids, so a test can check
-  that a download completed but not the filename on disk. Filename formatting
-  is covered by the `NameFormatter` unit tests instead.
+  a download's state, mime and size but not the filename on disk. Filename
+  formatting is covered by the `NameFormatter` unit tests instead.
 - Firefox is not covered: Playwright cannot load an extension into Firefox.

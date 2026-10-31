@@ -16,15 +16,20 @@ const PIXEL = Buffer.from(
  * `/ajax/...` path on www.pixiv.net to a fixture file; an unmapped `/ajax/`
  * path 404s, any other www.pixiv.net page is a blank document, and every
  * other http(s) request is aborted so a test can never reach the real site.
+ * `pximg` does the same for i.pximg.net paths, which otherwise get a 1x1 PNG.
  *
  * @param {import('@playwright/test').BrowserContext} context
- * @param {{ ajax: Record<string, string> }} routes
+ * @param {{ ajax: Record<string, string>, pximg?: Record<string, string> }} routes
  */
-async function mockPixiv(context, { ajax }) {
+async function mockPixiv(context, { ajax, pximg = {} }) {
   await context.route(/^https?:\/\//, route => {
     const url = new URL(route.request().url());
 
     if (url.hostname === 'i.pximg.net') {
+      if (pximg[url.pathname]) {
+        return route.fulfill({ path: path.join(FIXTURES, pximg[url.pathname]) });
+      }
+
       return route.fulfill({ contentType: 'image/png', body: PIXEL });
     }
 
@@ -47,6 +52,49 @@ async function mockPixiv(context, { ajax }) {
 
     return route.abort();
   });
+}
+
+/**
+ * Collect uncaught errors from every page in the context, the download
+ * manager tab included.
+ * @param {import('@playwright/test').BrowserContext} context
+ */
+function collectErrors(context) {
+  const errors = [];
+  context.on('weberror', webError => errors.push(webError.error()));
+
+  return errors;
+}
+
+/**
+ * Open a work page and expand the collapsed panel the way a user would.
+ * @param {import('@playwright/test').BrowserContext} context
+ * @param {string} url
+ */
+async function openPanel(context, url) {
+  const page = await context.newPage();
+  await page.goto(url);
+  await page.locator('#ptk__new-handler').click();
+
+  return page;
+}
+
+/**
+ * Wait until every chrome.downloads item has finished and return them.
+ * Playwright renames saved files to its own artifact ids and fires no
+ * `download` event for chrome.downloads, so a test checks state, mime and
+ * size instead. The timeout stays under the 30s test timeout so a stuck
+ * download fails here, with the states in the message.
+ * @param {import('@playwright/test').Worker} serviceWorker
+ * @param {number} count
+ */
+async function waitForDownloads(serviceWorker, count) {
+  const search = () => serviceWorker.evaluate(() => chrome.downloads.search({}));
+
+  await expect.poll(async () => (await search()).map(item => item.error || item.state), { timeout: 20000 })
+    .toEqual(Array(count).fill('complete'));
+
+  return search();
 }
 
 const isExtensionWorker = worker => worker.url().startsWith('chrome-extension://');
@@ -85,4 +133,4 @@ const test = base.extend({
   }
 });
 
-module.exports = { test, expect, mockPixiv };
+module.exports = { test, expect, mockPixiv, collectErrors, openPanel, waitForDownloads };
