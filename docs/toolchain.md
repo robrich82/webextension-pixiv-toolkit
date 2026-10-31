@@ -44,9 +44,9 @@ nvm use $(cat .nvmrc)
 ```
 
 CI has no such gap: `actions/setup-node` takes `node-version-file: .nvmrc`
-directly, and fnm reads `.nvmrc` natively too. asdf's nodejs plugin lists
-`.nvmrc` as a legacy filename, but only picks it up with
-`legacy_version_file = yes` set in `~/.asdfrc` (off by default); nodenv's
+directly, and fnm reads `.nvmrc` natively too. asdf (and mise) read
+`.tool-versions`, which pins both Node and pnpm and must be bumped together
+with `.nvmrc` and `packageManager`; nothing in CI reads it. nodenv's
 native pin file is `.node-version`, so `.nvmrc` needs a plugin there. It is
 nvm-for-windows specifically that needs the argument above.
 

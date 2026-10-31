@@ -1,6 +1,6 @@
 ---
 name: cross-browser-reviewer
-description: Reviews a change for Chrome-vs-Firefox MV3 breakage. Use it for diffs touching src/background, src/content_scripts, runtime messaging or ports, the manifest, or config/webpack.*.config.js. Read-only; reports findings.
+description: Reviews a change for Chrome-vs-Firefox MV3 breakage. Use it for diffs touching src/background, src/content_scripts, runtime messaging or ports, the manifest, or config/webpack.*.config.js. Reports findings; doesn't edit source.
 tools: Read, Grep, Glob, Bash
 ---
 
@@ -16,7 +16,7 @@ Get the diff you were pointed at (for example `git diff origin/main...HEAD`). Re
    - state kept in module variables that has to survive the worker or page being unloaded.
 2. **Externals loaded per browser.** PouchDB is a webpack external. Chrome loads it with the `importScripts` banner and Firefox through the `background.scripts` order. A new external, or a new bundle that uses PouchDB, has to be wired up both ways.
 3. **Structured clone.** `runtime.sendMessage`, `port.postMessage` and `storage.set` payloads must not carry Vue reactive proxies, class instances with methods, or functions. Firefox throws `DataCloneError` where Chrome copies silently. The existing pattern is a JSON round-trip (see `getDownloadArgs` in `src/content_scripts/components/App.vue`).
-4. **Message channel lifetime.** `onMessage` handlers that answer asynchronously must return `true` and always call `sendResponse`, including on errors and for actions they ignore. Check `Application.onMessage` (background) and `DownloadsApplication.onMessage` (download manager), and the routing on `to: 'ws'`.
+4. **Message channel lifetime.** An `onMessage` handler that answers asynchronously must return `true` and always call `sendResponse` (including on errors), but **only for messages it handles**. For ignored messages it must return nothing and never call `sendResponse`, or it steals the other listener's reply and Firefox raises "Promised response ... went out of scope". Check `Application.onMessage` (background) and `DownloadsApplication.onMessage` (download manager), and the routing on `to: 'ws'`.
 5. **Cross-origin requests.** Content scripts on Firefox are bound by the page's CORS. Fetches to other origins (Fanbox API, pximg) belong in the background, with the result messaged back to the content script.
 6. **Manifest transform.** Anything added to `src/statics/manifest.json` has to survive the Firefox rewrite:
    - `options_page` becomes `options_ui`;
@@ -28,7 +28,7 @@ Get the diff you were pointed at (for example `git diff origin/main...HEAD`). Re
 
 ## Verify where you can
 
-- `pnpm run build` and `pnpm run build:firefox`. Check that both pass and inspect `dist/firefox/manifest.json` when the manifest or webpack config changed.
+- `pnpm run build` and `pnpm run build:firefox`. Check that both pass and inspect `dist/firefox/manifest.json` when the manifest or webpack config changed. Each build empties `dist/<platform>` first, so skip it if a dev watch or e2e run may be using `dist/` in this checkout.
 - `pnpm exec cross-env NODE_ENV=test jest --config jest.config.js --coverage=false --findRelatedTests <files>`
 
 ## Report
