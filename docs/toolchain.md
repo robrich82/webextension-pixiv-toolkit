@@ -113,12 +113,13 @@ those still apply on a run that resolves nothing.
 set explicitly rather than inherited, so a change to a pnpm default cannot
 quietly move the project's posture.
 
-**`minimumReleaseAge: 10080`** — refuse packages published less than seven days
+**`minimumReleaseAge: 1440`** — refuse packages published less than one day
 ago. This closes the gap the caret ranges leave open: caret cannot cross a
 major, but it happily takes a malicious patch the hour it lands, which is the
-shape almost every compromised-maintainer incident has had. pnpm v11 defaults to
-`1440` (one day); this project is not release-driven and has no reason to be an
-early adopter, so the window is longer.
+shape almost every compromised-maintainer incident has had. Dependabot and
+Renovate use the same cooldown, so their routine update PRs install. Their
+security-update PRs can skip that cooldown, so one may still need the exclusion
+below.
 
 > **A deliberate urgent security bump will appear to fail against this**, which
 > is exactly when someone is least inclined to read the docs. The fix is
@@ -130,8 +131,8 @@ early adopter, so the window is longer.
 > ```
 >
 > Remove the entry once the window has passed. Do **not** lower
-> `minimumReleaseAge` to get an install through — that silently drops the
-> protection for every other package in the tree, and a rushed patch is the
+> `minimumReleaseAge` further to get an install through — that silently drops
+> the protection for every other package in the tree, and a rushed patch is the
 > single worst moment to do that.
 
 **`allowBuilds`** — dependency lifecycle scripts are denied by default in pnpm,
@@ -267,7 +268,7 @@ keyframe prefixes that no supported browser needs.
 
 These live in `pnpm-workspace.yaml`, not `package.json`. **pnpm does not read
 npm's top-level `overrides` field** — if these are ever moved back there they
-stop applying silently, with no error, and both advisories return.
+stop applying silently, with no error, and the advisories return.
 
 The `@vue/component-compiler-utils` → `postcss` override this section used to
 document was removed as part of the Vue 3 migration's Phase A: vue-loader 17
@@ -276,16 +277,28 @@ document was removed as part of the Vue 3 migration's Phase A: vue-loader 17
 are no longer reachable — confirmed via `pnpm why @vue/component-compiler-utils`
 resolving to nothing.
 
-The one entry left exists to keep `pnpm audit` quiet, **not** because the
-advisory is reachable here:
+Each entry is commented in place there. Two also need a Renovate rule, or a
+bot PR would undo them:
 
 - **`uuid` → `^11.1.1`.** `pouchdb-utils` pins uuid 8. The advisory
   (GHSA-w5hq-g745-h8pq) is a missing bounds check in `v3`/`v5`/`v6` when called
   with a `buf` argument; pouchdb only ever calls `v4` (its own source comments
   say so). uuid 11 keeps the `v4` signature.
+- **`minimatch` → `^11.0.1`, `multimatch` → `^8.0.0`.** The minimatch floor
+  (GHSA-g3hv-75wg-m249) also reaches web-ext's `multimatch@6`, which does
+  `import minimatch from 'minimatch'`. v11 has no default export, so
+  `web-ext build` and `web-ext lint` crash on import. multimatch 8 uses the
+  named export, but minimatch 11 also reads the backslashes in web-ext's
+  Windows ignore patterns as escapes, so nothing is ignored and dotfiles,
+  `.amo-upload-uuid` and stray zips get packed; `patches/multimatch.patch`
+  restores minimatch 3's separator handling on Windows. CI never runs web-ext
+  (and is Linux), so a bump that breaks either passes CI; `renovate.json` holds
+  both at their current majors. The same default import makes the ESM entries
+  of `@eslint/eslintrc` and `@eslint/config-array` fail to load; eslint itself
+  `require()`s them, so only a future `FlatCompat` config would hit it.
 
-To confirm it's still applied, check that `pnpm-lock.yaml` resolves exactly one
-`uuid@11.x`.
+To confirm the uuid override is still applied, check that `pnpm-lock.yaml`
+resolves exactly one `uuid@11.x`.
 
 ## Build output under pnpm
 
