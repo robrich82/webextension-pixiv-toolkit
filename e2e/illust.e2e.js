@@ -2,11 +2,6 @@ const { test, expect, mockPixiv } = require('./fixtures');
 
 const ILLUST_URL = 'https://www.pixiv.net/en/artworks/10000001';
 
-// The content script loads js-epub-maker.js without handlebars-latest.js, so
-// it throws on every matched page. Epub building happens in the download
-// manager, which loads both, so nothing user-visible breaks.
-const KNOWN_PAGE_ERRORS = [/Handlebars is not defined/];
-
 test.beforeEach(async ({ context }) => {
   await mockPixiv(context, {
     ajax: {
@@ -23,12 +18,7 @@ test.beforeEach(async ({ context }) => {
  */
 function collectErrors(context) {
   const errors = [];
-  context.on('weberror', webError => {
-    const error = webError.error();
-    if (!KNOWN_PAGE_ERRORS.some(pattern => pattern.test(error.message))) {
-      errors.push(error);
-    }
-  });
+  context.on('weberror', webError => errors.push(webError.error()));
 
   return errors;
 }
