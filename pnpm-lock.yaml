@@ -271,7 +271,7 @@ importers:
         version: 29.2.6(patch_hash=3481f507e577701814273beed7d3dffee247b51938bea49f178f152803fa651e)(@babel/core@8.0.7)(babel-jest@30.5.2(@babel/core@8.0.7)(supports-color@8.1.1))(jest@30.5.2(@types/node@26.2.0)(supports-color@8.1.1))(supports-color@8.1.1)(vue@3.5.44)
       autoprefixer:
         specifier: ^10.6.1
-        version: 10.6.1(postcss@8.5.32)
+        version: 10.6.2(postcss@8.5.32)
       babel-jest:
         specifier: ^30.5.2
         version: 30.5.2(@babel/core@8.0.7)(supports-color@8.1.1)
@@ -1925,8 +1925,8 @@ packages:
   atomically@2.1.1:
     resolution: {integrity: sha512-P4w9o2dqARji6P7MHprklbfiArZAWvo07yW7qs3pdljb3BWr12FIB7W+p0zJiuiVsUpRO0iZn1kFFcpPegg0tQ==}
 
-  autoprefixer@10.6.1:
-    resolution: {integrity: sha512-cL1Qz6ADZhcEbny/8HPfe99J6HhNoYtpX2LFLIbhgGE7Q1hlQVkYFdetDN7Id3KiQxhDrHwzlHr/YQCnZ8+xSA==}
+  autoprefixer@10.6.2:
+    resolution: {integrity: sha512-VOw9/yGTGwPPgzFcODtcv6zhEPIeIWkRSe10L2ri2f5vZ7ID7lCt6jZzRF5/ubgOZ+szYydmEF5AYsA5jxX1tA==}
     engines: {node: ^10 || ^12 || >=14}
     hasBin: true
     peerDependencies:
@@ -6524,7 +6524,7 @@ snapshots:
       stubborn-fs: 2.0.0
       when-exit: 2.1.5
 
-  autoprefixer@10.6.1(postcss@8.5.32):
+  autoprefixer@10.6.2(postcss@8.5.32):
     dependencies:
       browserslist: 4.29.4
       caniuse-lite: 1.0.30001816
