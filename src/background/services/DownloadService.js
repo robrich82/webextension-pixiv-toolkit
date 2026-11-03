@@ -95,29 +95,32 @@ class DownloadService extends AbstractService {
     return response;
   }
 
-  checkDownloadManagerReadyInDelay(wait = 2000) {
-    return new Promise(resolve => {
-      setTimeout(
-        /**
-         * A rejection inside this callback can't reject the outer Promise
-         * (setTimeout swallows it), so a failed/no-response check would
-         * otherwise hang the caller forever instead of resolving falsy.
-         */
-        async () => resolve(await this.checkDownloadManagerReady().catch(() => undefined)),
-        wait
-      );
-    });
-  };
+  /**
+   * A manager tab that is still booting has no listener, so the check rejects
+   * instead of answering false; keep asking until it answers or time runs out.
+   * @param {number} [timeout]
+   * @param {number} [interval]
+   * @returns {Promise<boolean>}
+   */
+  async waitForDownloadManagerReady(timeout = 15000, interval = 200) {
+    const deadline = Date.now() + timeout;
+
+    while (!await this.checkDownloadManagerReady().catch(() => false)) {
+      if (Date.now() >= deadline) {
+        return false;
+      }
+
+      await new Promise(resolve => setTimeout(resolve, interval));
+    }
+
+    return true;
+  }
 
   async ensureDownloadManagerOpen() {
     const tab = await this.getDownloadManagerTab();
 
-    if (tab) {
-      return this.checkDownloadManagerReady();
-    }
-
-    if (this.openingDownloadManager) {
-      return this.checkDownloadManagerReadyInDelay();
+    if (tab || this.openingDownloadManager) {
+      return this.waitForDownloadManagerReady();
     }
 
     this.openingDownloadManager = true;
@@ -137,7 +140,7 @@ class DownloadService extends AbstractService {
 
       this.openingDownloadManager = false;
 
-      return this.checkDownloadManagerReadyInDelay();
+      return this.waitForDownloadManagerReady();
     } else {
       this.openingDownloadManager = false;
     }
