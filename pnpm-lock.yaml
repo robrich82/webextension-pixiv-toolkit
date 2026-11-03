@@ -210,7 +210,7 @@ importers:
         version: 2.31.0
       pako:
         specifier: ^3.0.0
-        version: 3.0.2
+        version: 3.0.3
       pouchdb:
         specifier: ^9.0.0
         version: 9.0.0
@@ -3592,8 +3592,8 @@ packages:
   pako@1.0.11:
     resolution: {integrity: sha512-4hLB8Py4zZce5s4yd9XzopqwVv/yGNhV1Bl8NTmCq1763HeK2+EwVTv+leGeL13Dnh2wfbqowVPXCIO0z4taYw==}
 
-  pako@3.0.2:
-    resolution: {integrity: sha512-uBv6IT2aT1A78iU6dpNEbf6+CyhlV/6g9JlJs9kpgjFGFhruIICVRysF/W0SLzXg5+hCl+KroH7e4YUyfEmgLg==}
+  pako@3.0.3:
+    resolution: {integrity: sha512-tmrebBBYI5FOw8QICGwJNqE8fotC8R+gwcxOvoFNv+GKehOI6Lc6YBolNcQNnC4v96l1wt7rh102ifD4kVeZAQ==}
 
   param-case@3.0.4:
     resolution: {integrity: sha512-RXlj7zCYokReqWpOPH9oYivUzLYZ5vAPIfEmCTNViosC78F8F0H9y7T7gG2M39ymgutxF5gcFEsyZQSph9Bp3A==}
@@ -8326,7 +8326,7 @@ snapshots:
 
   pako@1.0.11: {}
 
-  pako@3.0.2: {}
+  pako@3.0.3: {}
 
   param-case@3.0.4:
     dependencies:
