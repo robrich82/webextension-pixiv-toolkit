@@ -4,10 +4,9 @@ updates:
     directory: /
     schedule:
       interval: weekly
-    # Matches `minimumReleaseAge` in pnpm-workspace.yaml (7 days); a shorter
-    # cooldown would open PRs whose install pnpm then refuses.
+    # Matches `minimumReleaseAge` in pnpm-workspace.yaml (1 day).
     cooldown:
-      default-days: 7
+      default-days: 1
     open-pull-requests-limit: 5
     groups:
       minor-and-patch:
@@ -18,7 +17,7 @@ updates:
     schedule:
       interval: weekly
     cooldown:
-      default-days: 7
+      default-days: 1
     groups:
       actions:
         patterns: ['*']
