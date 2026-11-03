@@ -4,9 +4,9 @@ engineStrict: true
 # Refuse packages published less than this many minutes ago. Caret ranges stop
 # a plain install crossing a major, but they happily take a malicious patch the
 # hour it lands -- which is the shape almost every compromised-maintainer
-# incident has had. The window is a day, matching the Dependabot and Renovate
-# cooldowns. Set explicitly rather than inherited, so a future change to
-# pnpm's default cannot quietly shorten it.
+# incident has had. The window is a day, matching Renovate's cooldown. Set
+# explicitly rather than inherited, so a future change to pnpm's default cannot
+# quietly shorten it.
 #
 # A deliberate urgent security bump WILL appear to fail against this. The fix
 # is `minimumReleaseAgeExclude`, not lowering the window further -- see
