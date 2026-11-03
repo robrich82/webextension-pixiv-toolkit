@@ -1,0 +1,13 @@
+diff --git a/index.js b/index.js
+index 93fe07b..da2d376 100644
+--- a/index.js
++++ b/index.js
+@@ -3,6 +3,8 @@ import arrayUnion from 'array-union';
+ import arrayDiffer from 'array-differ';
+ 
+ export default function multimatch(list, patterns, options = {}) {
++	// minimatch 3 turned backslashes into / on Windows; 9+ reads it as an escape unless told.
++	options = {windowsPathsNoEscape: process.platform === 'win32', ...options};
+ 	list = [list].flat();
+ 	patterns = [patterns].flat();
+ 

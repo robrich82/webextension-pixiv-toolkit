@@ -51,14 +51,8 @@ jobs:
       # build-toolchain advisory can and does fail it too -- see
       # docs/toolchain.md. Failing at `moderate` keeps new problems from
       # getting lost in noise.
-      #
-      # --ignore GHSA-86w9-cpqp-85rv: node-forge's PKCS#1 v1.5 signature
-      # advisory has no patched version as of this writing (latest is still
-      # 1.4.0). It reaches us only via web-ext>@devicefarmer/adbkit, used for
-      # Android debugging in `web-ext run`, which this project never invokes.
-      # Drop the ignore once upstream ships a fix.
       - name: Audit dependencies
-        run: pnpm audit --audit-level=moderate --ignore GHSA-86w9-cpqp-85rv
+        run: pnpm audit --audit-level=moderate
 
       - name: Run tests
         run: pnpm test
