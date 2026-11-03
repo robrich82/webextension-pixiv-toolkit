@@ -9,3 +9,7 @@ package-lock.json
 /bundleAnalyzer/
 /test-results/
 /playwright-report/
+
+# Claude Code per-user state
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
