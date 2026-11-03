@@ -116,10 +116,9 @@ quietly move the project's posture.
 **`minimumReleaseAge: 1440`** — refuse packages published less than one day
 ago. This closes the gap the caret ranges leave open: caret cannot cross a
 major, but it happily takes a malicious patch the hour it lands, which is the
-shape almost every compromised-maintainer incident has had. Dependabot and
-Renovate use the same cooldown, so their routine update PRs install. Their
-security-update PRs can skip that cooldown, so one may still need the exclusion
-below.
+shape almost every compromised-maintainer incident has had. Renovate uses the
+same cooldown, so its routine update PRs install. Its security-update PRs skip
+that cooldown, so one may still need the exclusion below.
 
 > **A deliberate urgent security bump will appear to fail against this**, which
 > is exactly when someone is least inclined to read the docs. The fix is
