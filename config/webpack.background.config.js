@@ -145,7 +145,7 @@ module.exports = env => {
                  *
                  * `update_url` points Firefox at a self-hosted update manifest
                  * (published as a GitHub Release asset on this fork, see
-                 * scripts/release.js) so a signed-but-unlisted build can still
+                 * scripts/release-firefox.js) so a signed-but-unlisted build can still
                  * auto-update instead of requiring a manual reinstall per release.
                  */
                 json.browser_specific_settings = {
