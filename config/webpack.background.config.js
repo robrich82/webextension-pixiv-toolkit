@@ -3,6 +3,7 @@
 const packageInfo = require('../package.json');
 const baseConfig = require('./webpack.base.config')();
 const utils = require('./utils');
+const { localFFmpegCore } = require('./localFFmpegCore');
 const { merge } = require('webpack-merge');
 const webpack = require('webpack');
 const CopyPlugin = require('copy-webpack-plugin');
@@ -88,13 +89,20 @@ module.exports = env => {
           }, {
             /**
              * @ffmpeg/core 0.12 ships both an esm/ and a umd/ build of the
-             * same ~32MB core+wasm pair. Only umd/ is used (the vendored
+             * same ~32MB core+wasm pair. Only umd/ is used (the
              * ffmpeg.js loads it via importScripts in a classic worker), so
              * copying the whole dist/ directory would double the shipped
              * wasm for no reason.
              */
             from: utils.resolve('node_modules/@ffmpeg/core/dist/umd'),
             to: utils.resolve(`dist/${platform}/lib/ffmpeg`),
+            info: alreadyMinimized
+          }, {
+            // Source maps are skipped: their sourcesContent repeats the CDN URL.
+            from: utils.resolve('node_modules/@ffmpeg/ffmpeg/dist/umd'),
+            to: utils.resolve(`dist/${platform}/lib/ffmpeg`),
+            globOptions: { ignore: ['**/*.map'] },
+            transform: localFFmpegCore,
             info: alreadyMinimized
           }, {
             from: utils.resolve('src/statics/manifest.json'),
