@@ -30,13 +30,17 @@ Summarise the results of all six checks and get an explicit go-ahead before goin
 pnpm run release:firefox
 ```
 
-Run it in the background (`run_in_background`). The script sets no timeout, and AMO approval can take longer than the Bash tool's 10-minute foreground limit.
+Run it in the background (`run_in_background`). It can outlast the Bash tool's 10-minute foreground limit, because web-ext waits up to 15 minutes for AMO approval on each attempt.
 
-**If it fails, read the end of its output before rerunning.**
-- The script retries a failed sign only while AMO has no record of the version. Once AMO has it, or the script can't tell, it stops and says so. web-ext creates the version before approval and download, and AMO won't accept it again.
-- In that case, download the signed `.xpi` from the AMO developer hub once it's approved, save it as `web-ext-artifacts/pixiv-toolkit-firefox-<version>.xpi`, and rerun.
-- A rerun that finds that file skips build and sign and publishes it. This also covers a failure after `Signed:` was printed. Don't delete `web-ext-artifacts/` in that case.
-- If `gh release create` failed partway, check whether the release exists before rerunning (`gh release view <version>`). If it does, ask the user whether to delete it and rerun, or finish it by hand.
+**If it fails, read the end of its output before rerunning.** After a failed sign, the script asks AMO whether it has the version. It retries only while AMO has none, and otherwise prints what to do:
+- **AMO has the version** (web-ext creates it before approval and download, and AMO won't take it again): download the signed `.xpi` from the AMO developer hub once it's approved, save it in `web-ext-artifacts/` with its version in the name (`*-<version>.xpi`), and rerun.
+- **AMO has no record of it:** fix the cause and rerun. A version deleted on AMO can never be signed again and needs a version bump.
+- **Credentials rejected:** check the API key, secret and system clock.
+- **Couldn't tell:** check the developer hub and take one of the first two paths.
+
+A rerun that finds a `*-<version>.xpi` in `web-ext-artifacts/` skips build and sign, checks that the file is complete and signed, and publishes it. That also covers a failure after `Signed:` was printed, so don't delete `web-ext-artifacts/`.
+
+If `gh release create` failed partway, run `gh release view <version>` before rerunning. If the release exists, ask the user whether to delete it and rerun.
 
 ## Afterwards
 
