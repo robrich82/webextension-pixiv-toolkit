@@ -1,0 +1,5 @@
+# The single Node and pnpm pin, for local development and CI alike.
+# pnpm must match the `packageManager` field in package.json.
+[tools]
+node = "26.13.0"
+pnpm = "12.16.1"

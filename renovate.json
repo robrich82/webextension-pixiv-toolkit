@@ -6,6 +6,11 @@
     "minimumReleaseAge": "1 day",
     "packageRules": [
         {
+            "description": "pnpm is pinned in both mise.toml and packageManager; bump them in one PR.",
+            "matchDepNames": ["pnpm"],
+            "groupName": "pnpm"
+        },
+        {
             "description": "uuid 12+ is ESM-only; pouchdb require()s it. The override only exists for pnpm audit (see docs/toolchain.md).",
             "matchPackageNames": ["uuid"],
             "allowedVersions": "<12"
