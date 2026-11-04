@@ -2,7 +2,7 @@
 
 ## Requirements
 
-- Node `>=22.12.0 <25.0.0`, pnpm `>=11.0.0 <12.0.0` (see `engines` in `package.json`)
+- Node and pnpm within the `engines` ranges in `package.json`
 - `.nvmrc` pins the development Node, and CI reads the same file
 - `pnpm install --frozen-lockfile` to install — `pnpm-lock.yaml` is committed
   and CI installs from it
@@ -61,17 +61,17 @@ the previous state and it was wrong in both directions: it admits an untested
 future major silently, and it makes the strict-engines check weaker than it
 looks, since the only thing an open range can enforce is a floor.
 
-- **`engines.node`** — `>=22.13.0 <25.0.0`. The floor is one patch above what
-  the code strictly needs, because pnpm 11.24.0 itself declares
-  `engines.node: ">=22.13"`; a lower floor would pass this project's own gate
-  and then fail to run the pinned pnpm. The ceiling sits below the next
-  unvalidated major.
-- **`engines.pnpm`** — `>=11.0.0 <12.0.0`. The settings in
+- **`engines.node`** — the floor is set by pnpm 11, which declares
+  `engines.node: ">=22.13"` and is still admitted by `engines.pnpm`; a lower
+  floor would pass this project's own gate and then fail to run pnpm. The
+  ceiling sits below the next unvalidated major.
+- **`engines.pnpm`** — the floor is v11, because the settings in
   `pnpm-workspace.yaml` are pnpm v11 semantics. pnpm v10 would apply a
   *different* security posture from the same file — `minimumReleaseAge`
   defaults to `0` there rather than `1440`, and `strictDepBuilds` defaults to
   `false` rather than `true`, so an undeclared build script degrades to a
-  silent warning instead of failing the install — and v12 may change it again.
+  silent warning instead of failing the install. The ceiling sits below the
+  next unvalidated major, as for Node.
 - **`packageManager`** — the exact version plus integrity hash. Exact by
   construction, so it is the effective upper *and* lower bound for corepack
   users.
