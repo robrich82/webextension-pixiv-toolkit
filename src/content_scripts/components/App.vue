@@ -348,7 +348,7 @@ export default {
           fnAfterOpen();
         }
       } else {
-        this.displayNotice(this.tl('_cant_open_download_manager_please_open_manully'))
+        this.displayNotice(this.tl('_cant_open_download_manager'))
       }
     },
 
@@ -395,7 +395,7 @@ export default {
 
             return;
           } else {
-            alert(this.tl('_unkown_error') + ': ' + (response && response.errorName));
+            alert(this.tl('_unknown_error') + ': ' + (response && response.errorName));
           }
           return;
         } else {

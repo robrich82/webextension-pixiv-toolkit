@@ -310,7 +310,7 @@ describe('App download', () => {
 
     await clickAndFlush(actionButtons(wrapper)[0]);
 
-    expect(alert).toHaveBeenCalledWith('_unkown_error: SomethingElse');
+    expect(alert).toHaveBeenCalledWith('_unknown_error: SomethingElse');
     expect(sentMessages('history:itemDownload')).toHaveLength(0);
   });
 
@@ -322,6 +322,6 @@ describe('App download', () => {
     expect(sentMessages('download:addDownload')).toHaveLength(0);
     expect(wrapper.find('.ptk__download-added-notice').isVisible()).toBe(true);
     expect(wrapper.find('.ptk__download-added-notice').text())
-      .toBe('_cant_open_download_manager_please_open_manully');
+      .toBe('_cant_open_download_manager');
   });
 });
