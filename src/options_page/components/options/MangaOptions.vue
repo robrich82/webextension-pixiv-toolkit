@@ -57,7 +57,7 @@
 
     <rename-dialog v-model:show="showRenameImageDialog"
       v-model="renameImageRule"
-      :title="tl('_rename_mange_image')"
+      :title="tl('_rename_manga_image')"
       :metas="renameImageMetas"
       :default-value="defaultRenameImageRule"
     ></rename-dialog>

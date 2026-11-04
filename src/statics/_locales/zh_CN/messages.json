@@ -239,7 +239,7 @@
    "sponsor_update_periodically": {
      "message": "是你们让它变得更好，谢谢！（此列表会周期性更新）"
    },
-   "sponser_very_first": {
+   "sponsor_very_first": {
      "message": "成为第一位赞助者"
    },
    "Try_Manga_Toolkit": {
@@ -743,7 +743,7 @@
    "_history_backup": {
        "message": "记录备份"
    },
-   "_permission": {
+   "_permissions": {
        "message": "权限"
    },
    "_open": {
@@ -907,6 +907,12 @@
     },
     "_opening_download_manager": {
         "message": "下载管理器打开中，请稍后..."
+    },
+    "_cant_open_download_manager": {
+        "message": "无法打开下载管理器，请在设置页面或弹出页面中打开后重试。"
+    },
+    "_unknown_error": {
+        "message": "未知错误"
     },
     "_running_too_many_download_tasks_at_same_time_may_be_cause_high_CPU_usage": {
         "message": "同时进行太多下载会导致CPU高负载"

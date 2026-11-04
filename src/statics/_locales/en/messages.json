@@ -902,6 +902,12 @@
     "_opening_download_manager": {
         "message": "Opening Download Manager, please wait..."
     },
+    "_cant_open_download_manager": {
+        "message": "Couldn't open the download manager. Open it from the Options or Popup page, then try again."
+    },
+    "_unknown_error": {
+        "message": "Unknown error"
+    },
     "_running_too_many_download_tasks_at_same_time_may_be_cause_high_CPU_usage": {
         "message": "Running too many download tasks at same time will cause high CPU usage"
     },
