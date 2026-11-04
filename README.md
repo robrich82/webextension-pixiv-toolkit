@@ -81,8 +81,8 @@ If you are using Chrome, you can download it from [Chrome web store](https://chr
 ## **How to build**
 To build the extension, you need these tools below:
 
-* nodejs (>= 22.12.0, < 25) — see `.nvmrc` for the pinned version
-* pnpm 11 (`corepack enable pnpm`, which honours the `packageManager` pin)
+* nodejs within `engines.node` in `package.json` — see `.nvmrc` for the pinned version
+* pnpm within `engines.pnpm` (`corepack enable pnpm`, which honours the `packageManager` pin)
 
 After you install these, run commands step by step:
 
@@ -178,8 +178,8 @@ FFmpeg.wasm 是一个非常强大的库，它拥有比其他库，如`gif.js`和
 ## **如何构建**
 你需要一下的工具来进行构造：
 
-* nodejs (>= 22.12.0, < 25) —— 固定的版本号见 `.nvmrc`
-* pnpm 11（执行 `corepack enable pnpm`，它会遵循 `packageManager` 中锁定的版本）
+* nodejs，版本范围见 `package.json` 的 `engines.node` —— 固定的版本号见 `.nvmrc`
+* pnpm，版本范围见 `engines.pnpm`（执行 `corepack enable pnpm`，它会遵循 `packageManager` 中锁定的版本）
 
 安装完成后，执行以下操作来进行构造：
 
