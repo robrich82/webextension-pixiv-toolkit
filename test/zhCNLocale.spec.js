@@ -18,4 +18,19 @@ describe('zh_CN moment locale', () => {
   it('formats a Sunday with the custom months and weekdays', () => {
     expect(moment.utc('1970-01-04').locale('zh_CN').format('YYYY[年]MMMMDD[日] dddd')).toBe('1970年1月04日 星期日');
   });
+
+  it.each([
+    ['08:59', '早上'],
+    ['09:00', '上午'],
+    ['10:45', '上午'],
+    ['11:29', '上午'],
+    ['11:30', '中午'],
+    ['12:29', '中午'],
+    ['12:30', '下午'],
+    ['12:45', '下午'],
+    ['17:59', '下午'],
+    ['18:00', '晚上'],
+  ])('labels %s as %s', (time, label) => {
+    expect(moment.utc(`1970-01-01T${time}`).locale('zh_CN').format('A')).toBe(label);
+  });
 });
