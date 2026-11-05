@@ -4,7 +4,33 @@
         "config:recommended"
     ],
     "minimumReleaseAge": "1 day",
+    "platformAutomerge": false,
+    "customManagers": [
+        {
+            "description": "The Renovate image the renovate-config workflow validates this file with.",
+            "customType": "regex",
+            "managerFilePatterns": ["/^\\.github/workflows/renovate-config\\.yml$/"],
+            "matchStrings": ["(?<depName>ghcr\\.io/renovatebot/renovate):(?<currentValue>[^\\s@]+)"],
+            "datasourceTemplate": "docker"
+        }
+    ],
     "packageRules": [
+        {
+            "description": "Automerge non-major updates once every check is green. platformAutomerge is off because main has no required status checks, so GitHub would merge before CI finishes.",
+            "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+            "matchCurrentVersion": "!/^v?0\\./",
+            "automerge": true
+        },
+        {
+            "description": "CI never runs web-ext, so green CI says nothing about a web-ext bump.",
+            "matchPackageNames": ["web-ext"],
+            "automerge": false
+        },
+        {
+            "description": "Renovate publishes several times a day; bump the validator image weekly.",
+            "matchPackageNames": ["ghcr.io/renovatebot/renovate"],
+            "schedule": ["* 0-5 * * 1"]
+        },
         {
             "description": "Raise an engines ceiling only after CI is green on the new major (see docs/toolchain.md); a major bump of the exact pin fails install until then.",
             "matchDepTypes": ["engines"],

@@ -1,0 +1,30 @@
+name: Renovate config
+
+on:
+  pull_request:
+    paths:
+      - renovate.json
+      - .github/workflows/renovate-config.yml
+  push:
+    branches: [main]
+    paths:
+      - renovate.json
+      - .github/workflows/renovate-config.yml
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # The prebuilt image rather than `pnpm dlx renovate`: Renovate's npm tree
+      # fails this repo's trustPolicy. The tag is bumped by renovate.json's
+      # custom manager. --strict also fails on config Renovate would migrate.
+      - name: Validate renovate.json
+        run: >-
+          docker run --rm -v "$PWD:/repo:ro" -w /repo
+          ghcr.io/renovatebot/renovate:44.208.0
+          renovate-config-validator --strict
