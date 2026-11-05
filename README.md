@@ -84,7 +84,7 @@ To build the extension, you need these tools below:
 * nodejs within `engines.node` in `package.json`
 * pnpm within `engines.pnpm`
 
-[mise](https://mise.jdx.dev) installs the pinned versions of both from `mise.toml`: run `mise install` in the repo.
+[mise](https://mise.jdx.dev) installs the pinned versions of both: run `mise install` in the repo.
 
 After you install these, run commands step by step:
 
@@ -183,7 +183,7 @@ FFmpeg.wasm 是一个非常强大的库，它拥有比其他库，如`gif.js`和
 * nodejs，版本范围见 `package.json` 的 `engines.node`
 * pnpm，版本范围见 `engines.pnpm`
 
-[mise](https://mise.jdx.dev) 会按照 `mise.toml` 安装两者的固定版本：在仓库目录下执行 `mise install`。
+[mise](https://mise.jdx.dev) 会安装两者的固定版本：在仓库目录下执行 `mise install`。
 
 安装完成后，执行以下操作来进行构造：
 

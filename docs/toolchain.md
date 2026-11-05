@@ -3,17 +3,15 @@
 ## Requirements
 
 - Node and pnpm within the `engines` ranges in `package.json`
-- `mise.toml` pins the exact Node and pnpm versions, and CI reads the same
-  file — `mise install` in the repo gets both
+- `mise.toml` pins the exact Node version, for local development and CI
+- `packageManager` pins the exact pnpm version, integrity hash included;
+  `mise.toml` tells mise to install pnpm from it, so there is one pnpm pin
 - `pnpm install --frozen-lockfile` to install — `pnpm-lock.yaml` is committed
   and CI installs from it
 
-pnpm is also pinned by the `packageManager` field, integrity hash included, so
-the two pnpm pins must be bumped together (Renovate groups them). A pnpm that
-does not match `packageManager` fetches and runs the pinned version instead
-(pnpm's default `pmOnFail: download`), so a stray global pnpm does no harm.
-Without mise, `engines` still catches an out-of-range Node or pnpm at install.
-Corepack is not an option: Node 25 stopped bundling it.
+Any other pnpm fetches and runs the `packageManager` version instead (pnpm's
+default `pmOnFail: download`), so a stray global pnpm does no harm. Without
+mise, only the `engines` ranges apply.
 
 The project previously pinned Node `~16.18.0`. It could not run on anything
 newer: webpack 4 hashes module ids with MD4, which OpenSSL 3 (Node 17+) refuses,
@@ -52,11 +50,11 @@ to get unblocked.** Deleting a ceiling converts a loud, early failure into a
 silent, late one.
 
 This is also why CI needs no step asserting its Node pin sits *inside*
-`engines.node`: pnpm enforces `engines` on every install, so a `mise.toml` pin outside
-the range fails the install step outright. That only catches the pin drifting
-out of the range, though — it does not catch the range being widened around an
-untested pin. Raising the ceiling to admit a new major while leaving the Node pin
-where it is passes this check having never run on that major, which is exactly
+`engines.node`: pnpm enforces `engines` on every install, so a `mise.toml` pin
+outside the range fails the install step outright. That only catches the pin
+drifting out of the range, though — it does not catch the range being widened
+around an untested pin. Raising the ceiling to admit a new major while leaving
+the Node pin where it is passes this check having never run on that major, which is exactly
 the case the rule above asks a human to gate deliberately. Nothing currently
 enforces that structurally; it depends on someone reading the rule.
 
@@ -300,9 +298,9 @@ the layout doing its job: the fix is to declare the dependency, not to loosen
 and on pushes to `main`. It needs no third-party signup, so it covers forks
 too, and it is what puts a status check on a PR and backs the readme badge.
 
-`jdx/mise-action` installs Node and pnpm from `mise.toml`, so CI runs the same
-versions as local development. The pnpm store is cached with `actions/cache`,
-keyed on `pnpm-lock.yaml`.
+`jdx/mise-action` installs Node and pnpm exactly as local mise does, so CI runs
+the same versions as local development. The pnpm store is cached with
+`actions/cache`, keyed on `pnpm-lock.yaml`.
 
 The job then runs `pnpm install --frozen-lockfile`,
 `pnpm audit --audit-level=moderate`, `pnpm test`, and the Chrome and Firefox

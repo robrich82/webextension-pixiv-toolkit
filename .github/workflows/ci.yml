@@ -18,20 +18,24 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # Installs Node and pnpm from mise.toml, the pin local development uses.
+      # Installs Node from mise.toml and pnpm from `packageManager`, as locally.
       # No separate check against `engines`: pnpm enforces the root project's
       # `engines` on every install, so an out-of-range pin fails the install.
+      # The default key ignores package.json, so it would miss a pnpm bump.
       - uses: jdx/mise-action@v5
+        with:
+          cache_key: "{{default}}-${{ hashFiles('package.json') }}"
 
       - name: Locate pnpm store
         id: pnpm-store
-        run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+        run: |
+          path=$(pnpm store path --silent)
+          echo "path=$path" >> "$GITHUB_OUTPUT"
 
       - uses: actions/cache@v6
         with:
           path: ${{ steps.pnpm-store.outputs.path }}
           key: pnpm-store-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
-          restore-keys: pnpm-store-${{ runner.os }}-
 
       # pnpm denies dependency lifecycle scripts by default and fails the
       # install if a package wants to build without an entry in `allowBuilds`
