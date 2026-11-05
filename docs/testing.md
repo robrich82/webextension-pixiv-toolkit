@@ -144,6 +144,14 @@ conventions have to work on one call. Adding those on top means re-implementing
 most of this file anyway, over a storage implementation we would then be half
 overriding — so the fake is hand-rolled and adds no dependency.
 
+## PouchDB repositories
+
+`moduleNameMapper` maps `pouchdb` to `test/doubles/pouchdb.js`: the Node build
+with `pouchdb-find` registered and the `pouchdb-adapter-memory` adapter as the
+default, so `src/repositories` specs run against a real database without
+touching disk. memdown keeps one store per database name for the whole spec
+file, so destroy the database in `afterEach`.
+
 ## DOM code, without jsdom
 
 Everything runs under the `node` test environment. `CopyStr`, the one module
