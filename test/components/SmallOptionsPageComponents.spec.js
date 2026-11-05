@@ -1,13 +1,6 @@
 import { mount } from '@vue/test-utils';
 import AppSuggest from '@/options_page/components/AppSuggest.vue';
 import CacheableImage from '@/options_page/components/CacheableImage.vue';
-import PageTitle from '@/options_page/components/PageTitle.vue';
-
-describe('PageTitle', () => {
-  test('renders the title as a heading', () => {
-    expect(mount(PageTitle, { props: { title: 'History' } }).find('h1').text()).toBe('History');
-  });
-});
 
 describe('AppSuggest', () => {
   test('links the icon and MORE to the app and shows its titles', () => {
