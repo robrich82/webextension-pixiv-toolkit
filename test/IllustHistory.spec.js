@@ -52,3 +52,52 @@ test('getIllusts returns the newest first through the viewed_at index', async ()
 
   expect((await history.getIllusts()).map(doc => doc.id)).toEqual(['2', '3', '1']);
 });
+
+describe('the max cap', () => {
+  const ids = async () => (await history.getIllusts()).map(doc => doc.id).sort();
+
+  beforeEach(async () => {
+    await history.db.destroy();
+    history = new IllustHistory({ max: 3 });
+    await history.init();
+  });
+
+  test('keeps exactly the newest max illusts', async () => {
+    for (let i = 1; i <= 5; i++) {
+      await history.putIllust(illust(i, 1700000000 + i));
+    }
+
+    expect(await ids()).toEqual(['3', '4', '5']);
+  });
+
+  test('revisiting a stored illust at the cap evicts nothing', async () => {
+    for (let i = 1; i <= 3; i++) {
+      await history.putIllust(illust(i, 1700000000 + i));
+    }
+
+    await history.putIllust(illust(2, 1700000100));
+
+    expect(await ids()).toEqual(['1', '2', '3']);
+  });
+
+  test('another index does not take an illust slot', async () => {
+    await history.db.createIndex({ index: { fields: ['title'] } });
+
+    for (let i = 1; i <= 4; i++) {
+      await history.putIllust(illust(i, 1700000000 + i));
+    }
+
+    expect(await ids()).toEqual(['2', '3', '4']);
+  });
+
+  test('a failed trim is logged and still resolves the put', async () => {
+    const error = jest.spyOn(console, 'error').mockImplementation(() => {});
+    jest.spyOn(history.db, 'allDocs').mockRejectedValueOnce(new Error('boom'));
+
+    await expect(history.putIllust(illust(1, 1700000001))).resolves.toBeUndefined();
+
+    expect(error).toHaveBeenCalledWith('Unable to trim illust history', expect.any(Error));
+    expect(await ids()).toEqual(['1']);
+    error.mockRestore();
+  });
+});

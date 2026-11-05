@@ -65,29 +65,40 @@ class IllustHistory {
     return true
   }
 
+  /**
+   * Delete the oldest illusts beyond maxLimit. Runs after the put, so a
+   * revisit doesn't count as a new entry, and skips the `_design/` docs that
+   * allDocs() returns alongside the illusts.
+   */
+  async trim() {
+    let { rows } = await this.db.allDocs();
+    let excess = rows.filter(row => !row.id.startsWith('_design/')).length - this.maxLimit;
+
+    if (excess > 0) {
+      let docs = await this.getIllusts({ sort: [{ 'viewed_at': 'asc' }], limit: excess });
+      await Promise.all(docs.map(doc => this.db.remove(doc)));
+    }
+  }
+
   putIllust(data) {
+    return this.saveIllust(data).then(saved => {
+      if (saved) {
+        return this.trim().catch(error => console.error('Unable to trim illust history', error));
+      }
+    });
+  }
+
+  /**
+   * @returns {Promise<boolean>} whether the illust was written
+   */
+  saveIllust(data) {
     let self = this
 
     return new Promise(resolve => {
       if (!this.checkData(data)) {
-        resolve()
+        resolve(false)
         return
       }
-
-      this.db.allDocs().then(entries => {
-        if (entries.rows.length > this.maxLimit) {
-          let deleteLength = entries.rows.length - this.maxLimit;
-
-          this.getIllusts({
-            sort: [{ 'viewed_at': "asc" }],
-            limit: deleteLength
-          }).then(docs => {
-            docs.forEach(doc => {
-              this.db.remove(doc);
-            });
-          });
-        }
-      });
 
       if ((data.viewed_at + '').length > 10) {
         data.viewed_at = parseInt((data.viewed_at + '').substr(0, 10)) // viewed_at is index, should keep its type
@@ -111,20 +122,20 @@ class IllustHistory {
         let _doc = Object.assign(doc, dataDoc)
         self.db.put(_doc).then(() => {
           // console.log('update done')
-          resolve()
+          resolve(true)
         }).catch(e => {
           // console.log('update fail')
           // console.log(e)
-          resolve()
+          resolve(false)
         })
       }).catch(err => {
         self.db.put(dataDoc).then(() => {
           // console.log('create done')
-          resolve()
+          resolve(true)
         }).catch(e => {
           // console.log('create fail')
           // console.log(e)
-          resolve()
+          resolve(false)
         })
       })
     })
