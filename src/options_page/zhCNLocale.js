@@ -9,17 +9,19 @@ export function defineZhCNLocale() {
     weekdays: [
       '星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'
     ],
-    meridiem : function (hour, minute, isLowercase) {
-      if (hour < 9) {
-          return "早上";
-      } else if (hour < 11 && minute < 30) {
-          return "上午";
-      } else if (hour < 13 && minute < 30) {
-          return "中午";
-      } else if (hour < 18) {
-          return "下午";
+    meridiem(hour, minute) {
+      const hm = hour * 100 + minute;
+
+      if (hm < 900) {
+        return '早上';
+      } else if (hm < 1130) {
+        return '上午';
+      } else if (hm < 1230) {
+        return '中午';
+      } else if (hm < 1800) {
+        return '下午';
       } else {
-          return "晚上";
+        return '晚上';
       }
     }
   });
