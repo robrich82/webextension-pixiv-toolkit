@@ -4,6 +4,8 @@ const { localDateParts } = require('./helpers/localDate');
 
 const article = require('./fixtures/fanbox/post-article.json');
 const legacyImagePost = require('./fixtures/fanbox/post-image-legacy-body.json');
+const restrictedPost = require('./fixtures/fanbox/post-restricted.json');
+const { RestrictedPostError } = require('../src/errors');
 
 const clone = fixture => JSON.parse(JSON.stringify(fixture));
 
@@ -197,6 +199,40 @@ describe('a response missing a field we depend on', () => {
 
     await expect(PostParser.create(articleUrl).parseContext())
       .rejects.toThrow("Can't fetch fanbox post 60000001 context");
+  });
+});
+
+describe('a post the session is not entitled to', () => {
+  const restrictedUrl = 'https://www.fanbox.cc/@sketchbook/posts/60000003';
+
+  test('throws RestrictedPostError instead of a TypeError on the null body (#204)', async () => {
+    backgroundReplies(clone(restrictedPost));
+
+    const parsing = PostParser.create(restrictedUrl).parseContext();
+
+    await expect(parsing).rejects.toBeInstanceOf(RestrictedPostError);
+    await expect(parsing).rejects.toThrow('Fanbox post 60000003 is restricted for this account');
+  });
+
+  test('treats a null body as restricted even without the isRestricted flag', async () => {
+    const response = clone(restrictedPost);
+
+    delete response.body.post.isRestricted;
+
+    backgroundReplies(response);
+
+    await expect(PostParser.create(restrictedUrl).parseContext())
+      .rejects.toBeInstanceOf(RestrictedPostError);
+  });
+
+  test('leaves the context holding only what the url gave it', async () => {
+    backgroundReplies(clone(restrictedPost));
+
+    const parser = PostParser.create(restrictedUrl);
+
+    await expect(parser.parseContext()).rejects.toThrow();
+
+    expect(parser.getContext()).toEqual({ creatorId: 'sketchbook', postId: '60000003' });
   });
 });
 

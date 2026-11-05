@@ -1,4 +1,4 @@
-import { RuntimeError } from "@/errors";
+import { RestrictedPostError, RuntimeError } from "@/errors";
 import DateFormatter from "@/modules/Util/DateFormatter";
 import browser from "@/modules/Extension/browser";
 
@@ -186,6 +186,16 @@ class PostParser {
        * standardContext expects.
        */
       let post = response.body.post || response.body;
+
+      /**
+       * A post this session isn't entitled to (e.g. above the user's support
+       * tier) still comes back, but flagged `isRestricted` with `body: null`
+       * (issue #204).
+       */
+      if (post.isRestricted || !post.body) {
+        throw new RestrictedPostError(`Fanbox post ${this.context.postId} is restricted for this account`);
+      }
+
       this.context = this.standardContext(post);
     } else {
       throw new RuntimeError(`Can't fetch fanbox post ${this.context.postId} context`);

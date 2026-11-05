@@ -1,0 +1,23 @@
+{
+  "body": {
+    "post": {
+      "id": "60000003",
+      "title": "supporters-only sketch",
+      "type": "article",
+      "feeRequired": 500,
+      "publishedDatetime": "2024-03-01T21:00:00+09:00",
+      "updatedDatetime": "2024-03-01T21:00:00+09:00",
+      "coverImageUrl": "https://pixiv.pximg.net/c/1200x630_90_a2_g5/fanbox/public/images/post/60000003/cover/opqrstu.jpeg",
+      "hasAdultContent": false,
+      "isRestricted": true,
+      "user": {
+        "userId": "20000007",
+        "name": "sketchbook",
+        "iconUrl": "https://pixiv.pximg.net/c/160x160_90_a2_g5/fanbox/public/images/user/20000007/icon/hijklmn.jpeg"
+      },
+      "creatorId": "sketchbook",
+      "body": null,
+      "excerpt": ""
+    }
+  }
+}
