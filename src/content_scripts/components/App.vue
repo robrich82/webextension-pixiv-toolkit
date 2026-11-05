@@ -10,7 +10,11 @@
     :panelPosition="browserItems.downloadPanelPosition"
     :class="downloadButtonType"
   >
-    <template v-if="!isUgoira">
+    <template v-if="unavailableMessage">
+      <ptk-button class="ptk__unavailable" disabled
+      >{{ unavailableMessage }}</ptk-button>
+    </template>
+    <template v-else-if="!isUgoira">
       <ptk-button @click="download"
       >{{ tl('_download') }}{{ generalTaskProgressText }}</ptk-button>
     </template>
@@ -40,7 +44,7 @@
     <div class="ptk__download-added-notice" v-show="showNotice">
       {{ this.noticeMessage }}
     </div>
-    <ptk-button v-if="browserItems.showPixivOmina"
+    <ptk-button v-if="browserItems.showPixivOmina && resource"
       class="ptk__pixiv-omina__btn"
       @click="passToPixivOmina"
     >Pixiv Omina</ptk-button>
@@ -89,6 +93,12 @@ export default {
       resource: null,
 
       /**
+       * Why the page has no resource to download, e.g. 'restricted'
+       * @type {string}
+       */
+      unavailableReason: '',
+
+      /**
        * @type {number[]}
        */
       selectedIndexes: [],
@@ -119,7 +129,11 @@ export default {
      * @returns {boolean}
      */
     showApp() {
-      return !!this.resource;
+      return !!this.resource || !!this.unavailableMessage;
+    },
+
+    unavailableMessage() {
+      return this.unavailableReason === 'restricted' ? this.tl('_post_restricted') : '';
     },
 
     downloadButtonType() {
@@ -262,6 +276,15 @@ export default {
         this.checkIfDownloaded();
       }
     });
+
+    window.$eventBus.$on('pageunavailable', reason => {
+      // Drop the page any earlier pagechange is still resolving.
+      ++this.pageChangeToken;
+
+      this.initialProgress();
+      this.abortAdapterParse();
+      this.unavailableReason = reason;
+    });
   },
 
   beforeUnmount() {
@@ -320,6 +343,7 @@ export default {
     abortAdapterParse() {
       this.adapter.abort();
       this.resource = null;
+      this.unavailableReason = '';
       this.downloadedAt = 0;
       this.pages = [];
       this.selectedIndexes = [];

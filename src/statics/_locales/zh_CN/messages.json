@@ -911,6 +911,9 @@
     "_cant_open_download_manager": {
         "message": "无法打开下载管理器，请在设置页面或弹出页面中打开后重试。"
     },
+    "_post_restricted": {
+        "message": "当前账号无权查看此帖子"
+    },
     "_unknown_error": {
         "message": "未知错误"
     },

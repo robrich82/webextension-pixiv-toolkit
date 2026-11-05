@@ -206,6 +206,70 @@ describe('App page lifecycle', () => {
   });
 });
 
+describe('App on a page with nothing to download', () => {
+  const showUnavailable = async (wrapper, reason) => {
+    window.$eventBus.$emit('pageunavailable', reason);
+    await flushPromises();
+  };
+
+  test('a restricted post shows the panel with a disabled locked-post message (#204)', async () => {
+    const wrapper = mountLive();
+
+    await showUnavailable(wrapper, 'restricted');
+
+    const buttons = actionButtons(wrapper);
+
+    expect(buttons.map(a => a.text())).toEqual(['_post_restricted']);
+    expect(buttons[0].classes()).toContain('button--disabled');
+  });
+
+  test('replaces a page that was already showing, Pixiv Omina button included', async () => {
+    const wrapper = mount(App, {
+      global: { mocks: { tl: key => key, browserItems: { guideShowed: true, showPixivOmina: true } } }
+    });
+
+    window.$app = { resource: fakeResource({ pages: ['a.jpg', 'b.jpg'] }) };
+    window.$eventBus.$emit('pagechange', { url: window.$app.resource.getUrl(), type: 'illust' });
+    await flushPromises();
+    await showUnavailable(wrapper, 'restricted');
+
+    expect(actionLabels(wrapper)).toEqual(['_post_restricted']);
+    expect(wrapper.find('.ptk__page-selector').exists()).toBe(false);
+    expect(wrapper.find('.ptk__pixiv-omina__btn').exists()).toBe(false);
+  });
+
+  test('the next pagechange brings the download button back', async () => {
+    const wrapper = mountLive();
+
+    await showUnavailable(wrapper, 'restricted');
+    window.$app = { resource: fakeResource() };
+    window.$eventBus.$emit('pagechange', { url: window.$app.resource.getUrl(), type: 'illust' });
+    await flushPromises();
+
+    expect(actionLabels(wrapper)).toEqual(['_download']);
+  });
+
+  test("the page before stops resolving its remaining pages", async () => {
+    let resolveOld;
+    const pageResolver = jest.fn(() => new Promise(resolve => { resolveOld = resolve; }));
+    const wrapper = await mountWithPage({ pages: ['old-a', 'old-b'], pageResolver });
+
+    await showUnavailable(wrapper, 'restricted');
+    resolveOld('old-a-resolved.jpg');
+    await flushPromises();
+
+    expect(pageResolver.mock.calls).toEqual([['old-a']]);
+  });
+
+  test('a reason it has no message for keeps the panel hidden', async () => {
+    const wrapper = mountLive();
+
+    await showUnavailable(wrapper, 'something-else');
+
+    expect(wrapper.find('.ptk__container').exists()).toBe(false);
+  });
+});
+
 describe('App download', () => {
   const clickAndFlush = async button => {
     await button.trigger('click');

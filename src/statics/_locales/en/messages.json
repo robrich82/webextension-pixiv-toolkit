@@ -905,6 +905,9 @@
     "_cant_open_download_manager": {
         "message": "Couldn't open the download manager. Open it from the Options or Popup page, then try again."
     },
+    "_post_restricted": {
+        "message": "This post is locked for your account"
+    },
     "_unknown_error": {
         "message": "Unknown error"
     },

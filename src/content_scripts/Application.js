@@ -3,6 +3,7 @@ import Detector from "./modules/Detector";
 import PageFilter from "./modules/PageFilter";
 import UIApplication from "./UIApplication";
 import browser from "@/modules/Extension/browser";
+import { RestrictedPostError } from "@/errors";
 
 class Application {
   /**
@@ -81,12 +82,25 @@ class Application {
     } catch (error) {
       browser.runtime.sendMessage({ to: 'ws', action: 'badge:deactiveAction' })
 
+      this.resource = null;
+
+      /**
+       * Keep the panel up so the user can see why there's nothing to
+       * download, rather than the UI just not appearing (issue #204).
+       */
+      if (error instanceof RestrictedPostError) {
+        if (!this.UIApp) {
+          this.UIApp = await UIApplication.createApp();
+        }
+
+        this.UIApp.showUnavailable('restricted');
+        return;
+      }
+
       if (this.UIApp) {
         this.UIApp.unload();
         this.UIApp = null;
       }
-
-      this.resource = null;
 
       console.error(error);
     }
