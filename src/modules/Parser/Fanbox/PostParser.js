@@ -187,13 +187,14 @@ class PostParser {
        */
       let post = response.body.post || response.body;
 
-      /**
-       * A post this session isn't entitled to (e.g. above the user's support
-       * tier) still comes back, but flagged `isRestricted` with `body: null`
-       * (issue #204).
-       */
-      if (post.isRestricted || !post.body) {
+      // A post the session can't access still comes back, flagged, with `body: null` (#204).
+      if (post.isRestricted === true) {
         throw new RestrictedPostError(`Fanbox post ${this.context.postId} is restricted for this account`);
+      }
+
+      // Without the flag, a missing body means the response shape changed: fail loudly, not as "locked".
+      if (!post.body) {
+        throw new RuntimeError(`Fanbox post ${this.context.postId} response has no body`);
       }
 
       this.context = this.standardContext(post);
