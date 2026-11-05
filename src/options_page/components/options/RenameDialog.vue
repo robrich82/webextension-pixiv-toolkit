@@ -88,13 +88,6 @@ export default {
     };
   },
 
-  computed: {
-    hint() {
-      return '';
-      return tl('_example_authorId_id_if_you_use_start_page_num_or_last_page_num_you_should_place_the_page_section_between_the_two_hash_tags_like_id_startPageNum_lastPageNum');
-    }
-  },
-
   watch: {
     modelValue(val) {
       this.renameFormat = val;

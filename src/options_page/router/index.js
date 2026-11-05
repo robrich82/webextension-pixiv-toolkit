@@ -27,10 +27,6 @@ export default createRouter({
       name: 'ChangeLogs',
       component: () => import('@@/components/ChangeLogs')
     }, {
-      path: '/test',
-      name: 'Test',
-      component: () => import('@@/components/Test')
-    }, {
       path: '/diagnosis_messages',
       name: 'DiagnosisMessages',
       component: () => import('@@/components/DiagnosisMessages')
