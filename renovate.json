@@ -6,6 +6,11 @@
     "minimumReleaseAge": "1 day",
     "packageRules": [
         {
+            "description": "Raise an engines ceiling only after CI is green on the new major (see docs/toolchain.md); a major bump of the exact pin fails install until then.",
+            "matchDepTypes": ["engines"],
+            "enabled": false
+        },
+        {
             "description": "uuid 12+ is ESM-only; pouchdb require()s it. The override only exists for pnpm audit (see docs/toolchain.md).",
             "matchPackageNames": ["uuid"],
             "allowedVersions": "<12"

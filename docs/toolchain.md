@@ -56,8 +56,8 @@ drifting out of the range, though — it does not catch the range being widened
 around an untested pin. Raising the ceiling to admit a new major while leaving
 the Node pin where it is passes this check having never run on that major,
 which is exactly the case the rule above asks a human to gate deliberately.
-Nothing currently enforces that structurally; it depends on someone reading
-the rule.
+Renovate is kept out of it: `renovate.json` disables `engines` updates, so its
+major bump of an exact pin fails install until someone raises the ceiling.
 
 ## Lockfile
 
