@@ -51,12 +51,12 @@ class UIApplication {
 
         /**
          * A bare `new Vue()` instance no longer works as an event bus under
-         * Vue 3 (no `$on`/`$off`/`$emit`). This shim covers only the
-         * current callers below and `App.vue`'s `$on`s -- unlike Vue
-         * 2's bus, there's no `$once`, `$off()` with no arguments is a
-         * silent no-op (mitt's `all.get(undefined)`), and `$emit` forwards
-         * only its first payload argument (mitt is single-payload; Vue 2's
-         * `$emit` was variadic). Widen this if a future caller needs more.
+         * Vue 3 (no `$on`/`$off`/`$emit`). This shim covers only what the
+         * app uses today -- unlike Vue 2's bus, there's no `$once`, `$off()`
+         * with no arguments is a silent no-op (mitt's `all.get(undefined)`),
+         * and `$emit` forwards only its first payload argument (mitt is
+         * single-payload; Vue 2's `$emit` was variadic). Widen this if a
+         * future caller needs more.
          */
         const emitter = mitt();
         window.$eventBus = {
@@ -109,12 +109,8 @@ class UIApplication {
               window.$eventBus.$emit('pagechange', null);
             },
 
-            /**
-             * Show the panel without a resource, explaining why there's none
-             * @param {string} reason
-             */
-            showUnavailable(reason) {
-              window.$eventBus.$emit('pageunavailable', reason);
+            showRestricted() {
+              window.$eventBus.$emit('pagerestricted');
             },
 
             /**
@@ -160,11 +156,10 @@ class UIApplication {
   }
 
   /**
-   * Show the panel with a message instead of download buttons
-   * @param {'restricted'} reason
+   * Show the panel with a "post is locked" message instead of download buttons
    */
-  showUnavailable(reason) {
-    this.app.showUnavailable(reason);
+  showRestricted() {
+    this.app.showRestricted();
   }
 
   unload() {
