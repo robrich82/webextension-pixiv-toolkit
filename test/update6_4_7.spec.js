@@ -1,6 +1,6 @@
 /**
- * The 6.4.7 migration, which clears the `ugoiraConvertTool` setting left
- * inert once nothing read it any more.
+ * The 6.4.7 migration, which clears the `ugoiraConvertTool` and
+ * `maxDownloadRecords` settings left inert once nothing read them any more.
  */
 const browser = require('./doubles/browser').default;
 const Application = require('../src/background/Application').default;
@@ -14,8 +14,8 @@ beforeEach(() => {
   Application.createApp();
 });
 
-test('removes the key rather than blanking it', async () => {
-  await browser.storage.local.set({ ugoiraConvertTool: 'ffmpeg', language: 'ja' });
+test.each(['ugoiraConvertTool', 'maxDownloadRecords'])('removes %s rather than blanking it', async key => {
+  await browser.storage.local.set({ [key]: 'stale', language: 'ja' });
 
   await update6_4_7();
 
@@ -23,11 +23,13 @@ test('removes the key rather than blanking it', async () => {
    * `in`, not a truthiness check: writing `undefined` over the key would
    * leave it in storage and read back as a present-but-empty setting.
    */
-  expect('ugoiraConvertTool' in browser.storage.local.items).toBe(false);
+  expect(key in browser.storage.local.items).toBe(false);
 });
 
 test('leaves every other setting alone', async () => {
-  await browser.storage.local.set({ ugoiraConvertTool: 'default', language: 'ja', downloadSaveMode: 1 });
+  await browser.storage.local.set({
+    ugoiraConvertTool: 'default', maxDownloadRecords: 10000, language: 'ja', downloadSaveMode: 1
+  });
 
   await update6_4_7();
 
