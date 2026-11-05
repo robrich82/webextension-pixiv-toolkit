@@ -88,6 +88,8 @@ export default {
       pageNumberLength: -2,
 
       showRenameDialog: false,
+
+      showRenameImageDialog: false,
     };
   },
 
