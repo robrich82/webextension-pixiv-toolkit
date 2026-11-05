@@ -50,7 +50,11 @@ module.exports = env => {
         // @vuetify/v0 reads this at module load; webpack 5 has no `process`
         // polyfill, so unreplaced it throws and the options page never mounts.
         'process.env.VITE_LOGGER_ENABLED': 'undefined'
-      })
+      }),
+      // moment's locale context pulls every locale into every bundle that
+      // imports moment. Only en (built in) and our own zh_CN are used; any
+      // other browser language now formats dates in en, like the rest of the UI.
+      new webpack.IgnorePlugin({ resourceRegExp: /^\.\/locale$/, contextRegExp: /moment$/ })
     ],
     externals: {
       vue: 'Vue',
