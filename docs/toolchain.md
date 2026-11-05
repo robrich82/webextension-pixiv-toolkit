@@ -3,56 +3,21 @@
 ## Requirements
 
 - Node and pnpm within the `engines` ranges in `package.json`
-- `.nvmrc` pins the development Node, and CI reads the same file
+- `mise.toml` pins the exact Node version, for local development and CI
+- `packageManager` pins the exact pnpm version, integrity hash included;
+  `mise.toml` tells mise to install pnpm from it, so there is one pnpm pin
 - `pnpm install --frozen-lockfile` to install — `pnpm-lock.yaml` is committed
   and CI installs from it
 
-pnpm is pinned exactly by the `packageManager` field, integrity hash included.
-`corepack enable pnpm` is enough to get it: corepack reads that field and
-fetches the pinned version, so nothing has to be installed globally and there is
-no global copy to go stale. Anyone not using corepack is caught by
-`engines.pnpm` instead — the two fail at different moments, for different
-people, which is why both are set.
+Any other pnpm fetches and runs the `packageManager` version instead (pnpm's
+default `pmOnFail: download`), so a stray global pnpm does no harm. Without
+mise, only the `engines` ranges apply.
 
 The project previously pinned Node `~16.18.0`. It could not run on anything
 newer: webpack 4 hashes module ids with MD4, which OpenSSL 3 (Node 17+) refuses,
 so every build died with `ERR_OSSL_EVP_UNSUPPORTED`. Moving off Node 16
 therefore required the webpack 5 migration below; the two could not be done
 separately.
-
-### A note for nvm-for-windows
-
-The old warning here was **use the npm that ships with your Node**: a stale
-`npm install -g npm` writes itself into the shared global prefix, and under
-nvm-for-windows that one copy shadows the npm bundled with *every* installed
-Node version. `node --version` would report the new runtime while `npm --version`
-was silently years behind, and the two resolved different trees.
-
-That specific trap is gone, because pnpm is no longer something you install
-globally. Corepack resolves it per-project from `packageManager`, so there is no
-shared global copy to shadow anything. If you do have a global pnpm from before,
-it does not matter: pnpm's default `pmOnFail: download` means an invocation that
-does not match `packageManager` fetches and runs the pinned version instead.
-
-What has *not* changed is the Node half. nvm-for-windows still switches the
-runtime under you, and `.nvmrc` is the pin. Note that nvm-for-windows does not
-read `.nvmrc` — a bare `nvm use` fails with *"A version argument is required but
-missing"* (checked on 1.2.2). Pass it explicitly:
-
-```bash
-nvm use $(cat .nvmrc)
-```
-
-CI has no such gap: `actions/setup-node` takes `node-version-file: .nvmrc`
-directly, and fnm reads `.nvmrc` natively too. asdf (and mise) read
-`.tool-versions`, which pins both Node and pnpm and must be bumped together
-with `.nvmrc` and `packageManager`; nothing in CI reads it. nodenv's
-native pin file is `.node-version`, so `.nvmrc` needs a plugin there. It is
-nvm-for-windows specifically that needs the argument above.
-
-Getting the Node version wrong is at least loud now rather than silent: an
-out-of-range Node fails the install against `engines.node` instead of quietly
-producing a tree nobody else reproduces.
 
 ## Toolchain pinning
 
@@ -73,8 +38,7 @@ looks, since the only thing an open range can enforce is a floor.
   silent warning instead of failing the install. The ceiling sits below the
   next unvalidated major, as for Node.
 - **`packageManager`** — the exact version plus integrity hash. Exact by
-  construction, so it is the effective upper *and* lower bound for corepack
-  users.
+  construction, so it is the effective upper *and* lower bound wherever pnpm runs.
 - `engineStrict: true` in `pnpm-workspace.yaml` extends the same check to
   dependencies. `engines.pnpm` is enforced unconditionally either way, but
   `engines.node` is only enforced *because* this is set — drop the flag
@@ -86,13 +50,14 @@ to get unblocked.** Deleting a ceiling converts a loud, early failure into a
 silent, late one.
 
 This is also why CI needs no step asserting its Node pin sits *inside*
-`engines.node`: pnpm enforces `engines` on every install, so a `.nvmrc` outside
-the range fails the install step outright. That only catches the pin drifting
-out of the range, though — it does not catch the range being widened around an
-untested pin. Raising the ceiling to admit a new major while leaving `.nvmrc`
-where it is passes this check having never run on that major, which is exactly
-the case the rule above asks a human to gate deliberately. Nothing currently
-enforces that structurally; it depends on someone reading the rule.
+`engines.node`: pnpm enforces `engines` on every install, so a `mise.toml` pin
+outside the range fails the install step outright. That only catches the pin
+drifting out of the range, though — it does not catch the range being widened
+around an untested pin. Raising the ceiling to admit a new major while leaving
+the Node pin where it is passes this check having never run on that major,
+which is exactly the case the rule above asks a human to gate deliberately.
+Renovate is kept out of it: `renovate.json` disables `engines` updates, so its
+major bump of an exact pin fails install until someone raises the ceiling.
 
 ## Lockfile
 
@@ -334,11 +299,9 @@ the layout doing its job: the fix is to declare the dependency, not to loosen
 and on pushes to `main`. It needs no third-party signup, so it covers forks
 too, and it is what puts a status check on a PR and backs the readme badge.
 
-`pnpm/action-setup` runs before `actions/setup-node` — setup-node needs pnpm on
-`PATH` to resolve the store for `cache: pnpm`. It is given no `version` input on
-purpose: it reads the exact version and integrity hash from `packageManager`,
-so there is one place to bump pnpm. Node comes from `.nvmrc` for the same
-reason.
+`jdx/mise-action` installs Node and pnpm exactly as local mise does, so CI runs
+the same versions as local development. The pnpm store is cached with
+`actions/cache`, keyed on `pnpm-lock.yaml`.
 
 The job then runs `pnpm install --frozen-lockfile`,
 `pnpm audit --audit-level=moderate`, `pnpm test`, and the Chrome and Firefox

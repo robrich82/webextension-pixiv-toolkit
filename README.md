@@ -81,8 +81,10 @@ If you are using Chrome, you can download it from [Chrome web store](https://chr
 ## **How to build**
 To build the extension, you need these tools below:
 
-* nodejs within `engines.node` in `package.json` — see `.nvmrc` for the pinned version
-* pnpm within `engines.pnpm` (`corepack enable pnpm`, which honours the `packageManager` pin)
+* nodejs within `engines.node` in `package.json`
+* pnpm within `engines.pnpm`
+
+[mise](https://mise.jdx.dev) installs the pinned versions of both: run `mise install` in the repo.
 
 After you install these, run commands step by step:
 
@@ -178,8 +180,10 @@ FFmpeg.wasm 是一个非常强大的库，它拥有比其他库，如`gif.js`和
 ## **如何构建**
 你需要一下的工具来进行构造：
 
-* nodejs，版本范围见 `package.json` 的 `engines.node` —— 固定的版本号见 `.nvmrc`
-* pnpm，版本范围见 `engines.pnpm`（执行 `corepack enable pnpm`，它会遵循 `packageManager` 中锁定的版本）
+* nodejs，版本范围见 `package.json` 的 `engines.node`
+* pnpm，版本范围见 `engines.pnpm`
+
+[mise](https://mise.jdx.dev) 会安装两者的固定版本：在仓库目录下执行 `mise install`。
 
 安装完成后，执行以下操作来进行构造：
 

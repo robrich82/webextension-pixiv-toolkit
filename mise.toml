@@ -1,0 +1,8 @@
+# 2026.8.11 reads pnpm from `packageManager` and verifies its hash.
+min_version = "2026.8.11"
+
+[settings]
+idiomatic_version_file_enable_tools = ["pnpm"]
+
+[tools]
+node = "26.13.0"
