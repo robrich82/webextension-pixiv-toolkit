@@ -12,7 +12,9 @@ export function defineZhCNLocale() {
     meridiem(hour, minute) {
       const hm = hour * 100 + minute;
 
-      if (hm < 900) {
+      if (hm < 600) {
+        return '凌晨';
+      } else if (hm < 900) {
         return '早上';
       } else if (hm < 1130) {
         return '上午';
