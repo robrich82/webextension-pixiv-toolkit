@@ -51,6 +51,6 @@ test('the history route mounts without errors', async ({ context, extensionId })
 
   await page.goto(`chrome-extension://${extensionId}/options_page/index.html#/history`);
 
-  await expect(page.locator('#app-mount > *').first()).toBeVisible();
+  await expect(page.locator('.page-history')).toBeVisible();
   expect(errors).toEqual([]);
 });
