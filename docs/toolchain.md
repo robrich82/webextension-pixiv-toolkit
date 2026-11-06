@@ -243,8 +243,12 @@ document was removed as part of the Vue 3 migration's Phase A: vue-loader 17
 are no longer reachable — confirmed via `pnpm why @vue/component-compiler-utils`
 resolving to nothing.
 
-Each entry is commented in place there. Two also need a Renovate rule, or a
-bot PR would undo them:
+Each entry is commented in place there. Renovate is kept off all of them
+(`renovate.json` disables the `pnpm-workspace.overrides` dependency type): a
+floor is the advisory's first patched version on a chosen major, so a newer
+release is no reason to move it, and a bot bump to the next major hands
+consumers an API they never declared. Two need more explanation than fits in a
+comment:
 
 - **`uuid` → `^11.1.1`.** `pouchdb-utils` pins uuid 8. The advisory
   (GHSA-w5hq-g745-h8pq) is a missing bounds check in `v3`/`v5`/`v6` when called
@@ -258,10 +262,10 @@ bot PR would undo them:
   Windows ignore patterns as escapes, so nothing is ignored and dotfiles,
   `.amo-upload-uuid` and stray zips get packed; `patches/multimatch.patch`
   restores minimatch 3's separator handling on Windows. CI never runs web-ext
-  (and is Linux), so a bump that breaks either passes CI; `renovate.json` holds
-  both at their current majors. The same default import makes the ESM entries
-  of `@eslint/eslintrc` and `@eslint/config-array` fail to load; eslint itself
-  `require()`s them, so only a future `FlatCompat` config would hit it.
+  (and is Linux), so a bump that breaks either passes CI. The same default
+  import makes the ESM entries of `@eslint/eslintrc` and `@eslint/config-array`
+  fail to load; eslint itself `require()`s them, so only a future `FlatCompat`
+  config would hit it.
 
 To confirm the uuid override is still applied, check that `pnpm-lock.yaml`
 resolves exactly one `uuid@11.x`.
