@@ -5,7 +5,7 @@
   "author": "leoding86 <leoding86@msn.com>",
   "private": false,
   "scripts": {
-    "preinstall": "npx --yes only-allow pnpm",
+    "preinstall": "node scripts/only-pnpm.js",
     "dev": "cross-env PLATFORM_ENV=chrome webpack --watch --progress --config webpack.config.js",
     "dev:firefox": "cross-env PLATFORM_ENV=firefox webpack --watch --progress --config webpack.config.js --env platform=firefox",
     "dev:cs": "webpack --watch --progress --config config/webpack.content-scripts.config.js",
