@@ -1,7 +1,8 @@
 {
     "$schema": "https://docs.renovatebot.com/renovate-schema.json",
     "extends": [
-        "config:recommended"
+        "config:recommended",
+        "helpers:pinGitHubActionDigestsToSemver"
     ],
     "minimumReleaseAge": "1 day",
     "vulnerabilityAlerts": {
@@ -14,7 +15,7 @@
             "description": "The Renovate image the renovate-config workflow validates this file with.",
             "customType": "regex",
             "managerFilePatterns": ["/^\\.github/workflows/renovate-config\\.yml$/"],
-            "matchStrings": ["(?<depName>ghcr\\.io/renovatebot/renovate):(?<currentValue>[^\\s@]+)"],
+            "matchStrings": ["(?<depName>ghcr\\.io/renovatebot/renovate):(?<currentValue>[^\\s@]+)(?:@(?<currentDigest>sha256:[a-f0-9]{64}))?"],
             "datasourceTemplate": "docker"
         }
     ],
