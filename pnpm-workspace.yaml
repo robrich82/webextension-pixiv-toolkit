@@ -25,7 +25,8 @@ minimumReleaseAge: 1440
 # install script is named here, and every one of them is denied.
 #
 #   leveldown        pouchdb's native LevelDB binding. Unreachable -- pouchdb is
-#                    a webpack external loaded from its prebuilt browser bundle.
+#                    a webpack external loaded from its prebuilt browser bundle,
+#                    and Jest maps it to that bundle too (test/doubles/pouchdb.js).
 #   @parcel/watcher  native file watching for `sass --watch`. Unreachable --
 #                    watching is webpack's job here.
 #   unrs-resolver    jest-resolve's native resolver. Its script only verifies

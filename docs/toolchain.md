@@ -109,7 +109,7 @@ denied.
 
 | Package | Why it is denied |
 | --- | --- |
-| `leveldown` | pouchdb's native LevelDB binding. Unreachable — pouchdb is a webpack external loaded from its prebuilt browser bundle. |
+| `leveldown` | pouchdb's native LevelDB binding. Unreachable — pouchdb is a webpack external loaded from its prebuilt browser bundle, and Jest maps it to that bundle too (`test/doubles/pouchdb.js`). |
 | `@parcel/watcher` | native file watching for `sass --watch`. Unreachable — watching is webpack's job here. |
 | `unrs-resolver` | jest-resolve's native resolver. Its script only checks that the right `@unrs/resolver-binding-*` optional dependency was installed; the binary arrives prebuilt. The suite passes with the script denied. |
 

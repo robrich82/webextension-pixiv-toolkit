@@ -146,8 +146,8 @@ overriding — so the fake is hand-rolled and adds no dependency.
 
 ## PouchDB repositories
 
-`moduleNameMapper` maps `pouchdb` to `test/doubles/pouchdb.js`: the Node build
-with `pouchdb-find` registered and the `pouchdb-adapter-memory` adapter as the
+`moduleNameMapper` maps `pouchdb` to `test/doubles/pouchdb.js`: the same browser
+bundle production loads, with `pouchdb-find` registered and the `pouchdb-adapter-memory` adapter as the
 default, so `src/repositories` specs run against a real database without
 touching disk. memdown keeps one store per database name for the whole spec
 file, so destroy the database in `afterEach`.
