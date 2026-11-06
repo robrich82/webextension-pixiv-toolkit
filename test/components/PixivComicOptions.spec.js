@@ -1,6 +1,7 @@
 import browser from '../doubles/browser';
 import { mountOption, shallowMountOption } from '../helpers/mountOptionComponent';
 import PixivComicOptions from '@/options_page/components/options/PixivComicOptions.vue';
+import RenameDialog from '@/options_page/components/options/RenameDialog.vue';
 
 const browserItems = {
   pixivComicEpisodeRenameRule: '{id}_{title}',
@@ -36,18 +37,21 @@ describe('PixivComicOptions', () => {
     expect(wrapper.vm.renameImageMetas.map(meta => meta.holder)).toEqual([...holders, '{pageNum}']);
   });
 
-  // The template references `showRenameImageDialog`
-  // (`@click="showRenameImageDialog = true"`, `:show.sync="showRenameImageDialog"`)
-  // but only `showRenameDialog` is declared in data() — a pre-existing dead
-  // binding (Vue logs an "is not defined on the instance" warning on every
-  // mount, and since the property isn't reactive, the image rename dialog can
-  // never actually open). Documented here rather than fixed, matching the
-  // other quirks in this file.
-  test('showRenameImageDialog is a pre-existing dead binding: not declared in data()', () => {
-    const wrapper = shallowMountOption(PixivComicOptions, { browserItems });
+  // Each list item opens the rename dialog at the same position in the
+  // template: item 0 → episode rule, item 1 → image rule.
+  test.each([
+    [0, '_rename_comic.message'],
+    [1, '_rename_pixiv_comic_episode_image.message'],
+  ])('clicking list item %i opens the "%s" rename dialog', async (index, title) => {
+    const wrapper = mountOption(PixivComicOptions, { browserItems });
+    const dialog = wrapper.findAllComponents(RenameDialog)[index];
 
-    expect(Object.keys(wrapper.vm.$data)).not.toContain('showRenameImageDialog');
-    expect(Object.keys(wrapper.vm.$data)).toContain('showRenameDialog');
+    expect(dialog.props('title')).toBe(title);
+    expect(dialog.props('show')).toBe(false);
+
+    await wrapper.findAll('.v-list-item')[index].trigger('click');
+
+    expect(dialog.props('show')).toBe(true);
   });
 
   // The page-number watchers persist under the same "Episode"-prefixed keys
