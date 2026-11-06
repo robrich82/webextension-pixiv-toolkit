@@ -5,6 +5,7 @@
 const browser = require('./doubles/browser').default;
 const Application = require('../src/background/Application').default;
 const SettingService = require('../src/background/services/SettingService').default;
+const defaultSettings = require('../src/config/default').default;
 const update6_4_7 = require('../src/background/updates/update6_4_7').default;
 
 beforeEach(() => {
@@ -24,6 +25,10 @@ test.each(['ugoiraConvertTool', 'maxDownloadRecords'])('removes %s rather than b
    * leave it in storage and read back as a present-but-empty setting.
    */
   expect(key in browser.storage.local.items).toBe(false);
+});
+
+test.each(['ugoiraConvertTool', 'maxDownloadRecords'])('fresh installs no longer get %s', key => {
+  expect(defaultSettings).not.toHaveProperty(key);
 });
 
 test('leaves every other setting alone', async () => {
