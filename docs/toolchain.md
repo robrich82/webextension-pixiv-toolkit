@@ -244,11 +244,11 @@ are no longer reachable — confirmed via `pnpm why @vue/component-compiler-util
 resolving to nothing.
 
 Each entry is commented in place there. Renovate is kept off all of them
-(`renovate.json` disables the `pnpm-workspace.overrides` dependency type): a
-floor is the advisory's first patched version on a chosen major, so a newer
-release is no reason to move it, and a bot bump to the next major hands
-consumers an API they never declared. Two need more explanation than fits in a
-comment:
+(`renovate.json` disables the `pnpm-workspace.overrides` dependency type).
+Each one is an advisory floor or a compatibility pin on a deliberately chosen
+major, so a newer release is no reason to move it, and a bot bump to the next
+major hands consumers an API they never declared. Two need more explanation
+than fits in a comment:
 
 - **`uuid` → `^11.1.1`.** `pouchdb-utils` pins uuid 8. The advisory
   (GHSA-w5hq-g745-h8pq) is a missing bounds check in `v3`/`v5`/`v6` when called
