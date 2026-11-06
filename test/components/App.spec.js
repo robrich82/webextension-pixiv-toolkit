@@ -59,14 +59,14 @@ const sentMessages = action => browser.runtime.sendMessage.mock.calls
   .map(([message]) => message)
   .filter(message => message.action === action);
 
-const mountLive = () => {
+const mountLive = (browserItems = {}) => {
   installEventBus();
 
-  return mount(App, { global: { mocks: { tl: key => key, browserItems: { guideShowed: true } } } });
+  return mount(App, { global: { mocks: { tl: key => key, browserItems: { guideShowed: true, ...browserItems } } } });
 };
 
-const mountWithPage = async resourceOptions => {
-  const wrapper = mountLive();
+const mountWithPage = async (resourceOptions, browserItems) => {
+  const wrapper = mountLive(browserItems);
 
   window.$app = { resource: fakeResource(resourceOptions) };
   window.$eventBus.$emit('pagechange', { url: window.$app.resource.getUrl(), type: 'illust' });
@@ -203,6 +203,73 @@ describe('App page lifecycle', () => {
     wrapper.unmount();
 
     expect(stopObserve).toHaveBeenCalled();
+  });
+});
+
+describe('App on a restricted post', () => {
+  const showRestricted = async () => {
+    window.$eventBus.$emit('pagerestricted');
+    await flushPromises();
+  };
+
+  test('shows the panel with a disabled locked-post message instead of download buttons (#204)', async () => {
+    const wrapper = mountLive();
+
+    await showRestricted();
+
+    const buttons = actionButtons(wrapper);
+
+    expect(buttons.map(a => a.text())).toEqual(['_post_restricted']);
+    expect(buttons[0].classes()).toContain('button--disabled');
+  });
+
+  test('replaces a page that was already showing, Pixiv Omina button included', async () => {
+    const wrapper = await mountWithPage({ pages: ['a.jpg', 'b.jpg'] }, { showPixivOmina: true });
+
+    await showRestricted();
+
+    expect(actionLabels(wrapper)).toEqual(['_post_restricted']);
+    expect(wrapper.find('.ptk__page-selector').exists()).toBe(false);
+    expect(wrapper.find('.ptk__pixiv-omina__btn').exists()).toBe(false);
+  });
+
+  test('the next pagechange brings the download button back', async () => {
+    const wrapper = mountLive();
+
+    await showRestricted();
+    window.$app = { resource: fakeResource() };
+    window.$eventBus.$emit('pagechange', { url: window.$app.resource.getUrl(), type: 'illust' });
+    await flushPromises();
+
+    expect(actionLabels(wrapper)).toEqual(['_download']);
+  });
+
+  test('the page before stops resolving its remaining pages', async () => {
+    let resolveOld;
+    const pageResolver = jest.fn(() => new Promise(resolve => { resolveOld = resolve; }));
+
+    await mountWithPage({ pages: ['old-a', 'old-b'], pageResolver });
+    await showRestricted();
+    resolveOld('old-a-resolved.jpg');
+    await flushPromises();
+
+    expect(pageResolver.mock.calls).toEqual([['old-a']]);
+  });
+
+  test("the page before's download progress doesn't follow it", async () => {
+    const wrapper = await mountWithPage(ugoira);
+    const port = observerPort();
+
+    port.peer.postMessage({
+      downloadTasksStatus: [{ type: 'PIXIV_UGOIRA', convertType: 'gif', progress: 1, processProgress: 1 }]
+    });
+    await flushPromises();
+    expect(wrapper.find('.ptk__container').classes()).toContain('success');
+
+    await showRestricted();
+
+    expect(wrapper.find('.ptk__container').classes()).not.toContain('success');
+    expect(port.disconnected).toBe(true);
   });
 });
 

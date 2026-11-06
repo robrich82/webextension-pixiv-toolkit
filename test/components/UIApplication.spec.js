@@ -58,6 +58,14 @@ describe('UIApplication', () => {
     expect(app.container.querySelector('.ptk__container')).toBeNull();
   });
 
+  test('showRestricted shows the panel with the locked message in place of the download buttons', async () => {
+    app.showRestricted();
+    await flushPromises();
+
+    expect(app.container.querySelector('.ptk__action__wrapper__body').textContent.trim())
+      .toBe('_post_restricted.message');
+  });
+
   test('the $eventBus shim forwards one payload and honours $off', () => {
     const listener = jest.fn();
 

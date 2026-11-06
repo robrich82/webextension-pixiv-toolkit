@@ -1,4 +1,4 @@
-import { RuntimeError } from "@/errors";
+import { RestrictedPostError, RuntimeError } from "@/errors";
 import DateFormatter from "@/modules/Util/DateFormatter";
 import browser from "@/modules/Extension/browser";
 
@@ -186,6 +186,17 @@ class PostParser {
        * standardContext expects.
        */
       let post = response.body.post || response.body;
+
+      // A post the session can't access still comes back, flagged, with `body: null` (#204).
+      if (post.isRestricted === true) {
+        throw new RestrictedPostError(`Fanbox post ${this.context.postId} is restricted for this account`);
+      }
+
+      // Without the flag, a missing body means the response shape changed: fail loudly, not as "locked".
+      if (!post.body) {
+        throw new RuntimeError(`Fanbox post ${this.context.postId} response has no body`);
+      }
+
       this.context = this.standardContext(post);
     } else {
       throw new RuntimeError(`Can't fetch fanbox post ${this.context.postId} context`);

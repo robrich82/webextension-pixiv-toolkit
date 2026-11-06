@@ -51,12 +51,12 @@ class UIApplication {
 
         /**
          * A bare `new Vue()` instance no longer works as an event bus under
-         * Vue 3 (no `$on`/`$off`/`$emit`). This shim covers only the two
-         * current callers below and `App.vue`'s single `$on` -- unlike Vue
-         * 2's bus, there's no `$once`, `$off()` with no arguments is a
-         * silent no-op (mitt's `all.get(undefined)`), and `$emit` forwards
-         * only its first payload argument (mitt is single-payload; Vue 2's
-         * `$emit` was variadic). Widen this if a future caller needs more.
+         * Vue 3 (no `$on`/`$off`/`$emit`). This shim covers only what the
+         * app uses today -- unlike Vue 2's bus, there's no `$once`, `$off()`
+         * with no arguments is a silent no-op (mitt's `all.get(undefined)`),
+         * and `$emit` forwards only its first payload argument (mitt is
+         * single-payload; Vue 2's `$emit` was variadic). Widen this if a
+         * future caller needs more.
          */
         const emitter = mitt();
         window.$eventBus = {
@@ -109,6 +109,10 @@ class UIApplication {
               window.$eventBus.$emit('pagechange', null);
             },
 
+            showRestricted() {
+              window.$eventBus.$emit('pagerestricted');
+            },
+
             /**
              * Get item
              * @param {string} offset
@@ -149,6 +153,13 @@ class UIApplication {
    */
   loadData(data) {
     this.app.loadData(data);
+  }
+
+  /**
+   * Show the panel with a "post is locked" message instead of download buttons
+   */
+  showRestricted() {
+    this.app.showRestricted();
   }
 
   unload() {

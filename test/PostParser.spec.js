@@ -1,9 +1,11 @@
 const PostParser = require('../src/modules/Parser/Fanbox/PostParser').default;
 const browser = require('./doubles/browser').default;
 const { localDateParts } = require('./helpers/localDate');
+const { RestrictedPostError } = require('../src/errors');
 
 const article = require('./fixtures/fanbox/post-article.json');
 const legacyImagePost = require('./fixtures/fanbox/post-image-legacy-body.json');
+const restrictedPost = require('./fixtures/fanbox/post-restricted.json');
 
 const clone = fixture => JSON.parse(JSON.stringify(fixture));
 
@@ -34,6 +36,7 @@ const parse = async (url, response) => {
 };
 
 const articleUrl = 'https://www.fanbox.cc/@sketchbook/posts/60000001';
+const restrictedUrl = 'https://www.fanbox.cc/@sketchbook/posts/60000003';
 
 describe('parseUrl', () => {
   test('reads the creator and post id out of a /@creator/posts/ url', () => {
@@ -192,11 +195,65 @@ describe('a response missing a field we depend on', () => {
       .rejects.toThrow("Can't fetch fanbox post 60000001 context: not authorised");
   });
 
+  test('a null body without the restricted flag is a changed response, not a locked post', async () => {
+    // Reporting it as "locked" would hide an api change behind a plausible
+    // message, with nothing in the console to debug from.
+    const response = clone(restrictedPost);
+
+    delete response.body.post.isRestricted;
+
+    backgroundReplies(response);
+
+    const parsing = PostParser.create(restrictedUrl).parseContext();
+
+    await expect(parsing).rejects.not.toBeInstanceOf(RestrictedPostError);
+    await expect(parsing).rejects.toThrow('Fanbox post 60000003 response has no body');
+  });
+
   test('throws when the worker answers with nothing', async () => {
     backgroundReplies(undefined);
 
     await expect(PostParser.create(articleUrl).parseContext())
       .rejects.toThrow("Can't fetch fanbox post 60000001 context");
+  });
+});
+
+describe('a post the session is not entitled to', () => {
+  test('throws RestrictedPostError instead of a TypeError on the null body (#204)', async () => {
+    backgroundReplies(clone(restrictedPost));
+
+    const parsing = PostParser.create(restrictedUrl).parseContext();
+
+    await expect(parsing).rejects.toBeInstanceOf(RestrictedPostError);
+    await expect(parsing).rejects.toThrow('Fanbox post 60000003 is restricted for this account');
+  });
+
+  test('goes by the flag, even if a body comes back with it', async () => {
+    const response = clone(article);
+
+    response.body.post.isRestricted = true;
+
+    backgroundReplies(response);
+
+    await expect(PostParser.create(articleUrl).parseContext())
+      .rejects.toBeInstanceOf(RestrictedPostError);
+  });
+
+  test('reads the flag off the older, flat response shape too', async () => {
+    backgroundReplies({ body: clone(restrictedPost).body.post });
+
+    await expect(PostParser.create(restrictedUrl).parseContext())
+      .rejects.toBeInstanceOf(RestrictedPostError);
+  });
+
+  test('leaves the context holding only what the url gave it', async () => {
+    backgroundReplies(clone(restrictedPost));
+
+    const parser = PostParser.create(restrictedUrl);
+
+    await expect(parser.parseContext()).rejects.toThrow();
+
+    expect(parser.getContext()).toEqual({ creatorId: 'sketchbook', postId: '60000003' });
   });
 });
 

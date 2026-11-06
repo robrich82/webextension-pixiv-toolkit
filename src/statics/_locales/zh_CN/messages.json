@@ -911,6 +911,9 @@
     "_cant_open_download_manager": {
         "message": "无法打开下载管理器，请在设置页面或弹出页面中打开后重试。"
     },
+    "_post_restricted": {
+        "message": "帖子已锁定：请检查Fanbox登录状态和赞助方案"
+    },
     "_unknown_error": {
         "message": "未知错误"
     },

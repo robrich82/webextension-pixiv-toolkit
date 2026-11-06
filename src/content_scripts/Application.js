@@ -3,6 +3,7 @@ import Detector from "./modules/Detector";
 import PageFilter from "./modules/PageFilter";
 import UIApplication from "./UIApplication";
 import browser from "@/modules/Extension/browser";
+import { RestrictedPostError } from "@/errors";
 
 class Application {
   /**
@@ -35,6 +36,12 @@ class Application {
    */
   settings;
 
+  /**
+   * Bumped per url change, so a reply for a page the user has left is dropped
+   * @type {number}
+   */
+  navigationId = 0;
+
   constructor() {
     browser.storage.local.get(null, items => {
       this.settings = items;
@@ -65,28 +72,59 @@ class Application {
   }
 
   async urlchangeHandler(newUrl, oldUrl) {
+    const navigationId = ++this.navigationId;
+
     try {
       let data = this.pageFilter.getData(newUrl);
 
       const adapter = new Adapter();
-      this.resource = await adapter.getResource(data.type, data.url);
+      const resource = await adapter.getResource(data.type, data.url);
+
+      if (navigationId !== this.navigationId) {
+        return;
+      }
+
+      this.resource = resource;
 
       if (!this.UIApp) {
         this.UIApp = await UIApplication.createApp();
+      }
+
+      if (navigationId !== this.navigationId) {
+        return;
       }
 
       this.UIApp.loadData(data);
 
       browser.runtime.sendMessage({ to: 'ws', action: 'badge:activeIcon' });
     } catch (error) {
+      if (navigationId !== this.navigationId) {
+        return;
+      }
+
       browser.runtime.sendMessage({ to: 'ws', action: 'badge:deactiveAction' })
+
+      this.resource = null;
+
+      // Keep the panel up so the user sees why there's nothing to download (#204).
+      if (error instanceof RestrictedPostError) {
+        console.warn(error.message);
+
+        if (!this.UIApp) {
+          this.UIApp = await UIApplication.createApp();
+        }
+
+        if (navigationId === this.navigationId) {
+          this.UIApp.showRestricted();
+        }
+
+        return;
+      }
 
       if (this.UIApp) {
         this.UIApp.unload();
         this.UIApp = null;
       }
-
-      this.resource = null;
 
       console.error(error);
     }

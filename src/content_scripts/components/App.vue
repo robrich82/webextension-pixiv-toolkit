@@ -10,7 +10,9 @@
     :panelPosition="browserItems.downloadPanelPosition"
     :class="downloadButtonType"
   >
-    <template v-if="!isUgoira">
+    <ptk-button v-if="restricted" class="ptk__restricted" disabled
+    >{{ tl('_post_restricted') }}</ptk-button>
+    <template v-else-if="!isUgoira">
       <ptk-button @click="download"
       >{{ tl('_download') }}{{ generalTaskProgressText }}</ptk-button>
     </template>
@@ -40,7 +42,7 @@
     <div class="ptk__download-added-notice" v-show="showNotice">
       {{ this.noticeMessage }}
     </div>
-    <ptk-button v-if="browserItems.showPixivOmina"
+    <ptk-button v-if="browserItems.showPixivOmina && resource"
       class="ptk__pixiv-omina__btn"
       @click="passToPixivOmina"
     >Pixiv Omina</ptk-button>
@@ -89,6 +91,12 @@ export default {
       resource: null,
 
       /**
+       * The post is locked for this session, so there's no resource
+       * @type {boolean}
+       */
+      restricted: false,
+
+      /**
        * @type {number[]}
        */
       selectedIndexes: [],
@@ -119,7 +127,7 @@ export default {
      * @returns {boolean}
      */
     showApp() {
-      return !!this.resource;
+      return !!this.resource || this.restricted;
     },
 
     downloadButtonType() {
@@ -197,11 +205,7 @@ export default {
     this.pageChangeToken = 0;
 
     window.$eventBus.$on('pagechange', page => {
-      const pageChangeToken = ++this.pageChangeToken;
-
-      this.initialProgress();
-
-      this.abortAdapterParse();
+      const pageChangeToken = this.startPage();
 
       if (page) {
         this.resource = window.$app.resource;
@@ -262,6 +266,12 @@ export default {
         this.checkIfDownloaded();
       }
     });
+
+    window.$eventBus.$on('pagerestricted', () => {
+      this.startPage();
+      this.downloadTaskObserver.stopObserve();
+      this.restricted = true;
+    });
   },
 
   beforeUnmount() {
@@ -269,6 +279,19 @@ export default {
   },
 
   methods: {
+    /**
+     * Reset for a new page. The returned token goes stale on the next one.
+     * @returns {number}
+     */
+    startPage() {
+      const pageChangeToken = ++this.pageChangeToken;
+
+      this.initialProgress();
+      this.abortAdapterParse();
+
+      return pageChangeToken;
+    },
+
     initialProgress() {
       this.generalTaskProgress = 0;
       this.ugoiraTaskProgresses = {
@@ -320,6 +343,7 @@ export default {
     abortAdapterParse() {
       this.adapter.abort();
       this.resource = null;
+      this.restricted = false;
       this.downloadedAt = 0;
       this.pages = [];
       this.selectedIndexes = [];
@@ -470,6 +494,14 @@ export default {
   border-radius: 999px;
   box-shadow: 0 0 5px rgba(0, 0, 0, .3);
   padding: 10px 15px;
+}
+
+// A message, not an action: the default disabled look (opacity .3) is hard to read.
+.ptk__container .button.ptk__restricted {
+  opacity: 1;
+  cursor: default;
+  background: #666;
+  border-color: #666;
 }
 
 .ptk__container.success {
