@@ -5,7 +5,7 @@ class IllustHistory {
   constructor(options = { max: 10000 }) {
     this.db = this.getDb();
     this.maxLimit = options.max;
-    this.trimming = Promise.resolve();
+    this.queue = Promise.resolve();
     this.properties = ['id', 'title', 'userId', 'userName', 'type', 'r', 'images', 'viewed_at', 'isNovel', 'image'];
     this.init();
   }
@@ -69,8 +69,8 @@ class IllustHistory {
   /**
    * Delete the oldest illusts beyond maxLimit. Runs after the put, so a
    * revisit doesn't count as a new entry, and skips the `_design/` docs that
-   * allDocs() returns alongside the illusts. maxLimit arrives as a string from
-   * the options page; anything that isn't a positive integer means no cap.
+   * allDocs() returns alongside the illusts. maxLimit can arrive as a string
+   * (the options page stores the raw field value); anything that isn't a positive integer means no cap.
    */
   async trim() {
     let max = Number(this.maxLimit);
@@ -84,20 +84,35 @@ class IllustHistory {
 
     if (excess > 0) {
       let docs = await this.getIllusts({ sort: [{ 'viewed_at': 'asc' }], limit: excess });
-      await Promise.all(docs.map(doc => this.db.remove(doc)));
+      // allSettled, not all: the queue must not move on while removes are in flight.
+      let results = await Promise.allSettled(docs.map(doc => this.db.remove(doc)));
+      // 409: the illust was revisited after the lookup, so it rightly stays.
+      let failed = results.find(result => result.status === 'rejected' && result.reason?.status !== 409);
+
+      if (failed) {
+        throw failed.reason;
+      }
     }
   }
 
   /**
    * Trims run one at a time: two overlapping trims would each count the
-   * other's victims as still present and delete twice as many.
+   * other's victims as still present and delete more than the excess.
    */
   queueTrim() {
-    this.trimming = this.trimming
-      .then(() => this.trim())
+    return this.enqueue(() => this.trim())
       .catch(error => console.error('Unable to trim illust history', error));
+  }
 
-    return this.trimming;
+  /**
+   * Runs task after everything already queued. A failed task doesn't stop the
+   * ones queued after it; the caller gets its rejection.
+   */
+  enqueue(task) {
+    let run = this.queue.then(task);
+    this.queue = run.catch(() => {});
+
+    return run;
   }
 
   putIllust(data) {
@@ -275,11 +290,15 @@ class IllustHistory {
     })
   }
 
+  /**
+   * Queued with the trims, so a trim never counts in one database and deletes
+   * from its replacement.
+   */
   clearData() {
-    return this.db.destroy().then(() => {
+    return this.enqueue(() => this.db.destroy().then(() => {
       this.db = this.getDb();
       return this.init();
-    });
+    }));
   }
 }
 

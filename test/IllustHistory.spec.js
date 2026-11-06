@@ -22,8 +22,11 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  jest.restoreAllMocks();
   await history.db.destroy();
 });
+
+const flush = () => new Promise(resolve => setTimeout(resolve, 10));
 
 test('putIllust stores an illust under its id', async () => {
   await history.putIllust(illust(1, 1700000000));
@@ -68,6 +71,15 @@ describe('the max cap', () => {
     await history.init();
   });
 
+  /** Five illusts stored over a cap of 3, with no trim run yet. */
+  const overCap = async () => {
+    history.maxLimit = 100;
+    for (let i = 1; i <= 5; i++) {
+      await history.putIllust(illust(i, 1700000000 + i));
+    }
+    history.maxLimit = 3;
+  };
+
   test('keeps exactly the newest max illusts', async () => {
     for (let i = 1; i <= 5; i++) {
       await history.putIllust(illust(i, 1700000000 + i));
@@ -106,44 +118,89 @@ describe('the max cap', () => {
     expect(await ids()).toEqual(['1', '3', '5']);
   });
 
-  test('concurrent puts trim to exactly max, not below it', async () => {
+  test('concurrent puts end at the newest max', async () => {
     await Promise.all([1, 2, 3, 4, 5, 6].map(i => history.putIllust(illust(i, 1700000000 + i))));
 
     expect(await ids()).toEqual(['4', '5', '6']);
   });
 
-  test('a second trim waits for the first instead of counting its victims again', async () => {
-    history.maxLimit = 100;
-    for (let i = 1; i <= 5; i++) {
-      await history.putIllust(illust(i, 1700000000 + i));
-    }
-    history.maxLimit = 3;
+  test('a second trim counts only after the first has finished deleting', async () => {
+    await overCap();
 
-    /**
-     * Force the bad interleave: the second trim's lookup of what to delete
-     * only runs once the first trim has finished deleting. Unserialised, the
-     * second trim has already counted 5 and removes 2 more.
-     */
-    let firstTrimDone;
-    const firstTrim = new Promise(resolve => { firstTrimDone = resolve; });
+    // Hold the second trim's lookup until the first trim settles. Unserialised,
+    // the second trim has already counted 5 by then and removes 2 more.
+    let firstTrimSettled;
+    const firstTrim = new Promise(resolve => { firstTrimSettled = resolve; });
     const realTrim = history.trim.bind(history);
     const realGetIllusts = history.getIllusts.bind(history);
-    let trims = 0;
-    let lookups = 0;
 
-    jest.spyOn(history, 'trim').mockImplementation(async () => {
-      const mine = ++trims;
-      await realTrim();
-      if (mine === 1) firstTrimDone();
-    });
-    jest.spyOn(history, 'getIllusts').mockImplementation(async option => {
-      if (++lookups === 2) await firstTrim;
-      return realGetIllusts(option);
-    });
+    jest.spyOn(history, 'trim').mockImplementationOnce(() => realTrim().finally(firstTrimSettled));
+    jest.spyOn(history, 'getIllusts')
+      .mockImplementationOnce(realGetIllusts)
+      .mockImplementationOnce(option => firstTrim.then(() => realGetIllusts(option)));
 
     await Promise.all([history.queueTrim(), history.queueTrim()]);
 
     expect(await ids()).toEqual(['3', '4', '5']);
+  });
+
+  test('a conflicting remove neither releases the queue early nor logs', async () => {
+    await overCap();
+    const error = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const realRemove = history.db.remove.bind(history.db);
+    let releaseSecond;
+    const secondHeld = new Promise(resolve => { releaseSecond = resolve; });
+
+    // Illust 1 was revisited after the lookup; illust 2's remove is still running.
+    jest.spyOn(history.db, 'remove').mockImplementation(doc => (
+      doc._id === '1'
+        ? Promise.reject(Object.assign(new Error('Document update conflict'), { status: 409 }))
+        : secondHeld.then(() => realRemove(doc))
+    ));
+
+    let settled = false;
+    const trimmed = history.queueTrim().then(() => { settled = true; });
+    await flush();
+
+    expect(settled).toBe(false);
+
+    releaseSecond();
+    await trimmed;
+
+    expect(await ids()).toEqual(['1', '3', '4', '5']);
+    expect(error).not.toHaveBeenCalled();
+  });
+
+  test('any other remove failure is logged', async () => {
+    await overCap();
+    const error = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const failure = Object.assign(new Error('quota'), { status: 500 });
+    jest.spyOn(history.db, 'remove').mockRejectedValueOnce(failure);
+
+    await history.queueTrim();
+
+    expect(error).toHaveBeenCalledWith('Unable to trim illust history', failure);
+  });
+
+  test('clearData waits for a trim in flight', async () => {
+    await overCap();
+    const realAllDocs = history.db.allDocs.bind(history.db);
+    let releaseCount;
+    const countHeld = new Promise(resolve => { releaseCount = resolve; });
+    jest.spyOn(history.db, 'allDocs').mockImplementationOnce(options => countHeld.then(() => realAllDocs(options)));
+    const destroy = jest.spyOn(history.db, 'destroy');
+
+    const trimmed = history.queueTrim();
+    const cleared = history.clearData();
+    await flush();
+
+    expect(destroy).not.toHaveBeenCalled();
+
+    releaseCount();
+    await Promise.all([trimmed, cleared]);
+
+    expect(destroy).toHaveBeenCalled();
+    expect(await ids()).toEqual([]);
   });
 
   test('a max stored as a string still caps', async () => {
@@ -174,6 +231,12 @@ describe('the max cap', () => {
 
     expect(error).toHaveBeenCalledWith('Unable to trim illust history', expect.any(Error));
     expect(await ids()).toEqual(['1']);
-    error.mockRestore();
+
+    // The failure didn't jam the queue: later puts still trim.
+    for (let i = 2; i <= 4; i++) {
+      await history.putIllust(illust(i, 1700000000 + i));
+    }
+
+    expect(await ids()).toEqual(['2', '3', '4']);
   });
 });
