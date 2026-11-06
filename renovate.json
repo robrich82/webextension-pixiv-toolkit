@@ -37,6 +37,11 @@
             "schedule": ["* 0-5 * * 1"]
         },
         {
+            "description": "mise releases almost daily, some with breaking changes, and each bump misses the CI tool cache; bump it weekly.",
+            "matchPackageNames": ["jdx/mise"],
+            "schedule": ["* 0-5 * * 1"]
+        },
+        {
             "description": "Raise an engines ceiling only after CI is green on the new major (see docs/toolchain.md); a major bump of the exact pin fails install until then.",
             "matchDepTypes": ["engines"],
             "enabled": false
