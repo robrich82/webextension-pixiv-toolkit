@@ -26,10 +26,12 @@ the previous state and it was wrong in both directions: it admits an untested
 future major silently, and it makes the strict-engines check weaker than it
 looks, since the only thing an open range can enforce is a floor.
 
-- **`engines.node`** — the floor is set by pnpm 11, which declares
-  `engines.node: ">=22.13"` and is still admitted by `engines.pnpm`; a lower
-  floor would pass this project's own gate and then fail to run pnpm. The
-  ceiling sits below the next unvalidated major.
+- **`engines.node`** — one major, the one `mise.toml` pins and CI runs. A
+  wider range is a claim nothing tests, and dependencies narrow it without
+  notice: Babel 8 alone excludes Node 23, 22 before 22.18 and 24 before 24.11.
+  `test/engines.spec.js` fails when a locked package's own `engines.node` stops
+  admitting the whole range, since with `engineStrict` that package would fail
+  the install there.
 - **`engines.pnpm`** — the floor is v11, because the settings in
   `pnpm-workspace.yaml` are pnpm v11 semantics. pnpm v10 would apply a
   *different* security posture from the same file — `minimumReleaseAge`
