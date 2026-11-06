@@ -149,17 +149,22 @@ describe('the max cap', () => {
     const error = jest.spyOn(console, 'error').mockImplementation(() => {});
     const realRemove = history.db.remove.bind(history.db);
     let releaseSecond;
+    let secondStarted;
     const secondHeld = new Promise(resolve => { releaseSecond = resolve; });
+    const removing = new Promise(resolve => { secondStarted = resolve; });
 
     // Illust 1 was revisited after the lookup; illust 2's remove is still running.
-    jest.spyOn(history.db, 'remove').mockImplementation(doc => (
-      doc._id === '1'
-        ? Promise.reject(Object.assign(new Error('Document update conflict'), { status: 409 }))
-        : secondHeld.then(() => realRemove(doc))
-    ));
+    jest.spyOn(history.db, 'remove').mockImplementation(doc => {
+      if (doc._id === '1') {
+        return Promise.reject(Object.assign(new Error('Document update conflict'), { status: 409 }));
+      }
+      secondStarted();
+      return secondHeld.then(() => realRemove(doc));
+    });
 
     let settled = false;
     const trimmed = history.queueTrim().then(() => { settled = true; });
+    await removing;
     await flush();
 
     expect(settled).toBe(false);
@@ -187,8 +192,10 @@ describe('the max cap', () => {
     const realAllDocs = history.db.allDocs.bind(history.db);
     let releaseCount;
     const countHeld = new Promise(resolve => { releaseCount = resolve; });
-    jest.spyOn(history.db, 'allDocs').mockImplementationOnce(options => countHeld.then(() => realAllDocs(options)));
+    jest.spyOn(history.db, 'allDocs').mockImplementationOnce((...args) => countHeld.then(() => realAllDocs(...args)));
+    const remove = jest.spyOn(history.db, 'remove');
     const destroy = jest.spyOn(history.db, 'destroy');
+    const error = jest.spyOn(console, 'error').mockImplementation(() => {});
 
     const trimmed = history.queueTrim();
     const cleared = history.clearData();
@@ -199,7 +206,10 @@ describe('the max cap', () => {
     releaseCount();
     await Promise.all([trimmed, cleared]);
 
-    expect(destroy).toHaveBeenCalled();
+    // The trim finished its removes on the old database before it was destroyed.
+    expect(remove).toHaveBeenCalledTimes(2);
+    expect(Math.max(...remove.mock.invocationCallOrder)).toBeLessThan(destroy.mock.invocationCallOrder[0]);
+    expect(error).not.toHaveBeenCalled();
     expect(await ids()).toEqual([]);
   });
 

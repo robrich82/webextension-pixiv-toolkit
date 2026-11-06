@@ -86,7 +86,7 @@ class IllustHistory {
       let docs = await this.getIllusts({ sort: [{ 'viewed_at': 'asc' }], limit: excess });
       // allSettled, not all: the queue must not move on while removes are in flight.
       let results = await Promise.allSettled(docs.map(doc => this.db.remove(doc)));
-      // 409: the illust was revisited after the lookup, so it rightly stays.
+      // 409: the illust was revisited or deleted after the lookup, so there is nothing to trim.
       let failed = results.find(result => result.status === 'rejected' && result.reason?.status !== 409);
 
       if (failed) {
