@@ -24,18 +24,12 @@ describe('RenameDialog', () => {
     expect(wrapper.vm.renameFormat).toBe('foo_bar');
   });
 
-  // TODO(vue3-migration phase C, #26): RenameDialog.vue declares both a
-  // `hint` prop and a `hint` computed with the same name. Vue 2 let the
-  // computed shadow the prop; Vue 3 keeps the prop and skips the colliding
-  // computed, so `this.hint` now returns the real prop value. Needs a
-  // decision on the component itself (was the shadowing intentional?) when
-  // RenameDialog.vue is migrated.
-  test.skip('the hint computed always reports empty, shadowing the hint prop', () => {
+  test('hint comes straight from the hint prop', () => {
     const wrapper = shallowMountOption(RenameDialog, {
       propsData: { ...baseProps, hint: 'a real hint' }
     });
 
-    expect(wrapper.vm.hint).toBe('');
+    expect(wrapper.vm.hint).toBe('a real hint');
   });
 
   test('re-syncs renameFormat whenever the value prop changes', async () => {

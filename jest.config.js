@@ -25,9 +25,7 @@ module.exports = {
   collectCoverageFrom: [
     'src/**/*.js',
     'src/**/*.vue',
-    '!src/statics/lib/**',
-    // Manual debug page: routed, but not linked from the menu.
-    '!src/options_page/components/Test.vue'
+    '!src/statics/lib/**'
   ],
   coverageThreshold: {
     global: {

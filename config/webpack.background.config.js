@@ -29,7 +29,6 @@ module.exports = env => {
 
   return merge(baseConfig, {
     entry: {
-      // background: './src/background/main.js'
       background: './src/background/Bootstrap.js'
     },
     output: {
