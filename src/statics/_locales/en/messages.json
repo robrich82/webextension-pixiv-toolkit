@@ -98,26 +98,14 @@
    "extend_duration": {
        "message": "Extend duration"
    },
-   "extend_duration_desc": {
-       "message": "Extend ugoira duration when the duration is not expected"
-   },
    "enable_extend_title": {
        "message": "Enable repeat when ugoira duration under choosen duration"
-   },
-   "enable_extend_desc": {
-       "message": "Extend duration will be disabled when 0 is choosen"
-   },
-   "extend_duration_seconds_title": {
-       "message": "Extend ugoira duration to choosen duration at least"
    },
    "open_settings": {
        "message": "Open settings"
    },
    "open_settings_intro": {
        "message": "Please right-click the icon and click \"Options\" to open settings page"
-   },
-   "extend_enable": {
-       "message": "Turn on/off extend duration function"
    },
    "rename_ugoira": {
       "message": "Rename downloaded ugoira"
@@ -454,9 +442,6 @@
    },
    "_save_novel_in_relative_location": {
        "message": "Save novel in relative location"
-   },
-   "_change": {
-       "message": "Change"
    },
    "_must_enable_extension_take_over_downloads_setting": {
        "message": "Require enabling \"extension takes over downloads\" setting"
