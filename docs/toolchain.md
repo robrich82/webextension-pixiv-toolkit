@@ -308,15 +308,15 @@ The job then runs `pnpm install --frozen-lockfile`,
 builds, uploading each `dist/` directory as an artifact, and finally the
 Playwright E2E suite against `dist/chrome` (see `docs/testing.md`).
 
-The audit gate is set at `moderate`. As of the Vue 3 migration's Phase A,
-`pnpm audit -P` reports no known vulnerabilities at all — the Vue 2 EOL
-advisory this gate used to carry at `low` (see "Known remaining issues") is
-gone along with the Vue 2 packages themselves. The plain `pnpm audit` (dev
-dependencies included) can still report advisories from the build toolchain
-from time to time; those are tooling chores, not shipped exposure, but they
-still fail this gate and need clearing: `pnpm update`, an `overrides` floor, or
-— when the package is abandoned and there is no newer version to float to — an
-explicit `audit: ignore` entry (see `pnpm-workspace.yaml`).
+The audit step reports at `moderate` but does not fail the job
+(`continue-on-error`). It audits dev dependencies too, so an advisory published
+overnight against a build tool would otherwise block every merge, Renovate's
+automerges included, regardless of whether anything vulnerable ships
+(`pnpm audit -P` checks only what does).
+
+A red audit step still needs clearing: `pnpm update`, an `overrides` floor, or
+— when the package is abandoned and there is no fixed version —
+`auditConfig.ignoreGhsas` in `pnpm-workspace.yaml`, with the reason beside it.
 
 CircleCI (`.circleci/config.yml`) ran the identical job and was dropped as
 duplication.
