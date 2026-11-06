@@ -5,6 +5,7 @@ class IllustHistory {
   constructor(options = { max: 10000 }) {
     this.db = this.getDb();
     this.maxLimit = options.max;
+    this.trimming = Promise.resolve();
     this.properties = ['id', 'title', 'userId', 'userName', 'type', 'r', 'images', 'viewed_at', 'isNovel', 'image'];
     this.init();
   }
@@ -68,11 +69,18 @@ class IllustHistory {
   /**
    * Delete the oldest illusts beyond maxLimit. Runs after the put, so a
    * revisit doesn't count as a new entry, and skips the `_design/` docs that
-   * allDocs() returns alongside the illusts.
+   * allDocs() returns alongside the illusts. maxLimit arrives as a string from
+   * the options page; anything that isn't a positive integer means no cap.
    */
   async trim() {
+    let max = Number(this.maxLimit);
+
+    if (!Number.isInteger(max) || max <= 0) {
+      return;
+    }
+
     let { rows } = await this.db.allDocs();
-    let excess = rows.filter(row => !row.id.startsWith('_design/')).length - this.maxLimit;
+    let excess = rows.filter(row => !row.id.startsWith('_design/')).length - max;
 
     if (excess > 0) {
       let docs = await this.getIllusts({ sort: [{ 'viewed_at': 'asc' }], limit: excess });
@@ -80,10 +88,22 @@ class IllustHistory {
     }
   }
 
+  /**
+   * Trims run one at a time: two overlapping trims would each count the
+   * other's victims as still present and delete twice as many.
+   */
+  queueTrim() {
+    this.trimming = this.trimming
+      .then(() => this.trim())
+      .catch(error => console.error('Unable to trim illust history', error));
+
+    return this.trimming;
+  }
+
   putIllust(data) {
     return this.saveIllust(data).then(saved => {
       if (saved) {
-        return this.trim().catch(error => console.error('Unable to trim illust history', error));
+        return this.queueTrim();
       }
     });
   }
@@ -210,18 +230,12 @@ class IllustHistory {
     let _limit = option.limit
     let _skip = option.skip || 0
 
-    return new Promise(resolve => {
-      this.db.find({
-        selector: _selector,
-        sort: _sort,
-        limit: _limit,
-        skip: _skip
-      }).then(response => {
-        resolve(response.docs)
-      }).catch(err => {
-        resolve(err.docs)
-      })
-    })
+    return this.db.find({
+      selector: _selector,
+      sort: _sort,
+      limit: _limit,
+      skip: _skip
+    }).then(response => response.docs)
   }
 
   searchIllusts(option = {}) {

@@ -53,6 +53,12 @@ test('getIllusts returns the newest first through the viewed_at index', async ()
   expect((await history.getIllusts()).map(doc => doc.id)).toEqual(['2', '3', '1']);
 });
 
+test('getIllusts rejects when the query fails instead of resolving undefined', async () => {
+  jest.spyOn(history.db, 'find').mockRejectedValueOnce(new Error('boom'));
+
+  await expect(history.getIllusts()).rejects.toThrow('boom');
+});
+
 describe('the max cap', () => {
   const ids = async () => (await history.getIllusts()).map(doc => doc.id).sort();
 
@@ -88,6 +94,42 @@ describe('the max cap', () => {
     }
 
     expect(await ids()).toEqual(['2', '3', '4']);
+  });
+
+  test('evicts by viewed_at, not by id or insertion order', async () => {
+    const viewedAt = { 1: 50, 2: 10, 3: 40, 4: 20, 5: 30 };
+
+    for (const id of [1, 2, 3, 4, 5]) {
+      await history.putIllust(illust(id, 1700000000 + viewedAt[id]));
+    }
+
+    expect(await ids()).toEqual(['1', '3', '5']);
+  });
+
+  test('concurrent puts trim to exactly max, not below it', async () => {
+    await Promise.all([1, 2, 3, 4, 5, 6].map(i => history.putIllust(illust(i, 1700000000 + i))));
+
+    expect(await ids()).toEqual(['4', '5', '6']);
+  });
+
+  test('a max stored as a string still caps', async () => {
+    history.maxLimit = '3';
+
+    for (let i = 1; i <= 4; i++) {
+      await history.putIllust(illust(i, 1700000000 + i));
+    }
+
+    expect(await ids()).toEqual(['2', '3', '4']);
+  });
+
+  test.each([0, -1, NaN, undefined, 'abc'])('a max of %p means no cap', async max => {
+    history.maxLimit = max;
+
+    for (let i = 1; i <= 4; i++) {
+      await history.putIllust(illust(i, 1700000000 + i));
+    }
+
+    expect(await ids()).toEqual(['1', '2', '3', '4']);
   });
 
   test('a failed trim is logged and still resolves the put', async () => {
