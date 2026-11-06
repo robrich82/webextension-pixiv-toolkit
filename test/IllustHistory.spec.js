@@ -112,6 +112,40 @@ describe('the max cap', () => {
     expect(await ids()).toEqual(['4', '5', '6']);
   });
 
+  test('a second trim waits for the first instead of counting its victims again', async () => {
+    history.maxLimit = 100;
+    for (let i = 1; i <= 5; i++) {
+      await history.putIllust(illust(i, 1700000000 + i));
+    }
+    history.maxLimit = 3;
+
+    /**
+     * Force the bad interleave: the second trim's lookup of what to delete
+     * only runs once the first trim has finished deleting. Unserialised, the
+     * second trim has already counted 5 and removes 2 more.
+     */
+    let firstTrimDone;
+    const firstTrim = new Promise(resolve => { firstTrimDone = resolve; });
+    const realTrim = history.trim.bind(history);
+    const realGetIllusts = history.getIllusts.bind(history);
+    let trims = 0;
+    let lookups = 0;
+
+    jest.spyOn(history, 'trim').mockImplementation(async () => {
+      const mine = ++trims;
+      await realTrim();
+      if (mine === 1) firstTrimDone();
+    });
+    jest.spyOn(history, 'getIllusts').mockImplementation(async option => {
+      if (++lookups === 2) await firstTrim;
+      return realGetIllusts(option);
+    });
+
+    await Promise.all([history.queueTrim(), history.queueTrim()]);
+
+    expect(await ids()).toEqual(['3', '4', '5']);
+  });
+
   test('a max stored as a string still caps', async () => {
     history.maxLimit = '3';
 
