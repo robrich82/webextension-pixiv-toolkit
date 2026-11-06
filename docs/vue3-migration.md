@@ -243,11 +243,11 @@ things that weren't just renames:
   reference throws `ReferenceError` before Vuetify's own `?.` guard can help.
   Shimmed alongside the existing `CSS`/`ResizeObserver` shims in
   `test/setup/jsdomGlobals.js`.
-- **Left alone, matching pre-existing test comments:** `RenameDialog.vue`'s
-  `hint` prop/computed shadowing and `pickMeta`'s `$refs` read (2 still-`test.skip`ped
-  specs) and `PixivComicOptions.vue`'s undeclared `showRenameImageDialog` dead
-  binding — none of these are markup issues, and fixing them wasn't part of
-  this phase's scope.
+- **Left alone, matching pre-existing test comments:** `pickMeta`'s `$refs`
+  read (still a `test.skip`ped spec). Two others noted here were fixed later:
+  the `RenameDialog.vue` `hint` computed that collided with its prop is gone
+  (#187), and `PixivComicOptions.vue` now declares `showRenameImageDialog`
+  (#181).
 
 ## Phase D notes: the rest of the options page (19 files)
 
