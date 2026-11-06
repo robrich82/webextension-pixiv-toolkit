@@ -13,23 +13,24 @@ const ours = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')
 
 // pnpm-lock.yaml records each package as `  name@version:` followed by an
 // indented `    engines: {node: <range>, ...}` line.
+const lockfile = fs.readFileSync(path.join(ROOT, 'pnpm-lock.yaml'), 'utf8');
 const declared = new Map();
 let pkg;
-for (const line of fs.readFileSync(path.join(ROOT, 'pnpm-lock.yaml'), 'utf8').split('\n')) {
+for (const line of lockfile.split('\n')) {
   const key = line.match(/^ {2}'?([^\s'][^']*?)'?:$/);
   if (key) pkg = key[1];
   const node = line.match(/^ {4}engines: \{.*\bnode: (?:'([^']*)'|([^,}]+))/);
   if (node && pkg) declared.set(pkg, (node[1] ?? node[2]).trim());
 }
 
-test('the lockfile scan finds engines ranges', () => {
+test('the lockfile scan reads every engines.node record', () => {
   expect(declared.size).toBeGreaterThan(100);
-  expect(declared.get(`semver@${require('semver/package.json').version}`)).toBeDefined();
+  expect(declared.size).toBe(lockfile.match(/^ {4}engines: \{[^}]*\bnode:/gm).length);
 });
 
 test(`every locked package admits all of engines.node (${ours})`, () => {
   const excluding = [...declared]
-    .filter(([, range]) => semver.validRange(range) && !semver.subset(ours, range))
+    .filter(([, range]) => !semver.validRange(range) || !semver.subset(ours, range))
     .map(([name, range]) => `${name}: ${range}`);
 
   expect(excluding).toEqual([]);
