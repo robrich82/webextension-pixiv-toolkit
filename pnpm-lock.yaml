@@ -320,6 +320,9 @@ importers:
       sass-loader:
         specifier: ^17.0.1
         version: 17.1.0(sass@1.107.1)(webpack@5.112.2)
+      semver:
+        specifier: ^7.8.5
+        version: 7.8.5
       style-loader:
         specifier: ^4.0.0
         version: 4.0.0(webpack@5.112.2)
