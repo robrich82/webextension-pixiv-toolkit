@@ -208,18 +208,12 @@ importers:
       moment:
         specifier: ^2.31.0
         version: 2.31.0
-      pako:
-        specifier: ^3.0.0
-        version: 3.0.3
       pouchdb:
         specifier: ^9.0.0
         version: 9.0.0
       pouchdb-find:
         specifier: ^9.0.0
         version: 9.0.0
-      upng-js:
-        specifier: ^2.1.0
-        version: 2.1.0
       vue:
         specifier: ^3.5.44
         version: 3.5.44
@@ -3616,9 +3610,6 @@ packages:
   pako@1.0.11:
     resolution: {integrity: sha512-4hLB8Py4zZce5s4yd9XzopqwVv/yGNhV1Bl8NTmCq1763HeK2+EwVTv+leGeL13Dnh2wfbqowVPXCIO0z4taYw==}
 
-  pako@3.0.3:
-    resolution: {integrity: sha512-tmrebBBYI5FOw8QICGwJNqE8fotC8R+gwcxOvoFNv+GKehOI6Lc6YBolNcQNnC4v96l1wt7rh102ifD4kVeZAQ==}
-
   param-case@3.0.4:
     resolution: {integrity: sha512-RXlj7zCYokReqWpOPH9oYivUzLYZ5vAPIfEmCTNViosC78F8F0H9y7T7gG2M39ymgutxF5gcFEsyZQSph9Bp3A==}
 
@@ -4394,9 +4385,6 @@ packages:
   update-notifier@7.3.1:
     resolution: {integrity: sha512-+dwUY4L35XFYEzE+OAL3sarJdUioVovq+8f7lcIJ7wnmnYQV5UD1Y/lcwaMSyaQ6Bj3JMj1XSTjZbNLHn/19yA==}
     engines: {node: '>=18'}
-
-  upng-js@2.1.0:
-    resolution: {integrity: sha512-d3xzZzpMP64YkjP5pr8gNyvBt7dLk/uGI67EctzDuVp4lCZyVMo0aJO6l/VDlgbInJYDY6cnClLoBp29eKWI6g==}
 
   uri-js@4.4.1:
     resolution: {integrity: sha512-7rKUyy33Q1yc98pQ1DAmLtwX109F7TIfWlW1Ydo8Wl1ii1SeHieeh0HHfPeL2fMXK6z0s8ecKs9frCuLJvndBg==}
@@ -8385,8 +8373,6 @@ snapshots:
 
   pako@1.0.11: {}
 
-  pako@3.0.3: {}
-
   param-case@3.0.4:
     dependencies:
       dot-case: 3.0.4
@@ -9156,10 +9142,6 @@ snapshots:
       pupa: 3.3.0
       semver: 7.8.5
       xdg-basedir: 5.1.0
-
-  upng-js@2.1.0:
-    dependencies:
-      pako: 1.0.11
 
   uri-js@4.4.1:
     dependencies:

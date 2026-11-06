@@ -101,26 +101,14 @@
    "extend_duration": {
        "message": "延长时长"
    },
-   "extend_duration_desc": {
-       "message": "当原始动图时长低于选择的时长时额外延长动图时长"
-   },
    "enable_extend_title": {
        "message": "原始动图时长"
-   },
-   "enable_extend_desc": {
-       "message": "选择0时将禁用延长时长"
-   },
-   "extend_duration_seconds_title": {
-       "message": "至少延长动图时长至选择的时长"
    },
    "open_settings": {
        "message": "打开设置"
    },
    "open_settings_intro": {
        "message": "请右键点击图标选择\"选项\"进入设置页面"
-   },
-   "extend_enable": {
-       "message": "启用延长时长功能"
    },
    "rename_ugoira": {
       "message": "重命名动图文件"
@@ -457,9 +445,6 @@
    },
    "_save_novel_in_relative_location": {
        "message": "保存小说到相对位置"
-   },
-   "_change": {
-       "message": "修改"
    },
    "_must_enable_extension_take_over_downloads_setting": {
        "message": "必须启用\"插件接管下载\"设置"

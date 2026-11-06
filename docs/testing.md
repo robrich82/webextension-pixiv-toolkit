@@ -35,7 +35,7 @@ directory pay for an untested one:
 tested, so they are held to a real standard; the global row is the rest of
 `src`, which is mostly untested UI, services and download tasks. Note that
 Jest removes a path group's files from the global pool, so the global row is
-*not* the whole-repo number — that currently reads around 36% statements.
+*not* the whole-repo number — that currently reads around 48% statements.
 
 A PR that adds a large untested file will trip the global floor. That is the
 mechanism working: either cover the file or, if the change genuinely cannot be
@@ -138,40 +138,27 @@ checks what the stub was told to say.
 `sendMessage` is routed — but the three things this codebase leans on hardest
 are the ones it does not do. `SettingService` mirrors settings into the
 application through a live `onChanged` listener; `AbstractPortService` and
-`DownloadRecordPort` need a connected port pair; and `SettingService` passes
+`IllustHistoryPort` need a connected port pair; and `SettingService` passes
 callbacks where `DownloadService` awaits the same kind of call, so both
 conventions have to work on one call. Adding those on top means re-implementing
 most of this file anyway, over a storage implementation we would then be half
 overriding — so the fake is hand-rolled and adds no dependency.
 
-## DOM and binary code, without jsdom
+## DOM code, without jsdom
 
-Everything runs under the `node` test environment. The modules in
-`src/modules/Util` that reach for the DOM — `CopyStr`, `getImageSize`,
-`getCanvasFromDataURI` — are covered with small doubles declared in their own
-specs (`document`, `Image`, a 2d context, `FileReader` for
-`PackageFileReader`), assigned to `globalThis` in `beforeEach` and deleted
-again afterwards.
+Everything runs under the `node` test environment. `CopyStr`, the one module
+in `src/modules/Util` that reaches for the DOM, is covered with a small
+`document` double declared in its own spec, assigned to `globalThis` in
+`beforeEach` and deleted again afterwards.
 
-jsdom was considered and skipped for these three. It implements none of what
-they actually depend on: `execCommand('copy')` is absent, images never load,
-and `canvas.getContext('2d')` returns `null` without `node-canvas` — a
-compiled dependency — behind it. A jsdom run would still be asserting against
-stubs, only stubs someone else wrote and this project would then be carrying.
-Component specs are a different case — see "Component tests" below, which
-does use jsdom, deliberately, for the `components` Jest project.
+jsdom was considered and skipped for it: `execCommand('copy')` is absent there,
+so a jsdom run would still be asserting against a stub, only one someone else
+wrote. Component specs are a different case — see "Component tests" below,
+which does use jsdom, deliberately, for the `components` Jest project.
 
-So the specs assert the sequence rather than the result: that the copy node is
-still in the document when `execCommand` runs, that `getImageSize` reads
-`width`/`height` on `load` and not before, that `getCanvasFromDataURI` sizes the
-canvas and draws over the whole of it. Each of those is a real regression this
-codebase could suffer; none of them needs a browser to catch.
-
-`APNG` needs no doubles at all. It is UPNG plus pako, working on RGBA
-`ArrayBuffer`s with no canvas anywhere, so `APNG.spec.js` encodes frames and
-decodes them again through UPNG's own decoder and compares pixels. Frames there
-are 32x32 for a reason the spec records: the encoder sizes its scratch buffer
-from the pixel data alone, and a 4x4 animation overflows it.
+So the spec asserts the sequence rather than the result: that the copy node is
+still in the document when `execCommand` runs. That is a real regression this
+codebase could suffer, and it needs no browser to catch.
 
 ## Component tests
 

@@ -45,7 +45,7 @@ Since 6.0.0, downloads don't run in the content script. They run in the download
 
 ### Messaging convention
 
-`runtime.sendMessage({ to, action: 'service:method', args })`. `to: 'ws'` routes to the background `Application.onMessage`, and anything else with an `action` routes to the download manager. Each side resolves `service` through its own `ServiceProvider`: `history` → `HistoryService`, looked up in that side's `services/index.js`. Long-lived channels (download records, illust history) use the port services in `src/modules/Ports` and `AbstractPortService`.
+`runtime.sendMessage({ to, action: 'service:method', args })`. `to: 'ws'` routes to the background `Application.onMessage`, and anything else with an `action` routes to the download manager. Each side resolves `service` through its own `ServiceProvider`: `history` → `HistoryService`, looked up in that side's `services/index.js`. Long-lived channels use `runtime.connect`, routed by port name in the background `Application.onConnect`: illust history goes through `src/modules/Ports/IllustHistoryPort`, and any other name goes to the background service of that name if it extends `AbstractPortService`.
 
 Payloads must survive structured clone. Firefox throws `DataCloneError` on Vue reactive proxies, so the existing code passes payloads through a JSON round-trip before sending.
 

@@ -1,5 +1,4 @@
 const NameFormatter = require('../src/modules/Util/NameFormatter').default;
-const formatName = require('../src/modules/Util/formatName').default;
 
 const format = (rule, context = {}, fallback) =>
   NameFormatter.getFormatter({ context }).format(rule, fallback);
@@ -167,16 +166,5 @@ describe('fallback', () => {
     const stamp = Number(result.slice('file_'.length));
     expect(stamp).toBeGreaterThanOrEqual(before);
     expect(stamp).toBeLessThanOrEqual(after);
-  });
-});
-
-describe('formatName wrapper', () => {
-  test('delegates to NameFormatter', () => {
-    expect(formatName('{id}_{title}', { illustId: '1', illustTitle: 'x' }))
-      .toBe('1_x');
-  });
-
-  test('passes the fallback through', () => {
-    expect(formatName('', {}, 'fallback.jpg')).toBe('fallback.jpg');
   });
 });
