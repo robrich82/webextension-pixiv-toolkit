@@ -47,19 +47,10 @@
             "enabled": false
         },
         {
-            "description": "uuid 12+ is ESM-only; pouchdb require()s it. The override only exists for pnpm audit (see docs/toolchain.md).",
-            "matchPackageNames": ["uuid"],
-            "allowedVersions": "<12"
-        },
-        {
-            "description": "The minimatch override breaks multimatch 6, which web-ext default-imports; multimatch 8 fixes that. CI never runs web-ext, so hold both majors (see docs/toolchain.md).",
-            "matchPackageNames": ["minimatch"],
-            "allowedVersions": "<12"
-        },
-        {
-            "description": "Paired with the minimatch rule above.",
-            "matchPackageNames": ["multimatch"],
-            "allowedVersions": "<9"
+            "description": "Override targets are advisory floors, each on a chosen major. They move when an advisory does, not when a release lands. Majors only, so vulnerability alerts still reach them (see docs/toolchain.md).",
+            "matchDepTypes": ["pnpm-workspace.overrides"],
+            "matchUpdateTypes": ["major"],
+            "enabled": false
         }
     ]
 }

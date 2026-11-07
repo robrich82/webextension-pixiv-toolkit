@@ -243,13 +243,19 @@ document was removed as part of the Vue 3 migration's Phase A: vue-loader 17
 are no longer reachable — confirmed via `pnpm why @vue/component-compiler-utils`
 resolving to nothing.
 
-Each entry is commented in place there. Two also need a Renovate rule, or a
-bot PR would undo them:
+Each entry is commented in place there. Renovate never proposes a major for
+any of them (`renovate.json` disables major updates of the
+`pnpm-workspace.overrides` dependency type). Each one is an advisory floor or a
+compatibility pin on a deliberately chosen major, and a bot bump to the next
+major hands consumers an API they never declared. Same-major updates stay
+enabled, so a Renovate vulnerability alert can still raise a floor. Two need
+more explanation than fits in a comment:
 
 - **`uuid` → `^11.1.1`.** `pouchdb-utils` pins uuid 8. The advisory
   (GHSA-w5hq-g745-h8pq) is a missing bounds check in `v3`/`v5`/`v6` when called
   with a `buf` argument; pouchdb only ever calls `v4` (its own source comments
-  say so). uuid 11 keeps the `v4` signature.
+  say so). uuid 11 keeps the `v4` signature, and it is the last major
+  pouchdb can `require()`: uuid 12+ is ESM-only.
 - **`minimatch` → `^11.0.1`, `multimatch` → `^8.0.0`.** The minimatch floor
   (GHSA-g3hv-75wg-m249) also reaches web-ext's `multimatch@6`, which does
   `import minimatch from 'minimatch'`. v11 has no default export, so
@@ -258,10 +264,10 @@ bot PR would undo them:
   Windows ignore patterns as escapes, so nothing is ignored and dotfiles,
   `.amo-upload-uuid` and stray zips get packed; `patches/multimatch.patch`
   restores minimatch 3's separator handling on Windows. CI never runs web-ext
-  (and is Linux), so a bump that breaks either passes CI; `renovate.json` holds
-  both at their current majors. The same default import makes the ESM entries
-  of `@eslint/eslintrc` and `@eslint/config-array` fail to load; eslint itself
-  `require()`s them, so only a future `FlatCompat` config would hit it.
+  (and is Linux), so a bump that breaks either passes CI. The same default
+  import makes the ESM entries of `@eslint/eslintrc` and `@eslint/config-array`
+  fail to load; eslint itself `require()`s them, so only a future `FlatCompat`
+  config would hit it.
 
 To confirm the uuid override is still applied, check that `pnpm-lock.yaml`
 resolves exactly one `uuid@11.x`.

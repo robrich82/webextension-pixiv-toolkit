@@ -78,20 +78,21 @@ trustPolicyExclude:
 # and the lower floors stay as guards should an old minimatch return.
 #
 # pnpm does not read npm's top-level `overrides` field, so these live here.
-# Drop them and the advisories come back.
+# Drop them and the advisories come back. Renovate never moves one to a new
+# major (renovate.json): a floor moves when its advisory does.
 overrides:
   uuid: ^11.1.1
-  'js-yaml@>=4.0.0 <4.3.2': ^5.0.0
-  'js-yaml@<3.15.2': ^5.0.0
+  'js-yaml@>=4.0.0 <4.3.2': ^4.3.2
+  'js-yaml@<3.15.2': ^3.15.2
   # fast-uri (ajv, via webpack/css-loader/etc.): GHSA-hrr3-gc8f-f4qj,
   # GHSA-w74x-v6f9-j3xg, GHSA-wjr9-j795-jxcr -- host/scheme confusion and
   # case-normalization bugs, all patched by 3.1.9.
-  'fast-uri@<3.1.9': ^4.0.0
+  'fast-uri@<3.1.9': ^3.1.9
   # brace-expansion (minimatch, via jest/@vue/test-utils): GHSA-q2hr-2g5m-vwhr,
   # GHSA-qhr7-859c-m2p7, GHSA-6j4f-fj2g-mc7p -- ReDoS and stack-exhaustion DoS
   # via crafted brace patterns, each patched per major line below.
-  'brace-expansion@<1.1.21': ^5.0.0
-  'brace-expansion@>=2.0.0 <2.1.7': ^5.0.0
+  'brace-expansion@<1.1.21': ^1.1.21
+  'brace-expansion@>=2.0.0 <2.1.7': ^2.1.7
   'brace-expansion@>=4.0.0 <5.0.12': ^5.0.12
   # source-map-js (vue/postcss, everywhere): GHSA-68fv-2mgg-jv7q -- a crafted
   # indexed source-map section offset can hang the event loop, patched 1.2.2.
@@ -102,8 +103,12 @@ overrides:
   'shell-quote@<1.11.0': ^1.11.0
   # undici (web-ext>addons-linter>cheerio, dev-only): GHSA-4qv8-2p9j-2685,
   # GHSA-f72v-6w45-q472, GHSA-xjj6-f33q-929c -- EventSource memory DoS, SRI
-  # algorithm-case bypass, and unhandled-encoding DoS, all patched by 7.30.1.
-  'undici@<7.30.1': ^8.0.0
+  # algorithm-case bypass, and unhandled-encoding DoS, all patched by 7.30.1;
+  # GHSA-mqg3-3v4r-cm32, GHSA-7xg3-fphp-28hg, GHSA-5rm8-gv32-r954,
+  # GHSA-9v6h-8rgp-m69f, GHSA-3g9m-rv3r-w5w2, GHSA-r4pc-4jcp-7pqc -- redirect
+  # and cache-interceptor disclosure, a cache-replay DoS, and an SRI whitespace
+  # bypass, patched by 7.30.2.
+  'undici@<7.30.2': ^7.30.2
   # serialize-javascript (copy-webpack-plugin): GHSA-m5mm-p8h7-m29v -- an
   # unescaped `</script` in a serialized function body can break out of the
   # surrounding tag, patched 7.1.3.
