@@ -63,7 +63,7 @@ trustPolicyExclude:
   - 'semver@6.3.1'
 
 # --- Overrides --------------------------------------------------------------
-# `multimatch` keeps `web-ext` working under the `minimatch` floor (same doc).
+# `multimatch` keeps `web-ext` working under the `minimatch` floor (see docs/toolchain.md).
 # Every other floor below fixes an actual advisory, pinned at the advisory's
 # own first-patched version so the resolved version sitting above the floor is
 # the `^` working, not a weaker guard. `js-yaml` is split per major because

@@ -156,7 +156,7 @@ Delete them in `afterEach` with `deletePouchDatabases()`.
 
 ## Dexie repositories
 
-Specs that touch Dexie import `test/helpers/fakeIndexedDb.js` before anything
+Specs that touch Dexie or IndexedDB import `test/helpers/fakeIndexedDb.js` before anything
 that loads it, so they run against a real in-memory IndexedDB. The helper also
 gives jsdom the `structuredClone` that fake-indexeddb needs. `Db` and each repo
 are singletons: clear `Db.instance` and the repo's `instance` in `beforeEach`,

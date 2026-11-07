@@ -186,14 +186,38 @@ describe('migrateIllustHistory', () => {
     expect(await databaseNames()).toContain(STORE);
   });
 
-  test('skips a document whose winning revision has no body, and imports the rest', async () => {
+  test('a document whose winning revision has no body is skipped, the rest imported, and the store kept', async () => {
     await writeStore([v5(1, 100), v5(2, 200)]);
     const db = await request(indexedDB.open(STORE));
     await request(db.transaction('by-sequence', 'readwrite').objectStore('by-sequence').delete(2));
     db.close();
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
 
-    expect(await migrateIllustHistory(app.getService('history'))).toEqual({ imported: 1, skipped: 0 });
+    expect(await migrateIllustHistory(app.getService('history'))).toEqual({ imported: 1, skipped: 1 });
+
     expect(await storedUids()).toEqual(['pixiv_illust:1']);
+    expect(consoleError).toHaveBeenCalledWith(expect.stringContaining('kept the PouchDB store'), ['2'], expect.anything());
+    expect(await databaseNames()).toContain(STORE);
+  });
+
+  test('deletes the index databases before the store that lists them, as destroy() did', async () => {
+    await restoreDatabases();
+    const [, index] = fixture.databases.map(db => db.name);
+    const deleteDatabase = indexedDB.deleteDatabase.bind(indexedDB);
+    jest.spyOn(indexedDB, 'deleteDatabase').mockImplementation(name => {
+      if (name === index) {
+        throw new Error('blocked');
+      }
+
+      return deleteDatabase(name);
+    });
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    expect(await migrateIllustHistory(app.getService('history'))).toEqual({ imported: 5, skipped: 0 });
+
+    // Lets any deletion already queued finish before looking.
+    await new Promise(resolve => setTimeout(resolve, 50));
+    expect(await databaseNames()).toContain(STORE);
   });
 
   test('a version-5 store without its object stores is kept, and its connection closed', async () => {
@@ -216,10 +240,13 @@ describe('migrateIllustHistory', () => {
     await writeStore([v5(1, 100)]);
     const other = await request(indexedDB.open(STORE));
 
-    expect(await migrateIllustHistory(app.getService('history'))).toEqual({ imported: 1, skipped: 0 });
-    expect(await databaseNames()).toContain(STORE);
-
-    other.close();
+    try {
+      expect(await migrateIllustHistory(app.getService('history'))).toEqual({ imported: 1, skipped: 0 });
+      expect(await databaseNames()).toContain(STORE);
+    } finally {
+      // Left open, it would block afterEach's cleanup and hide the failure.
+      other.close();
+    }
     await new Promise(resolve => setTimeout(resolve));
     expect(await databaseNames()).not.toContain(STORE);
   });

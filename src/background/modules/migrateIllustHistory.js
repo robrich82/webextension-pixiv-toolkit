@@ -8,19 +8,19 @@ const ADAPTER_VERSION = 5;
  * written to that store since 6.0.0, so after this runs nothing reads it either.
  *
  * The store is read straight from IndexedDB, so the PouchDB library doesn't
- * have to ship. PouchDB's idb adapter (schema version 5, from PouchDB 5 on)
- * keeps one row per document in `document-store`, holding its winning
- * revision, and every revision's body in `by-sequence`, keyed by
- * `<id>::<rev>`. test/fixtures/pouchdbV5 is a real store, for reference.
+ * have to ship. PouchDB's idb adapter (schema version 5 in the 7.2.2 that v5
+ * shipped) keeps each document's metadata, including its `winningRev`, in
+ * `document-store`, and revision bodies in `by-sequence`, indexed by
+ * `_doc_id_rev` (`<id>::<rev>`). test/fixtures/pouchdbV5 is a real store.
  *
  * Entries that aren't usable history are skipped, and as with any import the
  * maxHistoryItems cap then drops the oldest visits. If reading or importing
- * fails, the store is left untouched and the error logged. It does not retry:
- * the update that runs this still completes, so a failure here can't hold
- * back later migrations.
+ * fails, or a live document has no body, the store is kept and the error
+ * logged. It does not retry: the update that runs this still completes, so a
+ * failure here can't hold back later migrations.
  *
  * @param {import('../services/HistoryService').default} historyService
- * @returns {Promise<{ imported: number, skipped: number }|null>} null when the import failed
+ * @returns {Promise<{ imported: number, skipped: number }|null>} null when reading or importing failed
  */
 export default async function migrateIllustHistory(historyService) {
   let contents;
@@ -40,11 +40,20 @@ export default async function migrateIllustHistory(historyService) {
     return null;
   }
 
+  if (contents.unreadable.length) {
+    // PouchDB never drops a live document's body, so the store isn't what this reads.
+    result = { ...result, skipped: result.skipped + contents.unreadable.length };
+    console.error('Moved the v5 visit history, but kept the PouchDB store: these entries had no body', contents.unreadable, result);
+
+    return result;
+  }
+
   console.info('Moved the v5 visit history into the History page', result);
 
   try {
-    // As PouchDB's destroy() does: the store, then the index databases it lists.
-    await Promise.all([DB_NAME, ...contents.dependentDbs.map(name => PREFIX + name)].map(deleteDatabase));
+    // As PouchDB's destroy() does: the index databases the store lists, then the store.
+    await Promise.all(contents.dependentDbs.map(name => deleteDatabase(PREFIX + name)));
+    await deleteDatabase(DB_NAME);
   } catch (error) {
     console.error('Moved the v5 visit history, but could not delete the old PouchDB store', error);
   }
@@ -88,7 +97,7 @@ function openStore() {
 }
 
 /**
- * @returns {Promise<{ docs: object[], dependentDbs: string[] }|null>} null when there is no store
+ * @returns {Promise<{ docs: object[], unreadable: string[], dependentDbs: string[] }|null>} null when there is no store
  */
 async function readStore() {
   const db = await openStore();
@@ -110,6 +119,7 @@ async function readStore() {
     ]);
     const bodies = new Map(revisions.map(body => [body._doc_id_rev, body]));
     const docs = [];
+    const unreadable = [];
 
     metadata.forEach(({ id, winningRev, deletedOrLocal }) => {
       // Deleted documents are marked '1'. Design docs hold pouchdb-find's index definition.
@@ -119,14 +129,18 @@ async function readStore() {
 
       const body = bodies.get(`${id}::${winningRev}`);
 
-      if (body) {
-        const { _doc_id_rev, ...doc } = body;
+      if (!body) {
+        unreadable.push(id);
 
-        docs.push({ ...doc, _id: id, _rev: winningRev });
+        return;
       }
+
+      const { _doc_id_rev, ...doc } = body;
+
+      docs.push({ ...doc, _id: id, _rev: winningRev });
     });
 
-    return { docs, dependentDbs: Object.keys(dependents?.dependentDbs ?? {}) };
+    return { docs, unreadable, dependentDbs: Object.keys(dependents?.dependentDbs ?? {}) };
   } finally {
     db.close();
   }
@@ -142,8 +156,20 @@ function deleteDatabase(name) {
   return new Promise((resolve, reject) => {
     const req = indexedDB.deleteDatabase(name);
 
+    let queued = false;
+
     req.onsuccess = () => resolve();
-    req.onblocked = () => resolve();
-    req.onerror = () => reject(req.error);
+    req.onblocked = () => {
+      queued = true;
+      resolve();
+    };
+    req.onerror = () => {
+      if (queued) {
+        // Nobody is awaiting the promise any more.
+        console.error(`Could not delete ${name} once it was unblocked`, req.error);
+      }
+
+      reject(req.error);
+    };
   });
 }

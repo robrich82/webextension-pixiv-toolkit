@@ -101,7 +101,7 @@ async function useLikeV5() {
   await db.bulkDocs([{ ...illust(1006, 1600000006, { title: 'Deleted branch' }), _rev: '1-zzz' }], { new_edits: false });
   await db.bulkDocs([{ _id: '1006', _rev: '2-ccc', _deleted: true, _revisions: { start: 2, ids: ['ccc', 'zzz'] } }], { new_edits: false });
 
-  // The History page queried by viewed_at, which builds the index database.
+  // The History page queried by viewed_at, which brings the index database up to date.
   await db.find({ selector: { viewed_at: { $gte: null } }, sort: [{ viewed_at: 'desc' }] });
 
   const { rows } = await db.allDocs({ include_docs: true });

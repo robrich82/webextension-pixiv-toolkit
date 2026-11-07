@@ -2,6 +2,7 @@
  * The 6.4.7 migration, which clears the `ugoiraConvertTool` and
  * `maxDownloadRecords` settings left inert once nothing read them any more.
  */
+// The update also runs the history migrations, which open IndexedDB.
 require('./helpers/fakeIndexedDb');
 const browser = require('./doubles/browser').default;
 const Application = require('../src/background/Application').default;
