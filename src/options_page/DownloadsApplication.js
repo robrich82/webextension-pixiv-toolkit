@@ -1,5 +1,4 @@
 import { RuntimeError } from '@/errors';
-import { SettingService } from './services';
 import defaultSettings from '@/config/default';
 import ServiceProvider from './services/ServiceProvider';
 import DownloadTaskNotifier from './modules/DownloadTaskNotifier';
@@ -78,7 +77,7 @@ class Application {
 
   async onBeforeBoot() {
     /**
-     * @type {SettingService}
+     * @type {import('./services/SettingService').default}
      * The application's settings will be maintanced in SettingService.
      */
     let settingService = this.getService('setting');
