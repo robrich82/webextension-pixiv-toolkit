@@ -153,7 +153,7 @@
         <v-card-text
           style="font-size:14px"
         >
-          Import progress: {{ importCount - importItems.length }} / {{ importCount }}
+          Import progress: {{ importedCount }} / {{ importCount }}
           <v-progress-linear
             v-model="importProgress"
             color="white"
@@ -165,7 +165,13 @@
 </template>
 
 <script>
-import RendererPort from '@/modules/Ports/IllustHistoryPort/RendererPort';
+import browser from '@/modules/Extension/browser';
+
+/**
+ * Entries per `history:importItems` message, so the progress bar moves and no
+ * single message carries a whole export file.
+ */
+const IMPORT_BATCH_SIZE = 500;
 
 export default {
   data() {
@@ -177,16 +183,11 @@ export default {
       confirmDialog: false,
       importing: false,
       exporting: false,
-      importItems: [],
+      importedCount: 0,
       importCount: 0,
       maxHistoryItems: 10000,
-      workCoverSize: 1,
-      visitHistoryPort: null
+      workCoverSize: 1
     };
-  },
-
-  created() {
-    this.visitHistoryPort = RendererPort.getInstance();
   },
 
   beforeMount() {
@@ -204,7 +205,7 @@ export default {
     },
 
     importProgress() {
-      return Math.floor((this.importCount - this.importItems.length) / this.importCount * 100);
+      return this.importCount > 0 ? Math.floor(this.importedCount / this.importCount * 100) : 0;
     }
   },
 
@@ -251,9 +252,20 @@ export default {
   },
 
   methods: {
-    clearHistory() {
-      this.visitHistoryPort.clearHistory();
+    async clearHistory() {
       this.confirmDialog = false;
+
+      let cleared;
+
+      try {
+        cleared = await browser.runtime.sendMessage({ to: 'ws', action: 'history:clear' });
+      } catch (error) {
+        console.error('Unable to clear history', error);
+      }
+
+      if (cleared !== true) {
+        alert(this.tl('_unknown_error'));
+      }
     },
 
     exportVisitHistory() {
@@ -264,28 +276,55 @@ export default {
       this.exporting = true;
     },
 
-    importVisitHistoryData() {
-      if (this.importItems.length > 0) {
-        this.importing = true;
+    /**
+     * Sends the entries to the background in batches.
+     *
+     * @param {Array} items plain objects: Firefox can't clone a reactive proxy
+     * @returns {Promise<number>} how many entries were imported
+     */
+    async importHistoryItems(items) {
+      let imported = 0;
 
-        let items = [];
+      this.importing = true;
+      this.importCount = items.length;
+      this.importedCount = 0;
 
-        while (items.length < 100) {
-          if (!!this.importItems[0]) {
-            items.push(this.importItems[0]);
-            this.importItems.splice(0, 1);
-          } else {
-            break;
-          }
-        }
-
-        if (items.length > 0) {
-          this.visitHistoryPort.saveBatchHistories({
-            items
+      try {
+        for (let i = 0; i < items.length; i += IMPORT_BATCH_SIZE) {
+          let batch = items.slice(i, i + IMPORT_BATCH_SIZE);
+          let result = await browser.runtime.sendMessage({
+            to: 'ws',
+            action: 'history:importItems',
+            args: { items: batch }
           });
+
+          if (!result) {
+            throw new Error('The background did not answer history:importItems');
+          }
+
+          imported += result.imported;
+          this.importedCount += batch.length;
         }
-      } else {
+      } finally {
         this.importing = false;
+      }
+
+      return imported;
+    },
+
+    /**
+     * Imports a file, and tells the user when nothing in it was usable.
+     *
+     * @param {Array} items
+     */
+    async importAndReport(items) {
+      try {
+        if (await this.importHistoryItems(items) === 0) {
+          alert('Invalid import file');
+        }
+      } catch (error) {
+        console.error('Unable to import history', error);
+        alert(this.tl('_unknown_error'));
       }
     },
 
@@ -296,25 +335,21 @@ export default {
 
       let input = document.createElement('input')
       input.type = 'file'
-      input.addEventListener('change', (e) => {
-        const files = e.target.files
-        let fileReader = new FileReader()
+      input.addEventListener('change', async (e) => {
+        let items;
 
-        fileReader.addEventListener('load', () => {
-          try {
-            this.importItems = JSON.parse(fileReader.result);
-            this.importVisitHistoryData();
-          } catch (e) {
-            this.importing = false;
-            alert('Invalid import file');
-          }
-        });
+        try {
+          items = JSON.parse(await e.target.files[0].text());
+        } catch (error) {
+          items = null;
+        }
 
-        fileReader.addEventListener('abort', () => {
-          this.importing = false;
-        });
+        if (!Array.isArray(items)) {
+          alert('Invalid import file');
+          return;
+        }
 
-        fileReader.readAsText(files[0])
+        await this.importAndReport(items);
       })
 
       if (window.confirm(this.tl('_import_history_will_take_some_time_determine_by_how_many_history_need_to_be_imported_are_you_sure'))) {
@@ -322,13 +357,20 @@ export default {
       }
     },
 
-    recoveryHistory() {
+    async recoveryHistory() {
+      if (this.importing) {
+        return;
+      }
+
       if (!window.confirm(this.tl('_recovery_history_will_take_some_time_determine_by_how_many_history_need_to_be_recovery_are_you_sure'))) {
         return;
       }
 
-      this.importItems = this.browserItems.historyBackup;
-      this.importVisitHistoryData();
+      let backup = JSON.parse(JSON.stringify(this.browserItems.historyBackup || []));
+
+      if (backup.length > 0) {
+        await this.importAndReport(backup);
+      }
     }
   }
 };

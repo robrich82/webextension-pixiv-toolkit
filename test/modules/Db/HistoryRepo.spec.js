@@ -1,4 +1,4 @@
-import 'fake-indexeddb/auto';
+import '../../helpers/fakeIndexedDb';
 import Db from '@/modules/Db/Db';
 import HistoryRepo from '@/modules/Db/Repository/HistoryRepo';
 
@@ -97,5 +97,60 @@ describe('HistoryRepo (Dexie)', () => {
     await repo.saveItem(item(3, 300));
 
     expect(await repo.table.count()).toBe(3);
+  });
+  describe('importItems', () => {
+    test('adds new entries in visit order', async () => {
+      await repo.saveItem(item(1, 200));
+
+      await repo.importItems([item(2, 100), item(3, 300)]);
+
+      expect(uids(await repo.getItems({ page: 1 }))).toEqual(['pixiv_illust:3', 'pixiv_illust:1', 'pixiv_illust:2']);
+    });
+
+    test('merges into a stored entry, keeping its id and the later timestamps', async () => {
+      await repo.table.add(item(1, 300, { title: 'Stored', downloaded_at: 250 }));
+      let [stored] = await repo.getItems({ page: 1 });
+
+      await repo.importItems([item(1, 100, { title: 'Older import' })]);
+
+      let [merged] = await repo.getItems({ page: 1 });
+      expect(await repo.table.count()).toBe(1);
+      expect(merged).toMatchObject({ id: stored.id, title: 'Stored', visited_at: 300, downloaded_at: 250 });
+    });
+
+    test('a newer imported visit wins over the stored details', async () => {
+      await repo.table.add(item(1, 100, { title: 'Stored', downloaded_at: 100 }));
+
+      await repo.importItems([item(1, 400, { title: 'Renamed' })]);
+
+      let [merged] = await repo.getItems({ page: 1 });
+      expect(merged).toMatchObject({ title: 'Renamed', visited_at: 400, downloaded_at: 100 });
+    });
+
+    test('a newer import without a user name or cover keeps the stored ones', async () => {
+      await repo.table.add(item(1, 100, { userName: 'Stored artist', cover: 'stored.jpg' }));
+
+      await repo.importItems([item(1, 400, { userName: undefined, cover: '' })]);
+
+      let [merged] = await repo.getItems({ page: 1 });
+      expect(merged).toMatchObject({ userName: 'Stored artist', cover: 'stored.jpg', visited_at: 400 });
+    });
+
+    test('merges a work that appears twice in one import', async () => {
+      await repo.importItems([item(1, 100, { downloaded_at: 150 }), item(1, 200)]);
+
+      let items = await repo.getItems({ page: 1 });
+      expect(items).toHaveLength(1);
+      expect(items[0]).toMatchObject({ visited_at: 200, downloaded_at: 150 });
+    });
+
+    test('trims to the cap, dropping the oldest visits', async () => {
+      repo.setMax(2);
+      await repo.saveItem(item(1, 500));
+
+      await repo.importItems([item(2, 100), item(3, 400), item(4, 200)]);
+
+      expect(uids(await repo.getItems({ page: 1 }))).toEqual(['pixiv_illust:1', 'pixiv_illust:3']);
+    });
   });
 });

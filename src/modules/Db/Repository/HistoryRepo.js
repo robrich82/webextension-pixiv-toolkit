@@ -2,6 +2,37 @@ import Dexie from 'dexie';
 import AbstractRepo from './AbstractRepo';
 
 /**
+ * One entry from two records of the same work: the later visit's details
+ * where it has them, and the later of each timestamp. Keeps the stored
+ * record's `id`.
+ */
+function mergeEntries(a, b) {
+  let [older, newer] = (b.visited_at || 0) >= (a.visited_at || 0) ? [a, b] : [b, a];
+  let merged = Object.assign({}, older, { id: a.id ?? b.id });
+
+  Object.keys(newer).forEach(key => {
+    if (newer[key] !== undefined && newer[key] !== '') {
+      merged[key] = newer[key];
+    }
+  });
+  let downloaded_at = Math.max(a.downloaded_at || 0, b.downloaded_at || 0);
+
+  merged.visited_at = Math.max(a.visited_at || 0, b.visited_at || 0);
+
+  if (merged.id === undefined) {
+    delete merged.id;
+  }
+
+  if (downloaded_at) {
+    merged.downloaded_at = downloaded_at;
+  } else {
+    delete merged.downloaded_at;
+  }
+
+  return merged;
+}
+
+/**
  * @typedef ItemType
  * @property {string} uid
  * @property {string} title
@@ -93,6 +124,32 @@ class HistoryRepo extends AbstractRepo {
    */
   async trim() {
     await this.byLatestVisit().offset(this.max).delete();
+  }
+
+  /**
+   * Writes already-converted entries in one transaction. An entry whose work
+   * is already stored, or that appears twice, is merged rather than
+   * duplicated (`uid` is unique). Trims to the cap afterwards.
+   *
+   * @param {ItemType[]} items
+   */
+  async importItems(items) {
+    let byUid = new Map();
+
+    items.forEach(item => {
+      let seen = byUid.get(item.uid);
+      byUid.set(item.uid, seen ? mergeEntries(seen, item) : item);
+    });
+
+    await this.table.db.transaction('rw', this.table, async () => {
+      let stored = await this.table.where('uid').anyOf([...byUid.keys()]).toArray();
+
+      stored.forEach(entry => byUid.set(entry.uid, mergeEntries(entry, byUid.get(entry.uid))));
+
+      await this.table.bulkPut([...byUid.values()]);
+    });
+
+    await this.trim();
   }
 
   /**

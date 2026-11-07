@@ -80,7 +80,7 @@ class AbstractRepo {
   }
 
   clear() {
-    this.table.clear();
+    return this.table.clear();
   }
 }
 

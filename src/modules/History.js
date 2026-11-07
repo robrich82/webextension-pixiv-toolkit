@@ -40,8 +40,15 @@ class History {
     }
   }
 
+  /**
+   * @param {import('@/modules/Db/Repository/HistoryRepo').ItemType[]} items
+   */
+  async importItems(items) {
+    await this.historyRepo.importItems(items);
+  }
+
   clear() {
-    this.historyRepo.clear();
+    return this.historyRepo.clear();
   }
 }
 
