@@ -95,5 +95,7 @@ describe('HistoryService', () => {
     expect(await send('history:clear')).toBe(true);
 
     expect(await Db.getDb().historyRepo().table.count()).toBe(0);
+    // 6.4.7 migrated the v5 backup away; Clear must not write it back.
+    expect('historyBackup' in browser.storage.local.items).toBe(false);
   });
 });

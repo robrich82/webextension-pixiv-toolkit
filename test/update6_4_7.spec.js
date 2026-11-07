@@ -27,7 +27,7 @@ test.each(['ugoiraConvertTool', 'maxDownloadRecords'])('removes %s rather than b
   expect(key in browser.storage.local.items).toBe(false);
 });
 
-test.each(['ugoiraConvertTool', 'maxDownloadRecords'])('fresh installs no longer get %s', key => {
+test.each(['ugoiraConvertTool', 'maxDownloadRecords', 'historyBackup'])('fresh installs no longer get %s', key => {
   expect(defaultSettings).not.toHaveProperty(key);
 });
 
