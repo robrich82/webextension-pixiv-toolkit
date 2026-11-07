@@ -144,7 +144,7 @@
     <v-dialog
       v-model="importing"
       width="250"
-      persistent="true"
+      persistent
     >
       <v-card
         color="primary"
