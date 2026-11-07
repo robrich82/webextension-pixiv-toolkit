@@ -5,6 +5,7 @@ class IllustHistory {
   constructor(options = { max: 10000 }) {
     this.db = this.getDb();
     this.maxLimit = options.max;
+    this.queue = Promise.resolve();
     this.properties = ['id', 'title', 'userId', 'userName', 'type', 'r', 'images', 'viewed_at', 'isNovel', 'image'];
     this.init();
   }
@@ -65,29 +66,74 @@ class IllustHistory {
     return true
   }
 
+  /**
+   * Delete the oldest illusts beyond maxLimit. Runs after the put, so a
+   * revisit doesn't count as a new entry, and skips the `_design/` docs that
+   * allDocs() returns alongside the illusts. maxLimit can arrive as a string
+   * (the options page stores the raw field value); anything that isn't a positive integer means no cap.
+   */
+  async trim() {
+    let max = Number(this.maxLimit);
+
+    if (!Number.isInteger(max) || max <= 0) {
+      return;
+    }
+
+    let { rows } = await this.db.allDocs();
+    let excess = rows.filter(row => !row.id.startsWith('_design/')).length - max;
+
+    if (excess > 0) {
+      let docs = await this.getIllusts({ sort: [{ 'viewed_at': 'asc' }], limit: excess });
+      // allSettled, not all: the queue must not move on while removes are in flight.
+      let results = await Promise.allSettled(docs.map(doc => this.db.remove(doc)));
+      // 409: the illust was revisited or deleted after the lookup, so there is nothing to trim.
+      let failed = results.find(result => result.status === 'rejected' && result.reason?.status !== 409);
+
+      if (failed) {
+        throw failed.reason;
+      }
+    }
+  }
+
+  /**
+   * Trims run one at a time: two overlapping trims would each count the
+   * other's victims as still present and delete more than the excess.
+   */
+  queueTrim() {
+    return this.enqueue(() => this.trim())
+      .catch(error => console.error('Unable to trim illust history', error));
+  }
+
+  /**
+   * Runs task after everything already queued. A failed task doesn't stop the
+   * ones queued after it; the caller gets its rejection.
+   */
+  enqueue(task) {
+    let run = this.queue.then(task);
+    this.queue = run.catch(() => {});
+
+    return run;
+  }
+
   putIllust(data) {
+    return this.saveIllust(data).then(saved => {
+      if (saved) {
+        return this.queueTrim();
+      }
+    });
+  }
+
+  /**
+   * @returns {Promise<boolean>} whether the illust was written
+   */
+  saveIllust(data) {
     let self = this
 
     return new Promise(resolve => {
       if (!this.checkData(data)) {
-        resolve()
+        resolve(false)
         return
       }
-
-      this.db.allDocs().then(entries => {
-        if (entries.rows.length > this.maxLimit) {
-          let deleteLength = entries.rows.length - this.maxLimit;
-
-          this.getIllusts({
-            sort: [{ 'viewed_at': "asc" }],
-            limit: deleteLength
-          }).then(docs => {
-            docs.forEach(doc => {
-              this.db.remove(doc);
-            });
-          });
-        }
-      });
 
       if ((data.viewed_at + '').length > 10) {
         data.viewed_at = parseInt((data.viewed_at + '').substr(0, 10)) // viewed_at is index, should keep its type
@@ -111,20 +157,20 @@ class IllustHistory {
         let _doc = Object.assign(doc, dataDoc)
         self.db.put(_doc).then(() => {
           // console.log('update done')
-          resolve()
+          resolve(true)
         }).catch(e => {
           // console.log('update fail')
           // console.log(e)
-          resolve()
+          resolve(false)
         })
       }).catch(err => {
         self.db.put(dataDoc).then(() => {
           // console.log('create done')
-          resolve()
+          resolve(true)
         }).catch(e => {
           // console.log('create fail')
           // console.log(e)
-          resolve()
+          resolve(false)
         })
       })
     })
@@ -199,18 +245,12 @@ class IllustHistory {
     let _limit = option.limit
     let _skip = option.skip || 0
 
-    return new Promise(resolve => {
-      this.db.find({
-        selector: _selector,
-        sort: _sort,
-        limit: _limit,
-        skip: _skip
-      }).then(response => {
-        resolve(response.docs)
-      }).catch(err => {
-        resolve(err.docs)
-      })
-    })
+    return this.db.find({
+      selector: _selector,
+      sort: _sort,
+      limit: _limit,
+      skip: _skip
+    }).then(response => response.docs)
   }
 
   searchIllusts(option = {}) {
@@ -250,11 +290,15 @@ class IllustHistory {
     })
   }
 
+  /**
+   * Queued with the trims, so a trim never counts in one database and deletes
+   * from its replacement.
+   */
   clearData() {
-    return this.db.destroy().then(() => {
+    return this.enqueue(() => this.db.destroy().then(() => {
       this.db = this.getDb();
       return this.init();
-    });
+    }));
   }
 }
 
