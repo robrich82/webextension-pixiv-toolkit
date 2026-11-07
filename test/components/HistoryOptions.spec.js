@@ -26,6 +26,14 @@ describe('HistoryOptions', () => {
     expect(wrapper.text()).toContain('Enable_save_visit_history.message');
   });
 
+  test('the import progress dialog is persistent, as a boolean', () => {
+    const wrapper = mountOption(HistoryOptions, { browserItems });
+    const dialog = wrapper.findAllComponents({ name: 'VDialog' })
+      .find(d => String(d.props('width')) === '250');
+
+    expect(dialog.props('persistent')).toBe(true);
+  });
+
   test('adopts every stored value before mount', () => {
     const wrapper = shallowMountOption(HistoryOptions, { browserItems });
 
