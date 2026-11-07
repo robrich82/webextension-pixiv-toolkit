@@ -152,6 +152,13 @@ default, so `src/repositories` specs run against a real database without
 touching disk. memdown keeps one store per database name for the whole spec
 file, so destroy the database in `afterEach`.
 
+## Dexie repositories
+
+Specs for `src/modules/Db` import `fake-indexeddb/auto` before anything that
+loads Dexie, so they run against a real in-memory IndexedDB. `Db` and each repo
+are singletons: clear `Db.instance` and the repo's `instance` in `beforeEach`,
+and call `Db.getDb().database.delete()` in `afterEach`.
+
 ## DOM code, without jsdom
 
 Everything runs under the `node` test environment. `CopyStr`, the one module
