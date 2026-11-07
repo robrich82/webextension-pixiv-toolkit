@@ -8,8 +8,6 @@ import updates from './updates';
 import updateSettings from '@/config/update';
 import versionCompare from '@/modules/Util/versionCompare';
 import AbstractPortService from './services/AbstractPortService';
-import IllustHistoryPort from '@/modules/Ports/IllustHistoryPort/IllustHistoryPort';
-import IllustHistoryBackgroundPort from '@/modules/Ports/IllustHistoryPort/BackgroundPort';
 
 class Application {
   /**
@@ -104,11 +102,6 @@ class Application {
    * @param {object} port
    */
   onConnect(port) {
-    if (port.name === IllustHistoryPort.portName) {
-      IllustHistoryBackgroundPort.getInstance(port);
-      return;
-    }
-
     if (port.name && port.name.indexOf(':') < 0) {
       let portService = this.getService(port.name);
 
