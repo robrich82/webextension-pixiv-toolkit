@@ -124,17 +124,8 @@ pinned so it survives a default flip.
 
 **`trustPolicy: no-downgrade`** — fail the install when a package's trust level
 drops relative to earlier releases, which is what a maintainer takeover tends to
-look like. One exclusion is needed, and it is a false positive rather than a
-waived risk:
-
-- **`semver@6.3.1`** (2023-07-10) is a maintenance backport to the v6 line,
-  published three days after `semver@7.5.4` (2023-07-07) — which *does* carry a
-  SLSA provenance attestation. Trust level is judged by publish date, not by
-  semver line, so the older major reads as a regression from the newer one. Same
-  repository (npm's own node-semver), same maintainers, and it reaches this
-  project only through the Babel toolchain, which is build-time only. The
-  exclusion pins the exact version, so a genuinely regressed semver 6.x would
-  still fail.
+look like. There are no exclusions; add one only for a confirmed false positive,
+pinned to the exact version.
 
 `namedRegistries` is not used: everything here comes from the public npm
 registry, so there is nothing to pin to a *different* one, and the setting is
@@ -303,9 +294,12 @@ the layout doing its job: the fix is to declare the dependency, not to loosen
 
 ## CI
 
-`.github/workflows/ci.yml` is the only pipeline, running on every pull request
+`.github/workflows/ci.yml` is the main pipeline, running on every pull request
 and on pushes to `main`. It needs no third-party signup, so it covers forks
 too, and it is what puts a status check on a PR and backs the readme badge.
+`.github/workflows/renovate-config.yml` runs only when `renovate.json` (or the
+workflow itself) changes, and validates the config with the digest-pinned
+Renovate image.
 
 `jdx/mise-action` installs Node and pnpm exactly as local mise does, so CI runs
 the same versions as local development. The pnpm store is cached with
