@@ -137,19 +137,21 @@ checks what the stub was told to say.
 `jest-webextension-mock` gets further — its storage is genuinely stateful and
 `sendMessage` is routed — but the three things this codebase leans on hardest
 are the ones it does not do. `SettingService` mirrors settings into the
-application through a live `onChanged` listener; `AbstractPortService` and
-`IllustHistoryPort` need a connected port pair; and `SettingService` passes
+application through a live `onChanged` listener; `AbstractPortService` needs
+a connected port pair; and `SettingService` passes
 callbacks where `DownloadService` awaits the same kind of call, so both
 conventions have to work on one call. Adding those on top means re-implementing
 most of this file anyway, over a storage implementation we would then be half
 overriding — so the fake is hand-rolled and adds no dependency.
 
-## PouchDB repositories
+## PouchDB
 
-`moduleNameMapper` maps `pouchdb` to `test/doubles/pouchdb.js`: the same browser
-bundle production loads, with `pouchdb-find` registered and the `pouchdb-adapter-memory` adapter as the
-default, so `src/repositories` specs run against a real database without
-touching disk. memdown keeps one store per database name for the whole spec
+PouchDB is only left to read the v5 visit history once, in
+`src/background/modules/migrateIllustHistory.js`. `moduleNameMapper` maps
+`pouchdb` to `test/doubles/pouchdb.js`: the same browser bundle production
+loads, with `pouchdb-find` registered and the `pouchdb-adapter-memory` adapter
+as the default, so that spec runs against a real database without touching
+disk. memdown keeps one store per database name for the whole spec
 file, so destroy the database in `afterEach`.
 
 ## Dexie repositories

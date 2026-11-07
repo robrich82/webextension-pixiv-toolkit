@@ -8,10 +8,6 @@ import HistoryService from '@/background/services/HistoryService';
 import Db from '@/modules/Db/Db';
 import HistoryRepo from '@/modules/Db/Repository/HistoryRepo';
 
-// The background Application imports the PouchDB illust history port, and
-// PouchDB's bundle needs a `fetch` that jsdom lacks. Nothing here uses it.
-jest.mock('@/modules/Ports/IllustHistoryPort/BackgroundPort', () => ({ __esModule: true, default: {} }));
-
 const browserItems = {
   enableSaveVisitHistory: true,
   enableSaveDownloadHistory: 2,
