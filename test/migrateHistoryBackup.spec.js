@@ -1,6 +1,6 @@
 /**
- * The 6.4.7 update's handling of the v5 `historyBackup` setting: imported into
- * the History page only when the v5 PouchDB store gave nothing, then removed.
+ * The 6.4.7 update's move of the v5 `historyBackup` setting into the Dexie
+ * table the History page reads.
  * Runs the real update against the fake storage, the in-memory PouchDB and
  * Dexie.
  */
@@ -43,7 +43,7 @@ describe('the 6.4.7 historyBackup migration', () => {
     jest.restoreAllMocks();
   });
 
-  test('without a PouchDB store, imports the backup into the History page and removes the setting', async () => {
+  test('imports the backup into the History page, then removes the setting', async () => {
     await browser.storage.local.set({ historyBackup: [v5(1, 100), v5(2, 300)], language: 'ja' });
 
     await update6_4_7();
@@ -52,32 +52,14 @@ describe('the 6.4.7 historyBackup migration', () => {
     expect(await browser.storage.local.get(null)).toEqual({ language: 'ja' });
   });
 
-  test('with a PouchDB store, removes the backup without importing it, so entries deleted in v5 stay deleted', async () => {
-    // v5's single-entry delete removed the doc from PouchDB but never from the backup.
-    await new PouchDB('illust_histories').bulkDocs([{ _id: '1', ...v5(1, 100) }]);
+  test('imports alongside the PouchDB store, one entry per work with the latest visit', async () => {
+    await new PouchDB('illust_histories').bulkDocs([{ _id: '1', ...v5(1, 400) }, { _id: '3', ...v5(3, 200) }]);
     await browser.storage.local.set({ historyBackup: [v5(1, 100), v5(2, 300)] });
 
     await update6_4_7();
 
-    expect(await storedUids()).toEqual(['pixiv_illust:1']);
+    expect(await storedUids()).toEqual(['pixiv_illust:1', 'pixiv_illust:2', 'pixiv_illust:3']);
     expect('historyBackup' in browser.storage.local.items).toBe(false);
-  });
-
-  test('when the PouchDB move fails, falls back to the backup', async () => {
-    await browser.storage.local.set({ historyBackup: [v5(1, 100)] });
-
-    await migrateHistoryBackup(app.getService('setting'), app.getService('history'), null);
-
-    expect(await storedUids()).toEqual(['pixiv_illust:1']);
-    expect('historyBackup' in browser.storage.local.items).toBe(false);
-  });
-
-  test('falls back to the backup when no PouchDB entry was usable', async () => {
-    await browser.storage.local.set({ historyBackup: [v5(1, 100)] });
-
-    await migrateHistoryBackup(app.getService('setting'), app.getService('history'), { imported: 0, skipped: 3 });
-
-    expect(await storedUids()).toEqual(['pixiv_illust:1']);
   });
 
   test('merges with history the user already has', async () => {
@@ -123,7 +105,7 @@ describe('the 6.4.7 historyBackup migration', () => {
     const error = jest.spyOn(console, 'error').mockImplementation(() => {});
     await browser.storage.local.set({ historyBackup: [v5(1, 100)] });
 
-    await migrateHistoryBackup(app.getService('setting'), history, { imported: 0, skipped: 0 });
+    await migrateHistoryBackup(app.getService('setting'), history);
 
     expect(browser.storage.local.items.historyBackup).toEqual([v5(1, 100)]);
     expect(error).toHaveBeenCalledWith(expect.stringContaining('history backup'), expect.any(Error));

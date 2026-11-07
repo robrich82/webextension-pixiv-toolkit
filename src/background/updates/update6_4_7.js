@@ -13,17 +13,15 @@ import migrateHistoryBackup from "../modules/migrateHistoryBackup";
  *   stopped using in 6.0.0.
  *
  * Also moves the v5 visit history into the History page's Dexie table, from
- * the PouchDB store and then, as a fallback, from the `historyBackup` setting
- * (see migrateIllustHistory and migrateHistoryBackup). On an install that
- * never had v5 history both are empty, so they import nothing.
+ * the PouchDB store and the `historyBackup` setting (see migrateIllustHistory
+ * and migrateHistoryBackup). On an install that never had v5 history both
+ * are empty, so they import nothing.
  */
 export default async () => {
   await app().getService('setting').removeSettings(['ugoiraConvertTool', 'maxDownloadRecords']);
 
-  const history = app().getService('history');
-  const illustHistory = await migrateIllustHistory(history);
-
-  await migrateHistoryBackup(app().getService('setting'), history, illustHistory);
+  await migrateIllustHistory(app().getService('history'));
+  await migrateHistoryBackup(app().getService('setting'), app().getService('history'));
 
   console.log(`update patched, target: 6.4.7`);
 }
