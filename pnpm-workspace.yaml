@@ -51,17 +51,6 @@ blockExoticSubdeps: true
 # releases (a maintainer losing 2FA, a publish from an unattested source).
 trustPolicy: no-downgrade
 
-# One exclusion, and it is a false positive rather than a waived risk.
-# `semver@6.3.1` (2023-07-10) is a maintenance backport to the v6 line, published
-# three days after `semver@7.5.4` (2023-07-07) -- which *does* carry a SLSA
-# provenance attestation. Trust level is judged by publish date, not by semver
-# line, so the older major looks like a regression from the newer one. Same
-# repository (npm's own node-semver), same maintainers, and it reaches us only
-# through the Babel toolchain, which is build-time-only. Pinned to the exact
-# version so a genuinely regressed semver 6.x would still fail the install.
-trustPolicyExclude:
-  - 'semver@6.3.1'
-
 # Advisories `pnpm audit` should not report. Each entry needs a reason, and
 # comes out once a fixed version exists.
 #
