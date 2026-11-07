@@ -1,6 +1,16 @@
+import '../helpers/fakeIndexedDb';
+import { flushPromises } from '@vue/test-utils';
 import browser from '../doubles/browser';
 import { mountOption, shallowMountOption } from '../helpers/mountOptionComponent';
 import HistoryOptions from '@/options_page/components/options/HistoryOptions.vue';
+import Application from '@/background/Application';
+import HistoryService from '@/background/services/HistoryService';
+import Db from '@/modules/Db/Db';
+import HistoryRepo from '@/modules/Db/Repository/HistoryRepo';
+
+// The background Application imports the PouchDB illust history port, and
+// PouchDB's bundle needs a `fetch` that jsdom lacks. Nothing here uses it.
+jest.mock('@/modules/Ports/IllustHistoryPort/BackgroundPort', () => ({ __esModule: true, default: {} }));
 
 const browserItems = {
   enableSaveVisitHistory: true,
@@ -47,13 +57,19 @@ describe('HistoryOptions', () => {
     expect(withoutBackup.vm.historyBackupCount).toBe(0);
   });
 
-  test('importProgress reports the percentage of items already consumed', () => {
+  test('importProgress reports the percentage of entries already sent', () => {
     const wrapper = shallowMountOption(HistoryOptions, { browserItems });
 
     wrapper.vm.importCount = 100;
-    wrapper.vm.importItems = new Array(25);
+    wrapper.vm.importedCount = 75;
 
     expect(wrapper.vm.importProgress).toBe(75);
+  });
+
+  test('importProgress is 0 before an import has a size', () => {
+    const wrapper = shallowMountOption(HistoryOptions, { browserItems });
+
+    expect(wrapper.vm.importProgress).toBe(0);
   });
 
   test.each([
@@ -120,78 +136,199 @@ describe('HistoryOptions', () => {
     });
   });
 
-  describe('importVisitHistoryData', () => {
-    test('feeds the port up to 100 items at a time and drains the queue', () => {
-      const saveBatchHistories = jest.fn();
-      const wrapper = shallowMountOption(HistoryOptions, { browserItems });
-      wrapper.vm.visitHistoryPort = { saveBatchHistories };
-      wrapper.vm.importItems = new Array(120).fill(0).map((_, i) => ({ id: i }));
+  /**
+   * These go all the way through: the component's runtime.sendMessage reaches
+   * the real background Application and HistoryService, which write to Dexie
+   * on fake-indexeddb.
+   */
+  describe('against the background history service', () => {
+    const entry = (id, visited_at) => ({
+      uid: `pixiv_illust:${id}`, title: `Work ${id}`, url: `https://www.pixiv.net/artworks/${id}`,
+      cover: '', type: 'pixiv_illust', r: false, visited_at
+    });
+    const legacy = (id, viewed_at) => ({
+      id: String(id), title: `Old ${id}`, type: 0, r: false, images: { thumb: '' }, viewed_at
+    });
+    const storedUids = async () =>
+      (await Db.getDb().historyRepo().getItems({ page: 1, count: 2000 })).map(i => i.uid);
 
-      wrapper.vm.importVisitHistoryData();
+    // Captures the file input importVisitHistory creates; the returned
+    // function "picks" a file with `contents` and waits for the import.
+    const chooseFile = contents => {
+      let input;
+      const createElement = document.createElement.bind(document);
 
-      expect(wrapper.vm.importing).toBe(true);
-      expect(wrapper.vm.importItems).toHaveLength(20);
-      expect(saveBatchHistories).toHaveBeenCalledWith({ items: expect.arrayContaining([{ id: 0 }]) });
-      expect(saveBatchHistories.mock.calls[0][0].items).toHaveLength(100);
+      jest.spyOn(document, 'createElement').mockImplementation(tag => {
+        const element = createElement(tag);
+
+        if (tag === 'input') {
+          input = element;
+          element.click = jest.fn();
+        }
+
+        return element;
+      });
+
+      return {
+        input: () => input,
+        pick: async () => {
+          Object.defineProperty(input, 'files', { value: [{ text: async () => contents }] });
+          input.dispatchEvent(new Event('change'));
+          await flushPromises();
+          // Each batch's reply only comes once the background has written it.
+          await Promise.all(browser.runtime.sendMessage.mock.results.map(result => result.value));
+          await flushPromises();
+        }
+      };
+    };
+
+    beforeEach(() => {
+      Application.instance = undefined;
+      HistoryService.instance = undefined;
+      Db.instance = undefined;
+      HistoryRepo.instance = undefined;
+
+      const app = Application.createApp();
+      browser.runtime.onMessage.addListener((message, sender, sendResponse) => app.onMessage(message, sender, sendResponse));
+
+      window.confirm = jest.fn(() => true);
+      window.alert = jest.fn();
     });
 
-    test('stops importing once the queue is empty', () => {
+    afterEach(async () => {
+      delete window.alert;
+      jest.restoreAllMocks();
+      await Db.getDb().database.delete();
+    });
+
+    test('Import adds the chosen file to the history the History page reads', async () => {
       const wrapper = shallowMountOption(HistoryOptions, { browserItems });
-      wrapper.vm.importing = true;
-      wrapper.vm.importItems = [];
+      const file = chooseFile(JSON.stringify([entry(1, 100), legacy(2, 200)]));
 
-      wrapper.vm.importVisitHistoryData();
+      wrapper.vm.importVisitHistory();
+      await file.pick();
 
+      expect(await storedUids()).toEqual(['pixiv_illust:2', 'pixiv_illust:1']);
+      expect(wrapper.vm.importing).toBe(false);
+      expect(window.alert).not.toHaveBeenCalled();
+    });
+
+    test('Import sends a large file in batches and reports progress', async () => {
+      const wrapper = shallowMountOption(HistoryOptions, { browserItems });
+      const items = Array.from({ length: 1200 }, (_, i) => entry(i + 1, i + 1));
+      const sendMessage = browser.runtime.sendMessage;
+
+      await wrapper.vm.importHistoryItems(items);
+
+      expect(sendMessage.mock.calls.map(([message]) => message.args.items.length)).toEqual([500, 500, 200]);
+      expect(wrapper.vm.importedCount).toBe(1200);
+      expect(wrapper.vm.importProgress).toBe(100);
+      expect(await Db.getDb().historyRepo().table.count()).toBe(1200);
+    });
+
+    test.each([
+      ['not JSON', '{oops'],
+      ['not a list', '{"uid":"pixiv_illust:1"}'],
+      ['a list with no history entries', '[{"title":"x"}]']
+    ])('Import of a file that is %s says the file is invalid', async (_, contents) => {
+      const wrapper = shallowMountOption(HistoryOptions, { browserItems });
+      const file = chooseFile(contents);
+
+      wrapper.vm.importVisitHistory();
+      await file.pick();
+
+      expect(window.alert).toHaveBeenCalledWith('Invalid import file');
+      expect(await storedUids()).toEqual([]);
       expect(wrapper.vm.importing).toBe(false);
     });
-  });
 
-  test('recoveryHistory loads the stored backup and starts importing it, after confirming', () => {
-    const saveBatchHistories = jest.fn();
-    window.confirm = jest.fn(() => true);
-    // importVisitHistoryData drains this.importItems in place, and
-    // recoveryHistory points it straight at browserItems.historyBackup, so
-    // this test gets its own backup array rather than mutating the shared one.
-    const backup = [{ id: 1 }, { id: 2 }];
-    const wrapper = shallowMountOption(HistoryOptions, {
-      browserItems: { ...browserItems, historyBackup: backup }
-    });
-    wrapper.vm.visitHistoryPort = { saveBatchHistories };
-
-    wrapper.vm.recoveryHistory();
-
-    expect(window.confirm).toHaveBeenCalled();
-    expect(saveBatchHistories).toHaveBeenCalledWith({ items: [{ id: 1 }, { id: 2 }] });
-  });
-
-  test('recoveryHistory does nothing without confirmation', () => {
-    window.confirm = jest.fn(() => false);
-    const wrapper = shallowMountOption(HistoryOptions, { browserItems });
-
-    wrapper.vm.recoveryHistory();
-
-    expect(wrapper.vm.importing).toBe(false);
-    expect(wrapper.vm.importItems).toEqual([]);
-  });
-
-  describe('clearHistory', () => {
-    test('is wired to a real port instance on mount', () => {
+    test('Import does not open the file picker without confirmation', () => {
+      window.confirm = jest.fn(() => false);
       const wrapper = shallowMountOption(HistoryOptions, { browserItems });
+      const file = chooseFile('[]');
 
-      expect(wrapper.vm.visitHistoryPort).toBeTruthy();
-      expect(typeof wrapper.vm.visitHistoryPort.clearHistory).toBe('function');
+      wrapper.vm.importVisitHistory();
+
+      expect(file.input().click).not.toHaveBeenCalled();
     });
 
-    test('clears the history through the port and closes the dialog', () => {
-      const clearHistory = jest.fn();
+    test('a background that does not answer ends the import with an error', async () => {
       const wrapper = shallowMountOption(HistoryOptions, { browserItems });
-      wrapper.vm.visitHistoryPort = { clearHistory };
+      browser.runtime.sendMessage.mockResolvedValueOnce(undefined);
+      jest.spyOn(console, 'error').mockImplementation(() => {});
+
+      await wrapper.vm.importAndReport([entry(1, 100)]);
+
+      expect(window.alert).toHaveBeenCalledWith('_unknown_error.message');
+      expect(wrapper.vm.importing).toBe(false);
+    });
+
+    test('Recover imports the v5 history backup', async () => {
+      const wrapper = shallowMountOption(HistoryOptions, {
+        browserItems: { ...browserItems, historyBackup: [legacy(1, 100), legacy(2, 300)] }
+      });
+
+      await wrapper.vm.recoveryHistory();
+
+      expect(await storedUids()).toEqual(['pixiv_illust:2', 'pixiv_illust:1']);
+    });
+
+    test('Recover does nothing without confirmation', async () => {
+      window.confirm = jest.fn(() => false);
+      const wrapper = shallowMountOption(HistoryOptions, {
+        browserItems: { ...browserItems, historyBackup: [legacy(1, 100)] }
+      });
+
+      await wrapper.vm.recoveryHistory();
+
+      expect(wrapper.vm.importing).toBe(false);
+      expect(await storedUids()).toEqual([]);
+    });
+
+    test('Recover with no backup does nothing', async () => {
+      const sendMessage = browser.runtime.sendMessage;
+      const wrapper = shallowMountOption(HistoryOptions, {
+        browserItems: { ...browserItems, historyBackup: [] }
+      });
+
+      await wrapper.vm.recoveryHistory();
+
+      expect(sendMessage).not.toHaveBeenCalled();
+      expect(window.alert).not.toHaveBeenCalled();
+    });
+
+    test('Recover still works after Export has been clicked', async () => {
+      const wrapper = shallowMountOption(HistoryOptions, {
+        browserItems: { ...browserItems, historyBackup: [legacy(1, 100)] }
+      });
+      wrapper.vm.exporting = true;
+
+      await wrapper.vm.recoveryHistory();
+
+      expect(await storedUids()).toEqual(['pixiv_illust:1']);
+    });
+
+    test('a Clear the background fails says so', async () => {
+      browser.runtime.sendMessage.mockResolvedValueOnce(undefined);
+      const wrapper = shallowMountOption(HistoryOptions, { browserItems });
+
+      await wrapper.vm.clearHistory();
+
+      expect(window.alert).toHaveBeenCalledWith('_unknown_error.message');
+    });
+
+    test('Clear empties the history the History page reads, and the backup', async () => {
+      await browser.storage.local.set({ historyBackup: [legacy(9, 100)] });
+      await Db.getDb().historyRepo().importItems([entry(1, 100), entry(2, 200)]);
+      const wrapper = shallowMountOption(HistoryOptions, { browserItems });
       wrapper.vm.confirmDialog = true;
 
-      wrapper.vm.clearHistory();
+      await wrapper.vm.clearHistory();
 
-      expect(clearHistory).toHaveBeenCalled();
+      expect(await storedUids()).toEqual([]);
+      expect(browser.storage.local.items.historyBackup).toEqual([]);
       expect(wrapper.vm.confirmDialog).toBe(false);
+      expect(window.alert).not.toHaveBeenCalled();
     });
   });
 });

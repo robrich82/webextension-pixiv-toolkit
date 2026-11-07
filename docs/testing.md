@@ -154,8 +154,9 @@ file, so destroy the database in `afterEach`.
 
 ## Dexie repositories
 
-Specs for `src/modules/Db` import `fake-indexeddb/auto` before anything that
-loads Dexie, so they run against a real in-memory IndexedDB. `Db` and each repo
+Specs that touch Dexie import `test/helpers/fakeIndexedDb.js` before anything
+that loads it, so they run against a real in-memory IndexedDB. The helper also
+gives jsdom the `structuredClone` that fake-indexeddb needs. `Db` and each repo
 are singletons: clear `Db.instance` and the repo's `instance` in `beforeEach`,
 and call `Db.getDb().database.delete()` in `afterEach`.
 
