@@ -127,6 +127,16 @@ class HistoryRepo extends AbstractRepo {
   }
 
   /**
+   * Every entry, newest visit first, without the database id, in the shape
+   * importItems reads back.
+   *
+   * @returns {Promise<ItemType[]>}
+   */
+  async exportItems() {
+    return (await this.byLatestVisit().toArray()).map(({ id, ...item }) => item);
+  }
+
+  /**
    * Writes already-converted entries in one transaction. An entry whose work
    * is already stored, or that appears twice, is merged rather than
    * duplicated (`uid` is unique). Trims to the cap afterwards.

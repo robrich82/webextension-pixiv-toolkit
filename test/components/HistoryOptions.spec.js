@@ -117,23 +117,13 @@ describe('HistoryOptions', () => {
     expect(wrapper.vm.maxHistoryItems).toBe(10000);
   });
 
-  describe('exportVisitHistory', () => {
-    test('starts an export when idle', () => {
-      const wrapper = shallowMountOption(HistoryOptions, { browserItems });
+  test('exportVisitHistory is a no-op while importing', async () => {
+    const wrapper = shallowMountOption(HistoryOptions, { browserItems });
+    wrapper.vm.importing = true;
 
-      wrapper.vm.exportVisitHistory();
+    await wrapper.vm.exportVisitHistory();
 
-      expect(wrapper.vm.exporting).toBe(true);
-    });
-
-    test('is a no-op while already exporting or importing', () => {
-      const wrapper = shallowMountOption(HistoryOptions, { browserItems });
-      wrapper.vm.importing = true;
-
-      wrapper.vm.exportVisitHistory();
-
-      expect(wrapper.vm.exporting).toBe(false);
-    });
+    expect(wrapper.vm.exporting).toBe(false);
   });
 
   /**
@@ -315,6 +305,71 @@ describe('HistoryOptions', () => {
       await wrapper.vm.clearHistory();
 
       expect(window.alert).toHaveBeenCalledWith('_unknown_error.message');
+    });
+
+    describe('Export', () => {
+      // Captures what the download is made from, and stops the click navigating.
+      const captureDownload = () => {
+        const download = {};
+
+        jest.spyOn(global, 'Blob').mockImplementation(function (parts, options) {
+          download.contents = parts.join('');
+          download.type = options.type;
+        });
+        URL.createObjectURL = jest.fn(() => 'blob:history');
+        jest.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function () {
+          download.href = this.href;
+          download.filename = this.download;
+        });
+
+        return download;
+      };
+
+      afterEach(() => {
+        delete URL.createObjectURL;
+      });
+
+      test('downloads every entry, newest visit first, without database ids', async () => {
+        await Db.getDb().historyRepo().importItems([entry(1, 100), entry(2, 300), entry(3, 200)]);
+        const download = captureDownload();
+        const wrapper = shallowMountOption(HistoryOptions, { browserItems });
+
+        await wrapper.vm.exportVisitHistory();
+
+        const exported = JSON.parse(download.contents);
+        expect(exported.map(item => item.uid)).toEqual(['pixiv_illust:2', 'pixiv_illust:3', 'pixiv_illust:1']);
+        expect(exported[0]).toEqual(entry(2, 300));
+        expect(download.type).toBe('application/json');
+        expect(download.href).toBe('blob:history');
+        expect(download.filename).toMatch(/^pixiv_toolkit_history-\d+\.json$/);
+        expect(wrapper.vm.exporting).toBe(false);
+      });
+
+      test('an exported file imports back to the same history', async () => {
+        await Db.getDb().historyRepo().importItems([entry(1, 100), { ...entry(2, 300), downloaded_at: 250, r: true }]);
+        const before = await Db.getDb().historyRepo().exportItems();
+        const download = captureDownload();
+        const wrapper = shallowMountOption(HistoryOptions, { browserItems });
+
+        await wrapper.vm.exportVisitHistory();
+        await Db.getDb().historyRepo().clear();
+        const file = chooseFile(download.contents);
+        wrapper.vm.importVisitHistory();
+        await file.pick();
+
+        expect(await Db.getDb().historyRepo().exportItems()).toEqual(before);
+      });
+
+      test('a failed export says so and lets Import run again', async () => {
+        jest.spyOn(Db.getDb().historyRepo(), 'exportItems').mockRejectedValue(new Error('closed'));
+        jest.spyOn(console, 'error').mockImplementation(() => {});
+        const wrapper = shallowMountOption(HistoryOptions, { browserItems });
+
+        await wrapper.vm.exportVisitHistory();
+
+        expect(window.alert).toHaveBeenCalledWith('_unknown_error.message');
+        expect(wrapper.vm.exporting).toBe(false);
+      });
     });
 
     test('Clear empties the history the History page reads, and the backup', async () => {

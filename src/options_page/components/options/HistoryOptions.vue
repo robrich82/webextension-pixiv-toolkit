@@ -166,6 +166,7 @@
 
 <script>
 import browser from '@/modules/Extension/browser';
+import Db from '@/modules/Db/Db';
 
 /**
  * Entries per `history:importItems` message, so the progress bar moves and no
@@ -268,12 +269,32 @@ export default {
       }
     },
 
-    exportVisitHistory() {
+    /**
+     * Saves the History page's entries as a file that Import reads back.
+     */
+    async exportVisitHistory() {
       if (this.exporting || this.importing) {
         return
       }
 
       this.exporting = true;
+
+      try {
+        let items = await Db.getDb().historyRepo().exportItems();
+        let blob = new Blob([JSON.stringify(items)], { type: 'application/json' });
+        let a = document.createElement('a');
+
+        a.href = URL.createObjectURL(blob);
+        a.download = 'pixiv_toolkit_history-' + Date.now() + '.json';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      } catch (error) {
+        console.error('Unable to export history', error);
+        alert(this.tl('_unknown_error'));
+      } finally {
+        this.exporting = false;
+      }
     },
 
     /**
