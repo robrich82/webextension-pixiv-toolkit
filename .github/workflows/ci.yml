@@ -22,7 +22,7 @@ jobs:
       # No separate check against `engines`: pnpm enforces the root project's
       # `engines` on every install, so an out-of-range pin fails the install.
       # The default key ignores package.json, so it would miss a pnpm bump.
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         with:
           version: 2026.11.1
           cache_key: "{{default}}-${{ hashFiles('package.json') }}"
