@@ -72,6 +72,14 @@ describe('the 6.4.7 historyBackup migration', () => {
     expect('historyBackup' in browser.storage.local.items).toBe(false);
   });
 
+  test('falls back to the backup when no PouchDB entry was usable', async () => {
+    await browser.storage.local.set({ historyBackup: [v5(1, 100)] });
+
+    await migrateHistoryBackup(app.getService('setting'), app.getService('history'), { imported: 0, skipped: 3 });
+
+    expect(await storedUids()).toEqual(['pixiv_illust:1']);
+  });
+
   test('merges with history the user already has', async () => {
     await Db.getDb().historyRepo().importItems([
       { uid: 'pixiv_illust:1', title: 'New 1', url: 'https://www.pixiv.net/artworks/1', cover: '', type: 'pixiv_illust', visited_at: 500 }

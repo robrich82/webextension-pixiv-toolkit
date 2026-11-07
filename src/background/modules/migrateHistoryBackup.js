@@ -2,8 +2,11 @@
  * Removes the v5 `historyBackup` setting. Its entries are imported into the
  * History page first, but only when the v5 PouchDB store gave nothing: v5 kept
  * the backup in case that store was lost. When the store was there, the backup
- * holds little else but entries the user deleted, because v5's single-entry
- * delete never reached it.
+ * has nothing the store lacks except entries the user deleted, because v5's
+ * single-entry delete never reached it. That rule misjudges two rare cases: a
+ * store the user emptied one entry at a time (the deleted entries come back),
+ * and a store that was lost and then refilled (the backup's older entries are
+ * dropped).
  *
  * If the import fails, the key is kept. Nothing reads it any more, so that
  * only leaves the entries in the settings export for recovery by hand.
