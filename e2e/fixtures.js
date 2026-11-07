@@ -120,6 +120,14 @@ const test = base.extend({
       await context.waitForEvent('serviceworker', isExtensionWorker);
     }
 
+    // The fresh install writes the default settings asynchronously (stamping
+    // `version`). A page opened before then misses them, and they can land on
+    // top of settings a test seeds (#241).
+    const worker = context.serviceWorkers().find(isExtensionWorker);
+    await expect.poll(() => worker.evaluate(() =>
+      chrome.storage.local.get('version').then(items => items.version)
+    ), { message: 'the install never wrote the default settings' }).toBeTruthy();
+
     await use(context);
     await context.close();
   },
