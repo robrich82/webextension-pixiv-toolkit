@@ -126,11 +126,6 @@ export default Object.assign({}, {
     downloadTasksWhenDownloadingImages: 3,
 
     /**
-     * @since 4.1
-     */
-    historyBackup: [],
-
-    /**
      * @since 4.2
      */
     animationJsonFormat: 1,

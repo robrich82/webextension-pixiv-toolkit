@@ -51,16 +51,16 @@ describe('OtherOptions', () => {
     const clickSpy = jest.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
 
     const wrapper = shallowMountOption(OtherOptions, {
-      browserItems: { language: 'en', historyBackup: [{ id: 1 }] }
+      browserItems: { language: 'en' }
     });
 
-    wrapper.vm.exportSettings({});
+    wrapper.vm.exportSettings();
 
     expect(URL.createObjectURL).toHaveBeenCalledWith(expect.any(Blob));
     expect(clickSpy).toHaveBeenCalled();
   });
 
-  test('exportSettings() excludes historyBackup when asked', () => {
+  test('exportSettings() writes the current settings as they are', () => {
     URL.createObjectURL = jest.fn();
     const captured = [];
     jest.spyOn(global, 'Blob').mockImplementation(function (parts) {
@@ -69,12 +69,12 @@ describe('OtherOptions', () => {
     jest.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
 
     const wrapper = shallowMountOption(OtherOptions, {
-      browserItems: { language: 'en', historyBackup: [{ id: 1 }] }
+      browserItems: { language: 'en', maxHistoryItems: 5000 }
     });
 
-    wrapper.vm.exportSettings({ excludeHistoryBackup: true });
+    wrapper.vm.exportSettings();
 
-    expect(captured[0]).toEqual({ language: 'en' });
+    expect(captured[0]).toEqual({ language: 'en', maxHistoryItems: 5000 });
   });
 
   // jsdom logs a "Not implemented: navigation" console.error for the
@@ -94,7 +94,9 @@ describe('OtherOptions', () => {
           language: 'ja',
           maxHistoryItems: 5000,
           enablePtkSearch: false,
-          notInDefaults: 'ignored'
+          notInDefaults: 'ignored',
+          // a settings file exported before 6.4.7
+          historyBackup: [{ id: 1 }]
         });
         loadListener();
       }
@@ -111,7 +113,7 @@ describe('OtherOptions', () => {
 
     const wrapper = shallowMountOption(OtherOptions);
 
-    wrapper.vm.importSettings({});
+    wrapper.vm.importSettings();
 
     expect(HTMLInputElement.prototype.click).toHaveBeenCalled();
 
@@ -122,6 +124,7 @@ describe('OtherOptions', () => {
     expect(defaultSettings.maxHistoryItems).toBe(5000);
     expect(defaultSettings.enablePtkSearch).toBe(false);
     expect(defaultSettings.notInDefaults).toBeUndefined();
+    expect('historyBackup' in browser.storage.local.items).toBe(false);
     expect(browser.storage.local.items.language).toBe('ja');
     expect(browser.storage.local.items.maxHistoryItems).toBe(5000);
     expect(window.alert).toHaveBeenCalledWith('Settings imported');

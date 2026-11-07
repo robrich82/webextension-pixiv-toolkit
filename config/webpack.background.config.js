@@ -5,7 +5,6 @@ const baseConfig = require('./webpack.base.config')();
 const utils = require('./utils');
 const { localFFmpegCore } = require('./localFFmpegCore');
 const { merge } = require('webpack-merge');
-const webpack = require('webpack');
 const CopyPlugin = require('copy-webpack-plugin');
 const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
 
@@ -41,22 +40,6 @@ module.exports = env => {
         reportFilename: '../bundleAnalyzer/background.html'
       }),
 
-      /**
-       * PouchDB is external (see webpack.base.config.js) and expected to be a
-       * global, but a MV3 service worker doesn't run any HTML page that could
-       * <script>-load lib/pouchdb.min.js first. On Chrome, load it via
-       * importScripts() before the bundle's own module code runs (which reads
-       * the global as soon as anything requires 'pouchdb'). Guarded because
-       * Firefox runs this same file as an event page, not a worker, where
-       * importScripts doesn't exist — Firefox instead gets pouchdb.min.js
-       * prepended to manifest background.scripts below.
-       */
-      new webpack.BannerPlugin({
-        banner: `if (typeof importScripts === 'function') { importScripts('../lib/pouchdb.min.js', '../lib/pouchdb.find.min.js'); }`,
-        raw: true,
-        entryOnly: true
-      }),
-
       new CopyPlugin({
         patterns: [
           {
@@ -76,14 +59,6 @@ module.exports = env => {
           }, {
             from: utils.resolve('node_modules/vue-i18n/dist/vue-i18n.global.prod.js'),
             to: utils.resolve(`dist/${platform}/lib/vue-i18n.global.prod.js`),
-            info: alreadyMinimized
-          }, {
-            from: utils.resolve('node_modules/pouchdb/dist/pouchdb.min.js'),
-            to: utils.resolve(`dist/${platform}/lib/pouchdb.min.js`),
-            info: alreadyMinimized
-          }, {
-            from: utils.resolve('node_modules/pouchdb/dist/pouchdb.find.min.js'),
-            to: utils.resolve(`dist/${platform}/lib/pouchdb.find.min.js`),
             info: alreadyMinimized
           }, {
             /**
@@ -120,20 +95,10 @@ module.exports = env => {
                  * Firefox implements the manifest v3 background as an event page,
                  * it doesn't support `background.service_worker`. Convert it to
                  * `background.scripts` so the extension can be loaded on Firefox.
-                 *
-                 * PouchDB is external (see webpack.base.config.js) and expected
-                 * to be a global. An event page loads `scripts` as ordinary
-                 * <script> tags in order, so list the PouchDB libs ahead of the
-                 * bundle here rather than relying on the importScripts() banner
-                 * above, which only runs on a real (Chrome) service worker.
                  */
                 if (json.background && json.background.service_worker) {
                   json.background = {
-                    scripts: [
-                      'lib/pouchdb.min.js',
-                      'lib/pouchdb.find.min.js',
-                      json.background.service_worker
-                    ]
+                    scripts: [json.background.service_worker]
                   };
                 }
 

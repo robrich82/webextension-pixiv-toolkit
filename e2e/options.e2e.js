@@ -7,12 +7,9 @@ const { test, expect, collectErrors, waitForDownloads } = require('./fixtures');
  * @param {string} row  the list item's title, e.g. 'Export settings'
  * @param {string} button
  */
-async function openSettingsMenu(page, row, button) {
-  await page.getByRole('listitem').filter({ hasText: row })
-    .getByRole('button', { name: button, exact: true }).hover();
-
-  // Vuetify's v-menu content has no menu role; only the hovered one is rendered.
-  return page.locator('.v-menu').getByText('All Settings', { exact: true });
+function settingsButton(page, row, button) {
+  return page.getByRole('listitem').filter({ hasText: row })
+    .getByRole('button', { name: button, exact: true });
 }
 
 test('settings export and import round-trip without errors', async ({ context, extensionId, serviceWorker }, testInfo) => {
@@ -22,10 +19,11 @@ test('settings export and import round-trip without errors', async ({ context, e
   // A fresh install opens the changelog dialog over the page.
   await page.getByRole('dialog').getByRole('button', { name: 'Close' }).click();
 
-  await (await openSettingsMenu(page, 'Export settings', 'Export')).click();
+  await settingsButton(page, 'Export settings', 'Export').click();
   const [download] = await waitForDownloads(serviceWorker, 1);
   const exported = JSON.parse(fs.readFileSync(download.filename, 'utf8'));
   expect(exported).toHaveProperty('mangaRenameRule');
+  expect(exported).not.toHaveProperty('historyBackup');
 
   const file = testInfo.outputPath('settings.json');
   fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -35,7 +33,7 @@ test('settings export and import round-trip without errors', async ({ context, e
   page.on('dialog', dialog => dialog.accept());
   const [chooser] = await Promise.all([
     page.waitForEvent('filechooser'),
-    (await openSettingsMenu(page, 'Import settings', 'Import')).click()
+    settingsButton(page, 'Import settings', 'Import').click()
   ]);
   await chooser.setFiles(file);
 

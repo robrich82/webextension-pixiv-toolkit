@@ -103,13 +103,12 @@ Renovate otherwise exempts, so its PRs install without the exclusion below.
 
 **`allowBuilds`** — dependency lifecycle scripts are denied by default in pnpm,
 and the install *fails* if a package wants to build and is not named in this
-map. So the map is a decision log rather than a list of exceptions: all three
-packages in the tree that declare install scripts are named, and all three are
+map. So the map is a decision log rather than a list of exceptions: both
+packages in the tree that declare install scripts are named, and both are
 denied.
 
 | Package | Why it is denied |
 | --- | --- |
-| `leveldown` | pouchdb's native LevelDB binding. Unreachable — pouchdb is a webpack external loaded from its prebuilt browser bundle, and Jest maps it to that bundle too (`test/doubles/pouchdb.js`). |
 | `@parcel/watcher` | native file watching for `sass --watch`. Unreachable — watching is webpack's job here. |
 | `unrs-resolver` | jest-resolve's native resolver. Its script only checks that the right `@unrs/resolver-binding-*` optional dependency was installed; the binary arrives prebuilt. The suite passes with the script denied. |
 
@@ -248,14 +247,9 @@ any of them (`renovate.json` disables major updates of the
 `pnpm-workspace.overrides` dependency type). Each one is an advisory floor or a
 compatibility pin on a deliberately chosen major, and a bot bump to the next
 major hands consumers an API they never declared. Same-major updates stay
-enabled, so a Renovate vulnerability alert can still raise a floor. Two need
+enabled, so a Renovate vulnerability alert can still raise a floor. One needs
 more explanation than fits in a comment:
 
-- **`uuid` → `^11.1.1`.** `pouchdb-utils` pins uuid 8. The advisory
-  (GHSA-w5hq-g745-h8pq) is a missing bounds check in `v3`/`v5`/`v6` when called
-  with a `buf` argument; pouchdb only ever calls `v4` (its own source comments
-  say so). uuid 11 keeps the `v4` signature, and it is the last major
-  pouchdb can `require()`: uuid 12+ is ESM-only.
 - **`minimatch` → `^11.0.1`, `multimatch` → `^8.0.0`.** The minimatch floor
   (GHSA-g3hv-75wg-m249) also reaches web-ext's `multimatch@6`, which does
   `import minimatch from 'minimatch'`. v11 has no default export, so
@@ -268,9 +262,6 @@ more explanation than fits in a comment:
   import makes the ESM entries of `@eslint/eslintrc` and `@eslint/config-array`
   fail to load; eslint itself `require()`s them, so only a future `FlatCompat`
   config would hit it.
-
-To confirm the uuid override is still applied, check that `pnpm-lock.yaml`
-resolves exactly one `uuid@11.x`.
 
 ## Build output under pnpm
 
@@ -286,11 +277,11 @@ bytes each (the ids have different digit counts), and the smallest bundle is
 byte-identical. Anyone diffing `dist/` across this migration should expect
 renamed numeric chunks and no size change worth noticing.
 
-`config/webpack.background.config.js` copies five paths out of `node_modules`
-(`vue`, `vue-i18n`, `pouchdb` ×2, and the `@ffmpeg/core/dist/umd` directory —
-`umd/` specifically, not the whole `dist/`, since `@ffmpeg/core` 0.12 also
-ships an `esm/` build of the same ~32MB core+wasm pair that nothing here
-loads). All five are direct dependencies, so pnpm's symlinked top level
+`config/webpack.background.config.js` copies four paths out of `node_modules`
+(`vue`, `vue-i18n`, and the `@ffmpeg/core` and `@ffmpeg/ffmpeg` `dist/umd`
+directories — `umd/` specifically, not the whole `dist/`, since `@ffmpeg/core`
+0.12 also ships an `esm/` build of the same ~32MB core+wasm pair that nothing
+here loads). All four are direct dependencies, so pnpm's symlinked top level
 exposes them and `copy-webpack-plugin` resolves through the symlinks into
 `node_modules/.pnpm` without help. This is verified by the builds, not just
 reasoned about — but it is the thing to check first if a copied asset ever

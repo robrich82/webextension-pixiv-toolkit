@@ -7,54 +7,14 @@
         <v-list-item>
           <template #title>{{ tl('_export_settings') }}</template>
           <template #append>
-            <v-menu
-              open-on-hover
-              location="top"
-            >
-              <template
-                v-slot:activator="{ props }"
-              >
-                <v-btn
-                  variant="flat"
-                  v-bind="props"
-                >{{ tl('_export') }}</v-btn>
-              </template>
-              <v-list>
-                <v-list-item
-                  @click="exportSettings"
-                >{{ tl('_all_settings') }}</v-list-item>
-                <v-list-item
-                  @click="exportSettings({ excludeHistoryBackup: true })"
-                >{{ tl('_exclude_history_backup') }}</v-list-item>
-              </v-list>
-            </v-menu>
+            <v-btn variant="flat" @click="exportSettings">{{ tl('_export') }}</v-btn>
           </template>
         </v-list-item>
 
         <v-list-item>
           <template #title>{{ tl('_import_settings') }}</template>
           <template #append>
-            <v-menu
-              open-on-hover
-              location="top"
-            >
-              <template
-                v-slot:activator="{ props }"
-              >
-                <v-btn
-                  variant="flat"
-                  v-bind="props"
-                >{{ tl('_import') }}</v-btn>
-              </template>
-              <v-list>
-                <v-list-item
-                  @click="importSettings({})"
-                >{{ tl('_all_settings') }}</v-list-item>
-                <v-list-item
-                  @click="importSettings({ excludeHistoryBackup: true })"
-                >{{ tl('_exclude_history_backup') }}</v-list-item>
-              </v-list>
-            </v-menu>
+            <v-btn variant="flat" @click="importSettings">{{ tl('_import') }}</v-btn>
           </template>
         </v-list-item>
       </v-list>
@@ -86,14 +46,8 @@ import defaultSettings from '@/config/default';
 
 export default {
   methods: {
-    exportSettings({ excludeHistoryBackup = false }) {
-      let settings = Object.assign({}, this.browserItems);
-
-      if (excludeHistoryBackup) {
-        delete settings.historyBackup;
-      }
-
-      let blob = new Blob([JSON.stringify(settings)], {type: 'application/json'})
+    exportSettings() {
+      let blob = new Blob([JSON.stringify(this.browserItems)], {type: 'application/json'})
 
       let a = document.createElement('a')
       a.href = URL.createObjectURL(blob)
@@ -103,7 +57,7 @@ export default {
       a.remove();
     },
 
-    importSettings({ excludeHistoryBackup = false }) {
+    importSettings() {
       let input = document.createElement('input');
 
       input.type = 'file'
@@ -120,10 +74,6 @@ export default {
               let setting;
 
               Object.keys(defaultSettings).forEach(key => {
-                if (excludeHistoryBackup && key === 'historyBackup') {
-                  return;
-                }
-
                 if (key in importSettings &&
                   (typeof defaultSettings[key] === typeof importSettings[key] || typeof importSettings[key] === 'string')
                 ) {

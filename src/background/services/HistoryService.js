@@ -1,5 +1,6 @@
 import History from "@/modules/History";
 import Db from "@/modules/Db/Db";
+import { toHistoryItem } from "@/modules/HistoryItem";
 import AbstractService from "./AbstractService";
 
 /**
@@ -37,25 +38,36 @@ import AbstractService from "./AbstractService";
     return HistoryService.instance;
   }
 
-  saveItem(data) {
+  /**
+   * The settings page stores the raw field value, so this can be a string.
+   */
+  applyMaxHistoryItems() {
+    let max = Number(this.application.settings.maxHistoryItems);
+
+    this.history.setMax(Number.isInteger(max) && max > 0 ? max : 10000);
+  }
+
+  async saveItem(data) {
+    this.applyMaxHistoryItems();
+
     if (this.application.settings.notSaveNSFWWorkInHistory) {
       if (!data.r) {
-        this.history.saveItem(data);
+        await this.history.saveItem(data);
       }
     } else {
-      this.history.saveItem(data);
+      await this.history.saveItem(data);
     }
   }
 
-  itemVisit(data) {
+  async itemVisit(data) {
     if (data.visited_at) {
-      this.saveItem(data);
+      await this.saveItem(data);
     }
   }
 
-  itemDownload(data) {
+  async itemDownload(data) {
     if (data.downloaded_at) {
-      this.saveItem(data);
+      await this.saveItem(data);
     }
   }
 
@@ -63,6 +75,33 @@ import AbstractService from "./AbstractService";
     if (data.uid) {
       this.history.deleteItem(data.uid);
     }
+  }
+
+  /**
+   * Imports entries from an export file or the history backup, in either the
+   * current or the v5 shape. NSFW entries are kept even with
+   * notSaveNSFWWorkInHistory on: that setting is about recording visits, and
+   * an import is the user's own choice.
+   *
+   * @param {{ items: Array }} param0
+   * @returns {Promise<{ imported: number, skipped: number }>}
+   */
+  async importItems({ items }) {
+    let list = Array.isArray(items) ? items : [];
+    let valid = list.map(toHistoryItem).filter(Boolean);
+
+    if (valid.length > 0) {
+      this.applyMaxHistoryItems();
+      await this.history.importItems(valid);
+    }
+
+    return { imported: valid.length, skipped: list.length - valid.length };
+  }
+
+  async clear() {
+    await this.history.clear();
+
+    return true;
   }
 
   async checkIfDownloaded({ uid }) {

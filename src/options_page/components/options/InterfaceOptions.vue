@@ -192,23 +192,6 @@ export default {
       browser.storage.local.set({
         downloadPanelStyle: parseInt(val)
       });
-    },
-
-    exportSettings({ excludeHistoryBackup = false }) {
-      let settings = Object.assign({}, this.browserItems);
-
-      if (excludeHistoryBackup) {
-        delete settings.historyBackup;
-      }
-
-      let blob = new Blob([JSON.stringify(settings)], {type: 'application/json'})
-
-      let a = document.createElement('a')
-      a.href = URL.createObjectURL(blob)
-      a.download = 'pixiv_toolkit_settings-' + Date.now() + '.json'
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
     }
   }
 };

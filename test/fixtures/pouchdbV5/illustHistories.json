@@ -1,0 +1,624 @@
+{
+  "generatedBy": "test/fixtures/pouchdbV5/generate.js with pouchdb 7.2.2 in Chromium",
+  "allDocs": [
+    {
+      "id": "1001",
+      "title": "Illust 1001",
+      "userId": "7",
+      "userName": "Artist",
+      "type": 0,
+      "r": false,
+      "images": {
+        "thumb": "https://i.pximg.net/c/250x250/img/1001_p0.jpg"
+      },
+      "viewed_at": 1600000010,
+      "_id": "1001",
+      "_rev": "2-8e84793e4f535cba40dfcf0993721ef3"
+    },
+    {
+      "id": "1002",
+      "title": "Illust 1002",
+      "userId": "7",
+      "userName": "Artist",
+      "type": 2,
+      "r": true,
+      "images": {
+        "thumb": "https://i.pximg.net/c/250x250/img/1002_p0.jpg"
+      },
+      "viewed_at": 1600000002,
+      "_id": "1002",
+      "_rev": "1-70c1c21b4af3987874918ba3773c0fa1"
+    },
+    {
+      "id": "1005",
+      "title": "Illust 1005",
+      "userId": "7",
+      "userName": "Artist",
+      "type": 0,
+      "r": false,
+      "images": {
+        "thumb": "https://i.pximg.net/c/250x250/img/1005_p0.jpg"
+      },
+      "viewed_at": 1600000005,
+      "_id": "1005",
+      "_rev": "1-bbb"
+    },
+    {
+      "id": "1006",
+      "title": "Illust 1006",
+      "userId": "7",
+      "userName": "Artist",
+      "type": 0,
+      "r": false,
+      "images": {
+        "thumb": "https://i.pximg.net/c/250x250/img/1006_p0.jpg"
+      },
+      "viewed_at": 1600000006,
+      "_id": "1006",
+      "_rev": "1-yyy"
+    },
+    {
+      "id": "N3003",
+      "title": "Novel 3003",
+      "userId": "8",
+      "userName": "Writer",
+      "r": false,
+      "isNovel": true,
+      "image": "https://i.pximg.net/novel-cover/3003.jpg",
+      "viewed_at": 1600000003,
+      "_id": "N3003",
+      "_rev": "1-d8d02677ff1ed05fa060dc4d90a9efa5"
+    }
+  ],
+  "databases": [
+    {
+      "name": "_pouch_illust_histories",
+      "version": 5,
+      "stores": {
+        "attach-seq-store": {
+          "keyPath": null,
+          "autoIncrement": true,
+          "indexes": [
+            {
+              "name": "digestSeq",
+              "keyPath": "digestSeq",
+              "unique": true,
+              "multiEntry": false
+            },
+            {
+              "name": "seq",
+              "keyPath": "seq",
+              "unique": false,
+              "multiEntry": false
+            }
+          ],
+          "records": []
+        },
+        "attach-store": {
+          "keyPath": "digest",
+          "autoIncrement": false,
+          "indexes": [],
+          "records": []
+        },
+        "by-sequence": {
+          "keyPath": null,
+          "autoIncrement": true,
+          "indexes": [
+            {
+              "name": "_doc_id_rev",
+              "keyPath": "_doc_id_rev",
+              "unique": true,
+              "multiEntry": false
+            }
+          ],
+          "records": [
+            [
+              1,
+              {
+                "language": "query",
+                "views": {
+                  "idx-de861f3a0a7e9308e3e879174b3e4bc9": {
+                    "map": {
+                      "fields": {
+                        "viewed_at": "asc"
+                      }
+                    },
+                    "reduce": "_count",
+                    "options": {
+                      "def": {
+                        "fields": [
+                          "viewed_at"
+                        ]
+                      }
+                    }
+                  }
+                },
+                "_doc_id_rev": "_design/idx-de861f3a0a7e9308e3e879174b3e4bc9::1-bc5ca6aa98b981e4b1514d4f8335ae99"
+              }
+            ],
+            [
+              3,
+              {
+                "id": "1002",
+                "title": "Illust 1002",
+                "userId": "7",
+                "userName": "Artist",
+                "type": 2,
+                "r": true,
+                "images": {
+                  "thumb": "https://i.pximg.net/c/250x250/img/1002_p0.jpg"
+                },
+                "viewed_at": 1600000002,
+                "_doc_id_rev": "1002::1-70c1c21b4af3987874918ba3773c0fa1"
+              }
+            ],
+            [
+              4,
+              {
+                "id": "N3003",
+                "title": "Novel 3003",
+                "userId": "8",
+                "userName": "Writer",
+                "r": false,
+                "isNovel": true,
+                "image": "https://i.pximg.net/novel-cover/3003.jpg",
+                "viewed_at": 1600000003,
+                "_doc_id_rev": "N3003::1-d8d02677ff1ed05fa060dc4d90a9efa5"
+              }
+            ],
+            [
+              5,
+              {
+                "id": "1001",
+                "title": "Illust 1001",
+                "userId": "7",
+                "userName": "Artist",
+                "type": 0,
+                "r": false,
+                "images": {
+                  "thumb": "https://i.pximg.net/c/250x250/img/1001_p0.jpg"
+                },
+                "viewed_at": 1600000010,
+                "_doc_id_rev": "1001::2-8e84793e4f535cba40dfcf0993721ef3"
+              }
+            ],
+            [
+              7,
+              {
+                "_deleted": true,
+                "_doc_id_rev": "1004::2-91901f26a15a07dbdb33c4be199ef5d6"
+              }
+            ],
+            [
+              8,
+              {
+                "id": "1005",
+                "title": "Illust 1005",
+                "userId": "7",
+                "userName": "Artist",
+                "type": 0,
+                "r": false,
+                "images": {
+                  "thumb": "https://i.pximg.net/c/250x250/img/1005_p0.jpg"
+                },
+                "viewed_at": 1600000005,
+                "_doc_id_rev": "1005::1-bbb"
+              }
+            ],
+            [
+              9,
+              {
+                "id": "1005",
+                "title": "Losing leaf",
+                "userId": "7",
+                "userName": "Artist",
+                "type": 0,
+                "r": false,
+                "images": {
+                  "thumb": "https://i.pximg.net/c/250x250/img/1005_p0.jpg"
+                },
+                "viewed_at": 1600000005,
+                "_doc_id_rev": "1005::1-aaa"
+              }
+            ],
+            [
+              10,
+              {
+                "id": "1006",
+                "title": "Illust 1006",
+                "userId": "7",
+                "userName": "Artist",
+                "type": 0,
+                "r": false,
+                "images": {
+                  "thumb": "https://i.pximg.net/c/250x250/img/1006_p0.jpg"
+                },
+                "viewed_at": 1600000006,
+                "_doc_id_rev": "1006::1-yyy"
+              }
+            ],
+            [
+              12,
+              {
+                "_deleted": true,
+                "_doc_id_rev": "1006::2-ccc"
+              }
+            ]
+          ]
+        },
+        "detect-blob-support": {
+          "keyPath": null,
+          "autoIncrement": false,
+          "indexes": [],
+          "records": [
+            [
+              "key",
+              {}
+            ]
+          ]
+        },
+        "document-store": {
+          "keyPath": "id",
+          "autoIncrement": false,
+          "indexes": [
+            {
+              "name": "deletedOrLocal",
+              "keyPath": "deletedOrLocal",
+              "unique": false,
+              "multiEntry": false
+            }
+          ],
+          "records": [
+            [
+              "1001",
+              {
+                "data": "{\"id\":\"1001\",\"rev\":\"2-8e84793e4f535cba40dfcf0993721ef3\",\"rev_tree\":[{\"pos\":2,\"ids\":[\"8e84793e4f535cba40dfcf0993721ef3\",{\"status\":\"available\"},[]]}],\"winningRev\":\"2-8e84793e4f535cba40dfcf0993721ef3\",\"deleted\":false,\"seq\":5}",
+                "winningRev": "2-8e84793e4f535cba40dfcf0993721ef3",
+                "deletedOrLocal": "0",
+                "seq": 5,
+                "id": "1001"
+              }
+            ],
+            [
+              "1002",
+              {
+                "data": "{\"id\":\"1002\",\"rev_tree\":[{\"pos\":1,\"ids\":[\"70c1c21b4af3987874918ba3773c0fa1\",{\"status\":\"available\"},[]]}],\"rev\":\"1-70c1c21b4af3987874918ba3773c0fa1\",\"winningRev\":\"1-70c1c21b4af3987874918ba3773c0fa1\",\"deleted\":false,\"seq\":3}",
+                "winningRev": "1-70c1c21b4af3987874918ba3773c0fa1",
+                "deletedOrLocal": "0",
+                "seq": 3,
+                "id": "1002"
+              }
+            ],
+            [
+              "1004",
+              {
+                "data": "{\"id\":\"1004\",\"rev\":\"2-91901f26a15a07dbdb33c4be199ef5d6\",\"deleted\":true,\"rev_tree\":[{\"pos\":2,\"ids\":[\"91901f26a15a07dbdb33c4be199ef5d6\",{\"status\":\"available\",\"deleted\":true},[]]}],\"winningRev\":\"2-91901f26a15a07dbdb33c4be199ef5d6\",\"seq\":7}",
+                "winningRev": "2-91901f26a15a07dbdb33c4be199ef5d6",
+                "deletedOrLocal": "1",
+                "seq": 7,
+                "id": "1004"
+              }
+            ],
+            [
+              "1005",
+              {
+                "data": "{\"id\":\"1005\",\"rev\":\"1-aaa\",\"rev_tree\":[{\"pos\":1,\"ids\":[\"bbb\",{\"status\":\"available\"},[]]},{\"pos\":1,\"ids\":[\"aaa\",{\"status\":\"available\"},[]]}],\"winningRev\":\"1-bbb\",\"deleted\":false,\"seq\":9}",
+                "winningRev": "1-bbb",
+                "deletedOrLocal": "0",
+                "seq": 9,
+                "id": "1005"
+              }
+            ],
+            [
+              "1006",
+              {
+                "data": "{\"id\":\"1006\",\"rev\":\"2-ccc\",\"deleted\":false,\"revisions\":{\"start\":2,\"ids\":[\"ccc\",\"zzz\"]},\"rev_tree\":[{\"pos\":1,\"ids\":[\"yyy\",{\"status\":\"available\"},[]]},{\"pos\":2,\"ids\":[\"ccc\",{\"status\":\"available\",\"deleted\":true},[]]}],\"winningRev\":\"1-yyy\",\"seq\":12}",
+                "winningRev": "1-yyy",
+                "deletedOrLocal": "0",
+                "seq": 12,
+                "id": "1006"
+              }
+            ],
+            [
+              "N3003",
+              {
+                "data": "{\"id\":\"N3003\",\"rev_tree\":[{\"pos\":1,\"ids\":[\"d8d02677ff1ed05fa060dc4d90a9efa5\",{\"status\":\"available\"},[]]}],\"rev\":\"1-d8d02677ff1ed05fa060dc4d90a9efa5\",\"winningRev\":\"1-d8d02677ff1ed05fa060dc4d90a9efa5\",\"deleted\":false,\"seq\":4}",
+                "winningRev": "1-d8d02677ff1ed05fa060dc4d90a9efa5",
+                "deletedOrLocal": "0",
+                "seq": 4,
+                "id": "N3003"
+              }
+            ],
+            [
+              "_design/idx-de861f3a0a7e9308e3e879174b3e4bc9",
+              {
+                "data": "{\"id\":\"_design/idx-de861f3a0a7e9308e3e879174b3e4bc9\",\"rev_tree\":[{\"pos\":1,\"ids\":[\"bc5ca6aa98b981e4b1514d4f8335ae99\",{\"status\":\"available\"},[]]}],\"rev\":\"1-bc5ca6aa98b981e4b1514d4f8335ae99\",\"winningRev\":\"1-bc5ca6aa98b981e4b1514d4f8335ae99\",\"deleted\":false,\"seq\":1}",
+                "winningRev": "1-bc5ca6aa98b981e4b1514d4f8335ae99",
+                "deletedOrLocal": "0",
+                "seq": 1,
+                "id": "_design/idx-de861f3a0a7e9308e3e879174b3e4bc9"
+              }
+            ]
+          ]
+        },
+        "local-store": {
+          "keyPath": "_id",
+          "autoIncrement": false,
+          "indexes": [],
+          "records": [
+            [
+              "_local/_pouch_dependentDbs",
+              {
+                "dependentDbs": {
+                  "illust_histories-mrview-8f6757b864161e0cc01980f906586f72": true
+                },
+                "_id": "_local/_pouch_dependentDbs",
+                "_rev": "0-1"
+              }
+            ],
+            [
+              "_local/indexes",
+              {
+                "views": {
+                  "idx-de861f3a0a7e9308e3e879174b3e4bc9/idx-de861f3a0a7e9308e3e879174b3e4bc9": {
+                    "illust_histories-mrview-8f6757b864161e0cc01980f906586f72": true
+                  }
+                },
+                "_id": "_local/indexes",
+                "_rev": "0-1"
+              }
+            ]
+          ]
+        },
+        "meta-store": {
+          "keyPath": "id",
+          "autoIncrement": false,
+          "indexes": [],
+          "records": [
+            [
+              "meta-store",
+              {
+                "id": "meta-store",
+                "_pouch_illust_histories_id": "fc3fc0db-a8a5-4afe-ad6d-ba493ef08b9e",
+                "docCount": 6
+              }
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "name": "_pouch_illust_histories-mrview-8f6757b864161e0cc01980f906586f72",
+      "version": 5,
+      "stores": {
+        "attach-seq-store": {
+          "keyPath": null,
+          "autoIncrement": true,
+          "indexes": [
+            {
+              "name": "digestSeq",
+              "keyPath": "digestSeq",
+              "unique": true,
+              "multiEntry": false
+            },
+            {
+              "name": "seq",
+              "keyPath": "seq",
+              "unique": false,
+              "multiEntry": false
+            }
+          ],
+          "records": []
+        },
+        "attach-store": {
+          "keyPath": "digest",
+          "autoIncrement": false,
+          "indexes": [],
+          "records": []
+        },
+        "by-sequence": {
+          "keyPath": null,
+          "autoIncrement": true,
+          "indexes": [
+            {
+              "name": "_doc_id_rev",
+              "keyPath": "_doc_id_rev",
+              "unique": true,
+              "multiEntry": false
+            }
+          ],
+          "records": [
+            [
+              1,
+              {
+                "_doc_id_rev": "5323331.60000000200000003225\u000041002\u0000\u0000::1-58809915cf66d81a325c8c67e558d32a"
+              }
+            ],
+            [
+              2,
+              {
+                "_doc_id_rev": "5323331.60000000299999989295\u00004N3003\u0000\u0000::1-3a2f81c16745f4b7340811cbc6f60ff2"
+              }
+            ],
+            [
+              3,
+              {
+                "_doc_id_rev": "5323331.60000001000000002804\u000041001\u0000\u0000::1-14495f46b55003faf763fa97ba34144e"
+              }
+            ],
+            [
+              4,
+              {
+                "_doc_id_rev": "5323331.60000000500000005843\u000041005\u0000\u0000::1-020ceae713b1403d94515caa668ebffc"
+              }
+            ],
+            [
+              5,
+              {
+                "_doc_id_rev": "5323331.60000000599999991913\u000041006\u0000\u0000::1-7cdb78ac73afd64d90ae842bb6b9baaa"
+              }
+            ]
+          ]
+        },
+        "detect-blob-support": {
+          "keyPath": null,
+          "autoIncrement": false,
+          "indexes": [],
+          "records": []
+        },
+        "document-store": {
+          "keyPath": "id",
+          "autoIncrement": false,
+          "indexes": [
+            {
+              "name": "deletedOrLocal",
+              "keyPath": "deletedOrLocal",
+              "unique": false,
+              "multiEntry": false
+            }
+          ],
+          "records": [
+            [
+              "5323331.60000000200000003225\u000041002\u0000\u0000",
+              {
+                "data": "{\"id\":\"5323331.60000000200000003225\\u000041002\\u0000\\u0000\",\"rev_tree\":[{\"pos\":1,\"ids\":[\"58809915cf66d81a325c8c67e558d32a\",{\"status\":\"available\"},[]]}],\"rev\":\"1-58809915cf66d81a325c8c67e558d32a\",\"winningRev\":\"1-58809915cf66d81a325c8c67e558d32a\",\"deleted\":false,\"seq\":1}",
+                "winningRev": "1-58809915cf66d81a325c8c67e558d32a",
+                "deletedOrLocal": "0",
+                "seq": 1,
+                "id": "5323331.60000000200000003225\u000041002\u0000\u0000"
+              }
+            ],
+            [
+              "5323331.60000000299999989295\u00004N3003\u0000\u0000",
+              {
+                "data": "{\"id\":\"5323331.60000000299999989295\\u00004N3003\\u0000\\u0000\",\"rev_tree\":[{\"pos\":1,\"ids\":[\"3a2f81c16745f4b7340811cbc6f60ff2\",{\"status\":\"available\"},[]]}],\"rev\":\"1-3a2f81c16745f4b7340811cbc6f60ff2\",\"winningRev\":\"1-3a2f81c16745f4b7340811cbc6f60ff2\",\"deleted\":false,\"seq\":2}",
+                "winningRev": "1-3a2f81c16745f4b7340811cbc6f60ff2",
+                "deletedOrLocal": "0",
+                "seq": 2,
+                "id": "5323331.60000000299999989295\u00004N3003\u0000\u0000"
+              }
+            ],
+            [
+              "5323331.60000000500000005843\u000041005\u0000\u0000",
+              {
+                "data": "{\"id\":\"5323331.60000000500000005843\\u000041005\\u0000\\u0000\",\"rev_tree\":[{\"pos\":1,\"ids\":[\"020ceae713b1403d94515caa668ebffc\",{\"status\":\"available\"},[]]}],\"rev\":\"1-020ceae713b1403d94515caa668ebffc\",\"winningRev\":\"1-020ceae713b1403d94515caa668ebffc\",\"deleted\":false,\"seq\":4}",
+                "winningRev": "1-020ceae713b1403d94515caa668ebffc",
+                "deletedOrLocal": "0",
+                "seq": 4,
+                "id": "5323331.60000000500000005843\u000041005\u0000\u0000"
+              }
+            ],
+            [
+              "5323331.60000000599999991913\u000041006\u0000\u0000",
+              {
+                "data": "{\"id\":\"5323331.60000000599999991913\\u000041006\\u0000\\u0000\",\"rev_tree\":[{\"pos\":1,\"ids\":[\"7cdb78ac73afd64d90ae842bb6b9baaa\",{\"status\":\"available\"},[]]}],\"rev\":\"1-7cdb78ac73afd64d90ae842bb6b9baaa\",\"winningRev\":\"1-7cdb78ac73afd64d90ae842bb6b9baaa\",\"deleted\":false,\"seq\":5}",
+                "winningRev": "1-7cdb78ac73afd64d90ae842bb6b9baaa",
+                "deletedOrLocal": "0",
+                "seq": 5,
+                "id": "5323331.60000000599999991913\u000041006\u0000\u0000"
+              }
+            ],
+            [
+              "5323331.60000001000000002804\u000041001\u0000\u0000",
+              {
+                "data": "{\"id\":\"5323331.60000001000000002804\\u000041001\\u0000\\u0000\",\"rev_tree\":[{\"pos\":1,\"ids\":[\"14495f46b55003faf763fa97ba34144e\",{\"status\":\"available\"},[]]}],\"rev\":\"1-14495f46b55003faf763fa97ba34144e\",\"winningRev\":\"1-14495f46b55003faf763fa97ba34144e\",\"deleted\":false,\"seq\":3}",
+                "winningRev": "1-14495f46b55003faf763fa97ba34144e",
+                "deletedOrLocal": "0",
+                "seq": 3,
+                "id": "5323331.60000001000000002804\u000041001\u0000\u0000"
+              }
+            ]
+          ]
+        },
+        "local-store": {
+          "keyPath": "_id",
+          "autoIncrement": false,
+          "indexes": [],
+          "records": [
+            [
+              "_local/doc_1001",
+              {
+                "_id": "_local/doc_1001",
+                "keys": [
+                  "5323331.60000001000000002804\u000041001\u0000\u0000"
+                ],
+                "_rev": "0-1"
+              }
+            ],
+            [
+              "_local/doc_1002",
+              {
+                "_id": "_local/doc_1002",
+                "keys": [
+                  "5323331.60000000200000003225\u000041002\u0000\u0000"
+                ],
+                "_rev": "0-1"
+              }
+            ],
+            [
+              "_local/doc_1004",
+              {
+                "_id": "_local/doc_1004",
+                "keys": [],
+                "_rev": "0-1"
+              }
+            ],
+            [
+              "_local/doc_1005",
+              {
+                "_id": "_local/doc_1005",
+                "keys": [
+                  "5323331.60000000500000005843\u000041005\u0000\u0000"
+                ],
+                "_rev": "0-1"
+              }
+            ],
+            [
+              "_local/doc_1006",
+              {
+                "_id": "_local/doc_1006",
+                "keys": [
+                  "5323331.60000000599999991913\u000041006\u0000\u0000"
+                ],
+                "_rev": "0-1"
+              }
+            ],
+            [
+              "_local/doc_N3003",
+              {
+                "_id": "_local/doc_N3003",
+                "keys": [
+                  "5323331.60000000299999989295\u00004N3003\u0000\u0000"
+                ],
+                "_rev": "0-1"
+              }
+            ],
+            [
+              "_local/lastSeq",
+              {
+                "_id": "_local/lastSeq",
+                "seq": 12,
+                "_rev": "0-2"
+              }
+            ]
+          ]
+        },
+        "meta-store": {
+          "keyPath": "id",
+          "autoIncrement": false,
+          "indexes": [],
+          "records": [
+            [
+              "meta-store",
+              {
+                "id": "meta-store",
+                "_pouch_illust_histories-mrview-8f6757b864161e0cc01980f906586f72_id": "11e9e1f9-19db-473d-9c24-b4949d3b182e",
+                "docCount": 5
+              }
+            ]
+          ]
+        }
+      }
+    }
+  ]
+}

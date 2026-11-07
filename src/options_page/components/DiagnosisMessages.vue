@@ -5,8 +5,6 @@
     <textarea style="width:100%" rows="10" v-model="permissions" disabled></textarea>
     <h3>{{ tl('_settings') }}</h3>
     <textarea style="width:100%" rows="30" v-model="settings" disabled></textarea>
-    <h3>{{ tl('_history_backup') }}</h3>
-    <textarea style="width:100%" rows="30" v-model="historyBackup" disabled></textarea>
     <h3>{{ tl('_error_messages') }}</h3>
     <textarea style="width:100%" rows="30" v-model="errors" disabled></textarea>
   </div>
@@ -17,7 +15,6 @@ export default {
   data() {
     return {
       permissions     : '',
-      historyBackup   : '',
       settings        : '',
       errors          : '',
     };
@@ -27,13 +24,7 @@ export default {
     browser.permissions.getAll(permissions => {
       this.permissions = JSON.stringify(permissions);
 
-      let settings = Object.assign({}, this.browserItems);
-
-      this.historyBackup = JSON.stringify(settings.historyBackup);
-
-      delete settings.historyBackup;
-
-      this.settings = JSON.stringify(settings);
+      this.settings = JSON.stringify(this.browserItems);
 
       browser.runtime.sendMessage({
         action: 'log:getTrackedErrors'
