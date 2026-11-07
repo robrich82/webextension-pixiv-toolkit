@@ -98,6 +98,13 @@ describe('HistoryRepo (Dexie)', () => {
 
     expect(await repo.table.count()).toBe(3);
   });
+  test('exportItems returns every entry, newest visit first, without ids', async () => {
+    await repo.saveItem(item(1, 100));
+    await repo.saveItem(item(2, 200));
+
+    expect(await repo.exportItems()).toEqual([item(2, 200), item(1, 100)]);
+  });
+
   describe('importItems', () => {
     test('adds new entries in visit order', async () => {
       await repo.saveItem(item(1, 200));
