@@ -263,9 +263,6 @@ more explanation than fits in a comment:
   fail to load; eslint itself `require()`s them, so only a future `FlatCompat`
   config would hit it.
 
-To confirm the uuid override is still applied, check that `pnpm-lock.yaml`
-resolves exactly one `uuid@11.x`.
-
 ## Build output under pnpm
 
 The build is *equivalent* under pnpm but not byte-identical, and that is

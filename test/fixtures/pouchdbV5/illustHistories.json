@@ -193,22 +193,6 @@
               8,
               {
                 "id": "1005",
-                "title": "Losing leaf",
-                "userId": "7",
-                "userName": "Artist",
-                "type": 0,
-                "r": false,
-                "images": {
-                  "thumb": "https://i.pximg.net/c/250x250/img/1005_p0.jpg"
-                },
-                "viewed_at": 1600000005,
-                "_doc_id_rev": "1005::1-aaa"
-              }
-            ],
-            [
-              9,
-              {
-                "id": "1005",
                 "title": "Illust 1005",
                 "userId": "7",
                 "userName": "Artist",
@@ -222,14 +206,23 @@
               }
             ],
             [
-              11,
+              9,
               {
-                "_deleted": true,
-                "_doc_id_rev": "1006::2-ccc"
+                "id": "1005",
+                "title": "Losing leaf",
+                "userId": "7",
+                "userName": "Artist",
+                "type": 0,
+                "r": false,
+                "images": {
+                  "thumb": "https://i.pximg.net/c/250x250/img/1005_p0.jpg"
+                },
+                "viewed_at": 1600000005,
+                "_doc_id_rev": "1005::1-aaa"
               }
             ],
             [
-              12,
+              10,
               {
                 "id": "1006",
                 "title": "Illust 1006",
@@ -242,6 +235,13 @@
                 },
                 "viewed_at": 1600000006,
                 "_doc_id_rev": "1006::1-yyy"
+              }
+            ],
+            [
+              12,
+              {
+                "_deleted": true,
+                "_doc_id_rev": "1006::2-ccc"
               }
             ]
           ]
@@ -302,7 +302,7 @@
             [
               "1005",
               {
-                "data": "{\"id\":\"1005\",\"rev\":\"1-bbb\",\"rev_tree\":[{\"pos\":1,\"ids\":[\"aaa\",{\"status\":\"available\"},[]]},{\"pos\":1,\"ids\":[\"bbb\",{\"status\":\"available\"},[]]}],\"winningRev\":\"1-bbb\",\"deleted\":false,\"seq\":9}",
+                "data": "{\"id\":\"1005\",\"rev\":\"1-aaa\",\"rev_tree\":[{\"pos\":1,\"ids\":[\"bbb\",{\"status\":\"available\"},[]]},{\"pos\":1,\"ids\":[\"aaa\",{\"status\":\"available\"},[]]}],\"winningRev\":\"1-bbb\",\"deleted\":false,\"seq\":9}",
                 "winningRev": "1-bbb",
                 "deletedOrLocal": "0",
                 "seq": 9,
@@ -312,7 +312,7 @@
             [
               "1006",
               {
-                "data": "{\"id\":\"1006\",\"rev\":\"1-yyy\",\"rev_tree\":[{\"pos\":1,\"ids\":[\"yyy\",{\"status\":\"available\"},[]]},{\"pos\":2,\"ids\":[\"ccc\",{\"status\":\"available\",\"deleted\":true},[]]}],\"winningRev\":\"1-yyy\",\"deleted\":false,\"seq\":12}",
+                "data": "{\"id\":\"1006\",\"rev\":\"2-ccc\",\"deleted\":false,\"revisions\":{\"start\":2,\"ids\":[\"ccc\",\"zzz\"]},\"rev_tree\":[{\"pos\":1,\"ids\":[\"yyy\",{\"status\":\"available\"},[]]},{\"pos\":2,\"ids\":[\"ccc\",{\"status\":\"available\",\"deleted\":true},[]]}],\"winningRev\":\"1-yyy\",\"seq\":12}",
                 "winningRev": "1-yyy",
                 "deletedOrLocal": "0",
                 "seq": 12,
@@ -379,7 +379,7 @@
               "meta-store",
               {
                 "id": "meta-store",
-                "_pouch_illust_histories_id": "ff26c72a-8a06-47df-b4bb-d89b352a0679",
+                "_pouch_illust_histories_id": "fc3fc0db-a8a5-4afe-ad6d-ba493ef08b9e",
                 "docCount": 6
               }
             ]
@@ -612,7 +612,7 @@
               "meta-store",
               {
                 "id": "meta-store",
-                "_pouch_illust_histories-mrview-8f6757b864161e0cc01980f906586f72_id": "42b23476-bf02-40bf-a4a5-3558639622b0",
+                "_pouch_illust_histories-mrview-8f6757b864161e0cc01980f906586f72_id": "11e9e1f9-19db-473d-9c24-b4949d3b182e",
                 "docCount": 5
               }
             ]

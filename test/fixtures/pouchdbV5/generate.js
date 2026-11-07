@@ -89,16 +89,17 @@ async function useLikeV5() {
   const deleted = await db.put(illust(1004, 1500000000));
   await db.remove('1004', deleted.rev);
 
+  // The winner of each conflict below is written first, so the last write
+  // (the highest seq) is never the winning revision.
+
   // Two conflicting leaves: the winner is 1-bbb.
-  await db.bulkDocs([
-    { ...illust(1005, 1600000005, { title: 'Losing leaf' }), _rev: '1-aaa' },
-    { ...illust(1005, 1600000005), _rev: '1-bbb' }
-  ], { new_edits: false });
+  await db.bulkDocs([{ ...illust(1005, 1600000005), _rev: '1-bbb' }], { new_edits: false });
+  await db.bulkDocs([{ ...illust(1005, 1600000005, { title: 'Losing leaf' }), _rev: '1-aaa' }], { new_edits: false });
 
   // A deleted branch beside a live one: the live leaf wins.
+  await db.bulkDocs([{ ...illust(1006, 1600000006), _rev: '1-yyy' }], { new_edits: false });
   await db.bulkDocs([{ ...illust(1006, 1600000006, { title: 'Deleted branch' }), _rev: '1-zzz' }], { new_edits: false });
   await db.bulkDocs([{ _id: '1006', _rev: '2-ccc', _deleted: true, _revisions: { start: 2, ids: ['ccc', 'zzz'] } }], { new_edits: false });
-  await db.bulkDocs([{ ...illust(1006, 1600000006), _rev: '1-yyy' }], { new_edits: false });
 
   // The History page queried by viewed_at, which builds the index database.
   await db.find({ selector: { viewed_at: { $gte: null } }, sort: [{ viewed_at: 'desc' }] });

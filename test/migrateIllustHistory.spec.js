@@ -13,7 +13,7 @@ import HistoryRepo from '@/modules/Db/Repository/HistoryRepo';
 import update6_4_7 from '@/background/updates/update6_4_7';
 import migrateIllustHistory from '@/background/modules/migrateIllustHistory';
 import {
-  STORE, fixture, restoreDatabases, writeStore, databaseNames, deletePouchDatabases
+  STORE, fixture, storeDump, request, restoreDatabases, writeStore, databaseNames, deletePouchDatabases
 } from './helpers/pouchdbV5Store';
 
 const v5 = (id, viewed_at, overrides) => ({
@@ -39,9 +39,9 @@ describe('migrateIllustHistory', () => {
   });
 
   afterEach(async () => {
+    jest.restoreAllMocks();
     await deletePouchDatabases();
     await Db.getDb().database.delete();
-    jest.restoreAllMocks();
   });
 
   describe('a store written by PouchDB 7.2.2, as v5 used it', () => {
@@ -80,20 +80,16 @@ describe('migrateIllustHistory', () => {
   });
 
   test("writeStore's records have the shape PouchDB wrote", async () => {
-    const real = fixture.databases.find(db => db.name === STORE).stores;
-    const keysOf = (records, id) => Object.keys(records.find(([key]) => key === id)[1]).sort();
+    const [, real] = storeDump.stores['document-store'].records.find(([key]) => key === '1001');
+    const keysOf = record => Object.keys(record).sort();
 
     await writeStore([v5(1001, 1)]);
-    const open = indexedDB.open(STORE);
-    const db = await new Promise(resolve => { open.onsuccess = () => resolve(open.result); });
-    const written = await new Promise(resolve => {
-      const req = db.transaction('document-store').objectStore('document-store').get('1001');
-      req.onsuccess = () => resolve(req.result);
-    });
+    const db = await request(indexedDB.open(STORE));
+    const written = await request(db.transaction('document-store').objectStore('document-store').get('1001'));
     db.close();
 
-    expect(Object.keys(written).sort()).toEqual(keysOf(real['document-store'].records, '1001'));
-    expect(Object.keys(JSON.parse(written.data)).sort()).toEqual(Object.keys(JSON.parse(real['document-store'].records.find(([key]) => key === '1001')[1].data)).sort());
+    expect(keysOf(written)).toEqual(keysOf(real));
+    expect(keysOf(JSON.parse(written.data))).toEqual(keysOf(JSON.parse(real.data)));
   });
 
   test('the 6.4.7 update moves the v5 history and deletes the store', async () => {
@@ -169,7 +165,7 @@ describe('migrateIllustHistory', () => {
 
   test('a failed delete of the old store still reports the move', async () => {
     await writeStore([v5(1, 100)]);
-    const deleteDatabase = jest.spyOn(indexedDB, 'deleteDatabase').mockImplementation(() => {
+    jest.spyOn(indexedDB, 'deleteDatabase').mockImplementation(() => {
       throw new Error('blocked');
     });
     const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
@@ -178,18 +174,54 @@ describe('migrateIllustHistory', () => {
 
     expect(consoleError).toHaveBeenCalledWith(expect.stringContaining('could not delete'), expect.any(Error));
     expect(await storedUids()).toEqual(['pixiv_illust:1']);
-    deleteDatabase.mockRestore();
   });
 
   test('a store in another schema version is kept, not guessed at', async () => {
-    const schema = fixture.databases.find(db => db.name === STORE);
-    await restoreDatabases([{ ...schema, version: 4 }]);
+    await restoreDatabases([{ ...storeDump, version: 4 }]);
     const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
 
     expect(await migrateIllustHistory(app.getService('history'))).toBeNull();
 
     expect(consoleError).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ message: expect.stringContaining('version 4') }));
     expect(await databaseNames()).toContain(STORE);
+  });
+
+  test('skips a document whose winning revision has no body, and imports the rest', async () => {
+    await writeStore([v5(1, 100), v5(2, 200)]);
+    const db = await request(indexedDB.open(STORE));
+    await request(db.transaction('by-sequence', 'readwrite').objectStore('by-sequence').delete(2));
+    db.close();
+
+    expect(await migrateIllustHistory(app.getService('history'))).toEqual({ imported: 1, skipped: 0 });
+    expect(await storedUids()).toEqual(['pixiv_illust:1']);
+  });
+
+  test('a version-5 store without its object stores is kept, and its connection closed', async () => {
+    (await request(indexedDB.open(STORE, storeDump.version))).close();
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    expect(await migrateIllustHistory(app.getService('history'))).toBeNull();
+
+    expect(consoleError).toHaveBeenCalled();
+    expect(await databaseNames()).toContain(STORE);
+    // A connection left open would block the deletion.
+    const deletion = indexedDB.deleteDatabase(STORE);
+    expect(await new Promise(resolve => {
+      deletion.onsuccess = () => resolve('deleted');
+      deletion.onblocked = () => resolve('blocked');
+    })).toBe('deleted');
+  });
+
+  test('a store held open elsewhere still completes the move, and is deleted once that connection closes', async () => {
+    await writeStore([v5(1, 100)]);
+    const other = await request(indexedDB.open(STORE));
+
+    expect(await migrateIllustHistory(app.getService('history'))).toEqual({ imported: 1, skipped: 0 });
+    expect(await databaseNames()).toContain(STORE);
+
+    other.close();
+    await new Promise(resolve => setTimeout(resolve));
+    expect(await databaseNames()).not.toContain(STORE);
   });
 
   test('a failed import keeps the store, and the update still completes', async () => {

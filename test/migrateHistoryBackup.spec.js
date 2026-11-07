@@ -37,9 +37,9 @@ describe('the 6.4.7 historyBackup migration', () => {
   });
 
   afterEach(async () => {
+    jest.restoreAllMocks();
     await deletePouchDatabases();
     await Db.getDb().database.delete();
-    jest.restoreAllMocks();
   });
 
   test('imports the backup into the History page, then removes the setting', async () => {

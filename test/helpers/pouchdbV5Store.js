@@ -13,7 +13,10 @@ export { fixture };
 
 export const STORE = '_pouch_illust_histories';
 
-function request(req) {
+/** The fixture's dump of the store itself, without its index database. */
+export const storeDump = fixture.databases.find(db => db.name === STORE);
+
+export function request(req) {
   return new Promise((resolve, reject) => {
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
@@ -62,8 +65,7 @@ export async function restoreDatabases(databases = fixture.databases) {
  * @param {Array<{ _id: string }>} docs
  */
 export async function writeStore(docs) {
-  const schema = fixture.databases.find(db => db.name === STORE);
-  const stores = Object.fromEntries(Object.entries(schema.stores).map(([name, store]) => [name, { ...store, records: [] }]));
+  const stores = Object.fromEntries(Object.entries(storeDump.stores).map(([name, store]) => [name, { ...store, records: [] }]));
 
   docs.forEach(({ _id, _deleted, ...body }, i) => {
     const seq = i + 1;
@@ -83,7 +85,7 @@ export async function writeStore(docs) {
     stores['by-sequence'].records.push([seq, { ...(_deleted ? { _deleted: true } : body), _doc_id_rev: `${_id}::${rev}` }]);
   });
 
-  await restoreDatabases([{ name: STORE, version: schema.version, stores }]);
+  await restoreDatabases([{ name: STORE, version: storeDump.version, stores }]);
 }
 
 export async function databaseNames() {

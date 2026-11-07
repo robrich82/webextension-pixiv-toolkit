@@ -118,7 +118,7 @@ Done in Phase A:
   `@vue/component-compiler-utils` one because vue-loader 17 doesn't load that
   package at all, and the `GHSA-g3ch-rx76-35fx` audit-ignore because
   `vue-template-compiler` (the only thing that reached it) is gone too. The
-  `uuid` override stays; it's unrelated to Vue.
+  `uuid` override stays; it's unrelated to Vue (removed with PouchDB, #253).
 - `vue-style-loader` replaced with `style-loader`; `.babelrc` replaced with a
   root `babel.config.js` (a package-relative `.babelrc` doesn't apply across
   package boundaries, so it couldn't reach Vuetify 3's ESM source under Jest).

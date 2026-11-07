@@ -1,3 +1,7 @@
+const PREFIX = '_pouch_';
+const DB_NAME = `${PREFIX}illust_histories`;
+const ADAPTER_VERSION = 5;
+
 /**
  * Moves the v5 visit history out of the PouchDB `illust_histories` store into
  * the Dexie table the History page reads, then deletes the store. Nothing has
@@ -19,17 +23,17 @@
  * @returns {Promise<{ imported: number, skipped: number }|null>} null when the import failed
  */
 export default async function migrateIllustHistory(historyService) {
-  let store;
+  let contents;
   let result;
 
   try {
-    store = await readStore();
+    contents = await readStore();
 
-    if (!store) {
+    if (!contents) {
       return { imported: 0, skipped: 0 };
     }
 
-    result = await historyService.importItems({ items: store.docs });
+    result = await historyService.importItems({ items: contents.docs });
   } catch (error) {
     console.error('Unable to move the v5 visit history into the History page; the PouchDB store was kept', error);
 
@@ -40,17 +44,13 @@ export default async function migrateIllustHistory(historyService) {
 
   try {
     // As PouchDB's destroy() does: the store, then the index databases it lists.
-    await Promise.all([STORE, ...store.dependentDbs.map(name => PREFIX + name)].map(deleteDatabase));
+    await Promise.all([DB_NAME, ...contents.dependentDbs.map(name => PREFIX + name)].map(deleteDatabase));
   } catch (error) {
     console.error('Moved the v5 visit history, but could not delete the old PouchDB store', error);
   }
 
   return result;
 }
-
-const PREFIX = '_pouch_';
-const STORE = `${PREFIX}illust_histories`;
-const ADAPTER_VERSION = 5;
 
 function request(req) {
   return new Promise((resolve, reject) => {
@@ -68,7 +68,7 @@ function request(req) {
 function openStore() {
   return new Promise((resolve, reject) => {
     let missing = false;
-    const open = indexedDB.open(STORE);
+    const open = indexedDB.open(DB_NAME);
 
     open.onupgradeneeded = () => {
       missing = true;
@@ -126,7 +126,7 @@ async function readStore() {
       }
     });
 
-    return { docs, dependentDbs: Object.keys((dependents && dependents.dependentDbs) || {}) };
+    return { docs, dependentDbs: Object.keys(dependents?.dependentDbs ?? {}) };
   } finally {
     db.close();
   }
