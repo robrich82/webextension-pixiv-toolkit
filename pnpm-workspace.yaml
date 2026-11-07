@@ -66,6 +66,18 @@ trustPolicy: no-downgrade
 trustPolicyExclude:
   - 'semver@6.3.1'
 
+# Advisories `pnpm audit` should not report. Each entry needs a reason, and
+# comes out once a fixed version exists.
+#
+# GHSA-gcqx-w48m-w2h4 (low): deepmerge <=4.3.1 lets `mergeObject()` return an
+# object with a poisoned prototype. There is no patched release (4.3.1, from
+# 2023, is the latest), and jest-config and addons-linter both still depend on
+# it, so neither an update nor an `overrides` floor can clear it. It is
+# dev-only: jest and web-ext pull it in, and nothing in dist/ ships it.
+auditConfig:
+  ignoreGhsas:
+    - GHSA-gcqx-w48m-w2h4
+
 # --- Overrides --------------------------------------------------------------
 # The `uuid` entry keeps `pnpm audit` clean rather than fixing a live
 # exposure; see docs/toolchain.md for why that advisory is not reachable here.
