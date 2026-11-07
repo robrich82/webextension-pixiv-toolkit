@@ -24,9 +24,6 @@ minimumReleaseAge: 1440
 # allowlist is really a decision log: every package in the tree that declares an
 # install script is named here, and every one of them is denied.
 #
-#   leveldown        pouchdb's native LevelDB binding. Unreachable -- pouchdb is
-#                    a webpack external loaded from its prebuilt browser bundle,
-#                    and Jest maps it to that bundle too (test/doubles/pouchdb.js).
 #   @parcel/watcher  native file watching for `sass --watch`. Unreachable --
 #                    watching is webpack's job here.
 #   unrs-resolver    jest-resolve's native resolver. Its script only verifies
@@ -43,7 +40,6 @@ minimumReleaseAge: 1440
 # file, merging a `<name>: set this to true or false` placeholder into the
 # block below. Decide and replace that line; do not just re-run the install.
 allowBuilds:
-  leveldown: false
   '@parcel/watcher': false
   unrs-resolver: false
 
@@ -67,8 +63,6 @@ trustPolicyExclude:
   - 'semver@6.3.1'
 
 # --- Overrides --------------------------------------------------------------
-# The `uuid` entry keeps `pnpm audit` clean rather than fixing a live
-# exposure; see docs/toolchain.md for why that advisory is not reachable here.
 # `multimatch` keeps `web-ext` working under the `minimatch` floor (same doc).
 # Every other floor below fixes an actual advisory, pinned at the advisory's
 # own first-patched version so the resolved version sitting above the floor is
@@ -82,7 +76,6 @@ trustPolicyExclude:
 # Drop them and the advisories come back. Renovate never moves one to a new
 # major (renovate.json): a floor moves when its advisory does.
 overrides:
-  uuid: ^11.1.1
   'js-yaml@>=4.0.0 <4.3.2': ^4.3.2
   'js-yaml@<3.15.2': ^3.15.2
   # fast-uri (ajv, via webpack/css-loader/etc.): GHSA-hrr3-gc8f-f4qj,

@@ -1,8 +1,13 @@
 /**
  * Moves the v5 visit history out of the PouchDB `illust_histories` store into
- * the Dexie table the History page reads, then destroys the PouchDB store.
- * Nothing has written to that store since 6.0.0, so after this runs nothing
- * reads it either.
+ * the Dexie table the History page reads, then deletes the store. Nothing has
+ * written to that store since 6.0.0, so after this runs nothing reads it either.
+ *
+ * The store is read straight from IndexedDB, so the PouchDB library doesn't
+ * have to ship. PouchDB's idb adapter (schema version 5, from PouchDB 5 on)
+ * keeps one row per document in `document-store`, holding its winning
+ * revision, and every revision's body in `by-sequence`, keyed by
+ * `<id>::<rev>`. test/fixtures/pouchdbV5 is a real store, for reference.
  *
  * Entries that aren't usable history are skipped, and as with any import the
  * maxHistoryItems cap then drops the oldest visits. If reading or importing
@@ -11,25 +16,20 @@
  * back later migrations.
  *
  * @param {import('../services/HistoryService').default} historyService
- * @param {Function} [PouchDB] the PouchDB constructor; specs pass their own
  * @returns {Promise<{ imported: number, skipped: number }|null>} null when the import failed
  */
-export default async function migrateIllustHistory(historyService, PouchDB) {
-  let db;
+export default async function migrateIllustHistory(historyService) {
+  let store;
   let result;
 
   try {
-    // Required here, not imported, so specs that load the background
-    // Application under jsdom don't evaluate the PouchDB bundle (it needs
-    // `fetch`). In the extension the global is already loaded either way.
-    PouchDB = PouchDB || require('pouchdb');
+    store = await readStore();
 
-    db = new PouchDB('illust_histories');
+    if (!store) {
+      return { imported: 0, skipped: 0 };
+    }
 
-    const { rows } = await db.allDocs({ include_docs: true });
-    const docs = rows.filter(row => !row.id.startsWith('_design/')).map(row => row.doc);
-
-    result = await historyService.importItems({ items: docs });
+    result = await historyService.importItems({ items: store.docs });
   } catch (error) {
     console.error('Unable to move the v5 visit history into the History page; the PouchDB store was kept', error);
 
@@ -39,10 +39,111 @@ export default async function migrateIllustHistory(historyService, PouchDB) {
   console.info('Moved the v5 visit history into the History page', result);
 
   try {
-    await db.destroy();
+    // As PouchDB's destroy() does: the store, then the index databases it lists.
+    await Promise.all([STORE, ...store.dependentDbs.map(name => PREFIX + name)].map(deleteDatabase));
   } catch (error) {
     console.error('Moved the v5 visit history, but could not delete the old PouchDB store', error);
   }
 
   return result;
+}
+
+const PREFIX = '_pouch_';
+const STORE = `${PREFIX}illust_histories`;
+const ADAPTER_VERSION = 5;
+
+function request(req) {
+  return new Promise((resolve, reject) => {
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+/**
+ * Opens the store without creating it: an open that would create the
+ * database is aborted in `upgradeneeded`.
+ *
+ * @returns {Promise<IDBDatabase|null>} null when there is no store
+ */
+function openStore() {
+  return new Promise((resolve, reject) => {
+    let missing = false;
+    const open = indexedDB.open(STORE);
+
+    open.onupgradeneeded = () => {
+      missing = true;
+      open.transaction.abort();
+    };
+    open.onsuccess = () => resolve(open.result);
+    open.onerror = event => {
+      if (missing) {
+        // Stops the abort's AbortError surfacing as an uncaught error.
+        event.preventDefault();
+        resolve(null);
+      } else {
+        reject(open.error);
+      }
+    };
+  });
+}
+
+/**
+ * @returns {Promise<{ docs: object[], dependentDbs: string[] }|null>} null when there is no store
+ */
+async function readStore() {
+  const db = await openStore();
+
+  if (!db) {
+    return null;
+  }
+
+  try {
+    if (db.version !== ADAPTER_VERSION) {
+      throw new Error(`Unexpected PouchDB idb schema version ${db.version}`);
+    }
+
+    const tx = db.transaction(['document-store', 'by-sequence', 'local-store'], 'readonly');
+    const [metadata, revisions, dependents] = await Promise.all([
+      request(tx.objectStore('document-store').getAll()),
+      request(tx.objectStore('by-sequence').getAll()),
+      request(tx.objectStore('local-store').get('_local/_pouch_dependentDbs'))
+    ]);
+    const bodies = new Map(revisions.map(body => [body._doc_id_rev, body]));
+    const docs = [];
+
+    metadata.forEach(({ id, winningRev, deletedOrLocal }) => {
+      // Deleted documents are marked '1'. Design docs hold pouchdb-find's index definition.
+      if (deletedOrLocal === '1' || id.startsWith('_design/')) {
+        return;
+      }
+
+      const body = bodies.get(`${id}::${winningRev}`);
+
+      if (body) {
+        const { _doc_id_rev, ...doc } = body;
+
+        docs.push({ ...doc, _id: id, _rev: winningRev });
+      }
+    });
+
+    return { docs, dependentDbs: Object.keys((dependents && dependents.dependentDbs) || {}) };
+  } finally {
+    db.close();
+  }
+}
+
+/**
+ * Resolves once the deletion is queued if another connection holds the
+ * database open; it completes when that connection closes.
+ *
+ * @param {string} name
+ */
+function deleteDatabase(name) {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.deleteDatabase(name);
+
+    req.onsuccess = () => resolve();
+    req.onblocked = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
 }

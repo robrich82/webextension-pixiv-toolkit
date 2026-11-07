@@ -59,8 +59,6 @@ module.exports = env => {
     externals: {
       vue: 'Vue',
       'vue-i18n': 'VueI18n',
-      pouchdb: 'PouchDB',
-      'pouchdb-find': 'PouchDBFind',
       locales: 'locales',
     },
     node: {

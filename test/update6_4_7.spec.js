@@ -2,6 +2,7 @@
  * The 6.4.7 migration, which clears the `ugoiraConvertTool` and
  * `maxDownloadRecords` settings left inert once nothing read them any more.
  */
+require('./helpers/fakeIndexedDb');
 const browser = require('./doubles/browser').default;
 const Application = require('../src/background/Application').default;
 const SettingService = require('../src/background/services/SettingService').default;

@@ -59,7 +59,7 @@ Payloads must survive structured clone. Firefox throws `DataCloneError` on Vue r
 - optional permissions are folded into `permissions`, except `downloads.shelf` (unsupported on Firefox)
 - `version_name` is dropped
 
-PouchDB is an external global. On Chrome it loads through an `importScripts` banner, and on Firefox it's prepended to `background.scripts`. Cross-origin fetches (for example Fanbox) are made from the background, not from content scripts. `src/modules/Extension/browser.js` returns whichever `browser`/`chrome` global is available.
+Cross-origin fetches (for example Fanbox) are made from the background, not from content scripts. `src/modules/Extension/browser.js` returns whichever `browser`/`chrome` global is available.
 
 ### Settings and migrations
 

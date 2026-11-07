@@ -1,11 +1,9 @@
 /**
  * The 6.4.7 update's move of the v5 `historyBackup` setting into the Dexie
- * table the History page reads.
- * Runs the real update against the fake storage, the in-memory PouchDB and
- * Dexie.
+ * table the History page reads. Runs the real update against the fake
+ * storage and fake-indexeddb.
  */
 import './helpers/fakeIndexedDb';
-import PouchDB from 'pouchdb';
 import browser from './doubles/browser';
 import Application from '@/background/Application';
 import SettingService from '@/background/services/SettingService';
@@ -14,6 +12,7 @@ import Db from '@/modules/Db/Db';
 import HistoryRepo from '@/modules/Db/Repository/HistoryRepo';
 import update6_4_7 from '@/background/updates/update6_4_7';
 import migrateHistoryBackup from '@/background/modules/migrateHistoryBackup';
+import { writeStore, deletePouchDatabases } from './helpers/pouchdbV5Store';
 
 const v5 = (id, viewed_at, overrides) => ({
   id: String(id), title: `Old ${id}`, userName: `Artist ${id}`, type: 0, r: false,
@@ -38,7 +37,7 @@ describe('the 6.4.7 historyBackup migration', () => {
   });
 
   afterEach(async () => {
-    await new PouchDB('illust_histories').destroy();
+    await deletePouchDatabases();
     await Db.getDb().database.delete();
     jest.restoreAllMocks();
   });
@@ -53,7 +52,7 @@ describe('the 6.4.7 historyBackup migration', () => {
   });
 
   test('imports alongside the PouchDB store, one entry per work with the latest visit', async () => {
-    await new PouchDB('illust_histories').bulkDocs([{ _id: '1', ...v5(1, 400) }, { _id: '3', ...v5(3, 200) }]);
+    await writeStore([{ _id: '1', ...v5(1, 400) }, { _id: '3', ...v5(3, 200) }]);
     await browser.storage.local.set({ historyBackup: [v5(1, 100), v5(2, 300)] });
 
     await update6_4_7();
