@@ -89,13 +89,11 @@ describe('HistoryService', () => {
     expect(await storedUids()).toEqual(['pixiv_illust:2']);
   });
 
-  test('history:clear empties the table and the v5 backup', async () => {
-    await browser.storage.local.set({ historyBackup: [{ id: '1' }] });
+  test('history:clear empties the table', async () => {
     await send('history:importItems', { items: [entry(1, 100), entry(2, 200)] });
 
     expect(await send('history:clear')).toBe(true);
 
     expect(await Db.getDb().historyRepo().table.count()).toBe(0);
-    expect(browser.storage.local.items.historyBackup).toEqual([]);
   });
 });

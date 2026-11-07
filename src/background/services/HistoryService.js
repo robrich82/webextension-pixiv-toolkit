@@ -1,7 +1,6 @@
 import History from "@/modules/History";
 import Db from "@/modules/Db/Db";
 import { toHistoryItem } from "@/modules/HistoryItem";
-import browser from "@/modules/Extension/browser";
 import AbstractService from "./AbstractService";
 
 /**
@@ -99,13 +98,8 @@ import AbstractService from "./AbstractService";
     return { imported: valid.length, skipped: list.length - valid.length };
   }
 
-  /**
-   * Clears the visit history and the v5 history backup, so Recover can't
-   * bring cleared entries back.
-   */
   async clear() {
     await this.history.clear();
-    await browser.storage.local.set({ historyBackup: [] });
 
     return true;
   }

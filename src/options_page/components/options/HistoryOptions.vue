@@ -105,16 +105,6 @@
         </v-list-item>
 
         <v-list-item>
-          <template #title>{{ tl('_recovery_history') }} ({{ tl('_total_backup') }}: {{ historyBackupCount }})</template>
-          <template #append>
-            <v-btn
-              variant="flat"
-              @click="recoveryHistory"
-            >{{ tl('_recovery') }}</v-btn>
-          </template>
-        </v-list-item>
-
-        <v-list-item>
           <template #title>{{ tl('clear_history_data') }}</template>
           <template #subtitle>{{ tl('clear_history_data_cannot_be_reversed') }}</template>
           <template #append>
@@ -201,10 +191,6 @@ export default {
   },
 
   computed: {
-    historyBackupCount() {
-      return this.browserItems.historyBackup ? this.browserItems.historyBackup.length : 0;
-    },
-
     importProgress() {
       return this.importCount > 0 ? Math.floor(this.importedCount / this.importCount * 100) : 0;
     }
@@ -375,22 +361,6 @@ export default {
 
       if (window.confirm(this.tl('_import_history_will_take_some_time_determine_by_how_many_history_need_to_be_imported_are_you_sure'))) {
         input.click()
-      }
-    },
-
-    async recoveryHistory() {
-      if (this.importing) {
-        return;
-      }
-
-      if (!window.confirm(this.tl('_recovery_history_will_take_some_time_determine_by_how_many_history_need_to_be_recovery_are_you_sure'))) {
-        return;
-      }
-
-      let backup = JSON.parse(JSON.stringify(this.browserItems.historyBackup || []));
-
-      if (backup.length > 0) {
-        await this.importAndReport(backup);
       }
     }
   }

@@ -14,8 +14,7 @@ const browserItems = {
   displayWorkTypeLabel: false,
   notSaveNSFWWorkInHistory: true,
   maxHistoryItems: 5000,
-  workCoverSize: 2,
-  historyBackup: [{ id: 1 }, { id: 2 }]
+  workCoverSize: 2
 };
 
 describe('HistoryOptions', () => {
@@ -41,16 +40,6 @@ describe('HistoryOptions', () => {
     expect(wrapper.vm.notSaveNSFWWorkInHistory).toBe(true);
     expect(wrapper.vm.maxHistoryItems).toBe(5000);
     expect(wrapper.vm.workCoverSize).toBe(2);
-  });
-
-  test('historyBackupCount reflects the stored backup, or 0 when there is none', () => {
-    const withBackup = shallowMountOption(HistoryOptions, { browserItems });
-    expect(withBackup.vm.historyBackupCount).toBe(2);
-
-    const withoutBackup = shallowMountOption(HistoryOptions, {
-      browserItems: { ...browserItems, historyBackup: undefined }
-    });
-    expect(withoutBackup.vm.historyBackupCount).toBe(0);
   });
 
   test('importProgress reports the percentage of entries already sent', () => {
@@ -249,51 +238,6 @@ describe('HistoryOptions', () => {
       expect(wrapper.vm.importing).toBe(false);
     });
 
-    test('Recover imports the v5 history backup', async () => {
-      const wrapper = shallowMountOption(HistoryOptions, {
-        browserItems: { ...browserItems, historyBackup: [legacy(1, 100), legacy(2, 300)] }
-      });
-
-      await wrapper.vm.recoveryHistory();
-
-      expect(await storedUids()).toEqual(['pixiv_illust:2', 'pixiv_illust:1']);
-    });
-
-    test('Recover does nothing without confirmation', async () => {
-      window.confirm = jest.fn(() => false);
-      const wrapper = shallowMountOption(HistoryOptions, {
-        browserItems: { ...browserItems, historyBackup: [legacy(1, 100)] }
-      });
-
-      await wrapper.vm.recoveryHistory();
-
-      expect(wrapper.vm.importing).toBe(false);
-      expect(await storedUids()).toEqual([]);
-    });
-
-    test('Recover with no backup does nothing', async () => {
-      const sendMessage = browser.runtime.sendMessage;
-      const wrapper = shallowMountOption(HistoryOptions, {
-        browserItems: { ...browserItems, historyBackup: [] }
-      });
-
-      await wrapper.vm.recoveryHistory();
-
-      expect(sendMessage).not.toHaveBeenCalled();
-      expect(window.alert).not.toHaveBeenCalled();
-    });
-
-    test('Recover still works after Export has been clicked', async () => {
-      const wrapper = shallowMountOption(HistoryOptions, {
-        browserItems: { ...browserItems, historyBackup: [legacy(1, 100)] }
-      });
-      wrapper.vm.exporting = true;
-
-      await wrapper.vm.recoveryHistory();
-
-      expect(await storedUids()).toEqual(['pixiv_illust:1']);
-    });
-
     test('a Clear the background fails says so', async () => {
       browser.runtime.sendMessage.mockResolvedValueOnce(undefined);
       const wrapper = shallowMountOption(HistoryOptions, { browserItems });
@@ -368,8 +312,7 @@ describe('HistoryOptions', () => {
       });
     });
 
-    test('Clear empties the history the History page reads, and the backup', async () => {
-      await browser.storage.local.set({ historyBackup: [legacy(9, 100)] });
+    test('Clear empties the history the History page reads', async () => {
       await Db.getDb().historyRepo().importItems([entry(1, 100), entry(2, 200)]);
       const wrapper = shallowMountOption(HistoryOptions, { browserItems });
       wrapper.vm.confirmDialog = true;
@@ -377,7 +320,6 @@ describe('HistoryOptions', () => {
       await wrapper.vm.clearHistory();
 
       expect(await storedUids()).toEqual([]);
-      expect(browser.storage.local.items.historyBackup).toEqual([]);
       expect(wrapper.vm.confirmDialog).toBe(false);
       expect(window.alert).not.toHaveBeenCalled();
     });
