@@ -1,4 +1,4 @@
-const { default: browser } = require("@/modules/Extension/browser");
+import browser from "@/modules/Extension/browser";
 
 /**
  * @typedef SaveFileOptions
