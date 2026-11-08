@@ -13,9 +13,10 @@
  * - Every async call returns a promise *and* invokes an optional trailing
  *   callback. `SettingService` wraps callbacks in promises while
  *   `DownloadService` awaits the call directly, sometimes for the same API.
- * - `runtime.onConnect` is dispatched asynchronously, as the browser does. A
- *   port that posts a message the moment it is opened must not out-run the
- *   listeners the other side attaches after `connect()` returns.
+ * - `runtime.onConnect`, port messages and disconnects are dispatched
+ *   asynchronously and in order, as the browser does. A port that posts a
+ *   message the moment it is opened must not out-run the listeners the other
+ *   side attaches in `onConnect`.
  *
  * Every API is a `vi.fn`, so calls can be asserted with the usual matchers,
  * and the stored state (`storage.local.items`, `downloads.items`, `tabs.items`,
@@ -69,8 +70,8 @@ class FakeEvent {
 }
 
 /**
- * One end of a `runtime.connect()` pair. Posting on one end delivers to the
- * `onMessage` of the other.
+ * One end of a `runtime.connect()` pair. Posting on one end delivers, on a later
+ * microtask, to the `onMessage` of the other.
  */
 class FakePort {
   constructor(name, sender) {
@@ -90,10 +91,21 @@ class FakePort {
       throw new Error('Attempting to use a disconnected port object');
     }
 
-    this.postedMessages.push(message);
+    // Serialized now, as the browser does, so later changes to `message` don't travel.
+    const payload = clone(message);
 
-    if (this.peer) {
-      this.peer.onMessage.emit(message, this.peer);
+    this.postedMessages.push(payload);
+
+    // Delivered later, as the browser does, so a message posted right after
+    // connect() reaches the listeners the other side attaches in onConnect.
+    const peer = this.peer;
+
+    if (peer) {
+      Promise.resolve().then(() => {
+        if (!peer.disconnected) {
+          peer.onMessage.emit(clone(payload), peer);
+        }
+      });
     }
   }
 
@@ -104,9 +116,17 @@ class FakePort {
 
     this.disconnected = true;
 
-    if (this.peer && !this.peer.disconnected) {
-      this.peer.disconnected = true;
-      this.peer.onDisconnect.emit(this.peer);
+    const peer = this.peer;
+
+    // Queued behind any message already posted, so the order holds. Until it
+    // runs, the peer can still post; the browser drops those messages.
+    if (peer) {
+      Promise.resolve().then(() => {
+        if (!peer.disconnected) {
+          peer.disconnected = true;
+          peer.onDisconnect.emit(peer);
+        }
+      });
     }
   }
 }
@@ -527,8 +547,9 @@ function createBrowserFake() {
     },
 
     /**
-     * Let the queued microtasks and timers run. Needed after a `connect()`,
-     * whose `onConnect` dispatch is deferred.
+     * Let the queued microtasks and timers run. Needed after `connect()`,
+     * `postMessage()` or `disconnect()`, whose delivery is deferred. It waits on
+     * a real timer, so under `vi.useFakeTimers()` use `advanceTimersByTimeAsync`.
      */
     flush() {
       return new Promise(resolve => setTimeout(resolve, 0));

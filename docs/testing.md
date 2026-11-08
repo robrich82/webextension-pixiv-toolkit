@@ -68,10 +68,11 @@ depends on both:
 - Every async call returns a promise **and** invokes an optional trailing
   callback. `SettingService` wraps callbacks in promises while `DownloadService`
   awaits the same kind of call directly.
-- `runtime.onConnect` is dispatched on a later tick, as the browser does, so a
-  port that posts immediately cannot out-run the listeners the other side
-  attaches after `connect()` returns. Specs that open a port need
-  `await browser._fake.flush()` before asserting.
+- `runtime.onConnect`, port messages and disconnects are dispatched on a later
+  tick, in order, as the browser does, so a port that posts immediately cannot
+  out-run the listeners the other side attaches in `onConnect`. Specs that use
+  a port need `await browser._fake.flush()` before asserting, or
+  `await vi.advanceTimersByTimeAsync(0)` under fake timers, where `flush()` hangs.
 
 Every API is a `vi.fn`, so calls can be asserted with the usual matchers, and
 the stored state — `storage.local.items`, `downloads.items`, `tabs.items`,

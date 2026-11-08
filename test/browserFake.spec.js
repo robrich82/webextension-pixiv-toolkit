@@ -176,8 +176,38 @@ describe('runtime.connect', () => {
 
     await browser._fake.flush();
     client.postMessage({ action: 'hello' });
+    await browser._fake.flush();
 
     expect(received).toHaveBeenCalledWith({ action: 'hello' }, client.peer);
+  });
+
+  // Downloader posts its request the moment it connects.
+  test('delivers a message posted right after connect() to the listener onConnect attaches', async () => {
+    const received = vi.fn();
+
+    browser.runtime.onConnect.addListener(port => port.onMessage.addListener(received));
+    browser.runtime.connect({ name: 'a-port' }).postMessage({ action: 'download' });
+    await browser._fake.flush();
+
+    expect(received).toHaveBeenCalledWith({ action: 'download' }, expect.anything());
+  });
+
+  test('delivers messages before a disconnect that follows them', async () => {
+    const events = [];
+
+    browser.runtime.onConnect.addListener(port => {
+      port.onMessage.addListener(message => events.push(message.n));
+      port.onDisconnect.addListener(() => events.push('disconnect'));
+    });
+
+    const client = browser.runtime.connect({ name: 'a-port' });
+    await browser._fake.flush();
+    client.postMessage({ n: 1 });
+    client.postMessage({ n: 2 });
+    client.disconnect();
+    await browser._fake.flush();
+
+    expect(events).toEqual([1, 2, 'disconnect']);
   });
 
   test('delivers a reply back to the caller', async () => {
@@ -193,6 +223,37 @@ describe('runtime.connect', () => {
     expect(received).toHaveBeenCalledWith({ action: 'ready' }, client);
   });
 
+  test('lets the other end post until it hears of a disconnect, and drops what it posts', async () => {
+    let server;
+    const received = vi.fn();
+
+    browser.runtime.onConnect.addListener(port => { server = port; });
+
+    const client = browser.runtime.connect({ name: 'a-port' });
+    client.onMessage.addListener(received);
+    await browser._fake.flush();
+    client.disconnect();
+
+    expect(() => server.postMessage({ late: true })).not.toThrow();
+    await browser._fake.flush();
+
+    expect(received).not.toHaveBeenCalled();
+    expect(() => server.postMessage({ later: true })).toThrow('disconnected port');
+  });
+
+  test('sends a copy, so changing the message after posting it changes nothing', async () => {
+    const received = vi.fn();
+
+    browser.runtime.onConnect.addListener(port => port.onMessage.addListener(received));
+
+    const message = { n: 1 };
+    browser.runtime.connect({ name: 'a-port' }).postMessage(message);
+    message.n = 2;
+    await browser._fake.flush();
+
+    expect(received).toHaveBeenCalledWith({ n: 1 }, expect.anything());
+  });
+
   test('notifies the other end of a disconnect', async () => {
     const onDisconnect = vi.fn();
 
@@ -202,6 +263,7 @@ describe('runtime.connect', () => {
 
     await browser._fake.flush();
     client.disconnect();
+    await browser._fake.flush();
 
     expect(onDisconnect).toHaveBeenCalled();
   });
