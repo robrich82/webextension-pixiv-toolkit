@@ -73,7 +73,7 @@ import AbstractService from "./AbstractService";
 
   deleteItem(data) {
     if (data.uid) {
-      this.history.deleteItem(data.uid);
+      return this.history.deleteItem(data.uid);
     }
   }
 

@@ -46,6 +46,12 @@ module.exports = {
       functions: 67,
       lines: 76
     },
+    './src/modules/Db/': {
+      statements: 99,
+      branches: 88,
+      functions: 100,
+      lines: 99
+    },
     './src/content_scripts/components/': {
       statements: 94,
       branches: 80,

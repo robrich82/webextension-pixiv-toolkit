@@ -36,7 +36,7 @@ class History {
     let item = await this.historyRepo.getItem({ uid });
 
     if (item) {
-      this.historyRepo.deleteItem(item.id);
+      await this.historyRepo.deleteItem(item.id);
     }
   }
 
