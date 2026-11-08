@@ -1,5 +1,6 @@
 import { spawnSync } from 'child_process';
 import path from 'path';
+import pkg from '../package.json';
 
 const SCRIPT = path.resolve(__dirname, '../scripts/only-pnpm.js');
 
@@ -12,7 +13,7 @@ function run(userAgent) {
 }
 
 test('the preinstall hook runs the guard', () => {
-  expect(require('../package.json').scripts.preinstall).toBe('node scripts/only-pnpm.js');
+  expect(pkg.scripts.preinstall).toBe('node scripts/only-pnpm.js');
 });
 
 test('pnpm passes', () => {

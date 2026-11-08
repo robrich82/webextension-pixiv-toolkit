@@ -1,10 +1,10 @@
 /**
  * The X.Y.Z migration, which <one line on what it does>.
  */
-const browser = require('./doubles/browser').default;
-const Application = require('../src/background/Application').default;
-const SettingService = require('../src/background/services/SettingService').default;
-const updateX_Y_Z = require('../src/background/updates/updateX_Y_Z').default;
+import browser from './doubles/browser';
+import Application from '../src/background/Application';
+import SettingService from '../src/background/services/SettingService';
+import updateX_Y_Z from '../src/background/updates/updateX_Y_Z';
 
 beforeEach(() => {
   Application.instance = undefined;

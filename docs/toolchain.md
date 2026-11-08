@@ -103,13 +103,14 @@ Renovate otherwise exempts, so its PRs install without the exclusion below.
 
 **`allowBuilds`** — dependency lifecycle scripts are denied by default in pnpm,
 and the install *fails* if a package wants to build and is not named in this
-map. So the map is a decision log rather than a list of exceptions: the one
-package in the tree that declares an install script is named, and it is
+map. So the map is a decision log rather than a list of exceptions: both
+packages in the tree that declare install scripts are named, and both are
 denied.
 
 | Package | Why it is denied |
 | --- | --- |
 | `@parcel/watcher` | native file watching for `sass --watch`. Unreachable — watching is webpack's job here. |
+| `fsevents` | macOS-only file watching for Vite's dev server, which `vitest run` never starts. The tarball ships a prebuilt binary, so its `node-gyp rebuild` is redundant anyway. Skipped on Windows and Linux, so only a Mac install would fail without the entry. |
 
 This replaces `npm ci --ignore-scripts`, which was correct but lived in one line
 of CI YAML and did nothing for a local install. Adding a `true` here is a

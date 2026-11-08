@@ -26,6 +26,9 @@ minimumReleaseAge: 1440
 #
 #   @parcel/watcher  native file watching for `sass --watch`. Unreachable --
 #                    watching is webpack's job here.
+#   fsevents         macOS-only file watching for Vite's dev server, which
+#                    `vitest run` never starts. The tarball ships a prebuilt
+#                    binary, so its `node-gyp rebuild` is redundant anyway.
 #
 # Adding `true` here is a security decision, not a way to clear a failed
 # install. A new entry means a dependency started wanting to execute code on
@@ -36,6 +39,7 @@ minimumReleaseAge: 1440
 # block below. Decide and replace that line; do not just re-run the install.
 allowBuilds:
   '@parcel/watcher': false
+  fsevents: false
 
 # Transitive dependencies must come from the registry -- no git repositories,
 # no tarball URLs. This is pnpm's default; pinned so it survives a default flip.

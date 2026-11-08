@@ -27,7 +27,8 @@ The tested parts of `src` each get their own glob, because one global number
 would let a well-tested directory pay for an untested one; the config lists
 them. A glob pools its files into one number unless it sets `perFile: true`,
 and its files still count toward the global floor, so the global floor is the
-whole-repo number.
+whole-repo number. A key that matches no file passes silently, so rename the
+key when you move or rename the file it names.
 
 A PR that adds a large untested file will trip the global floor. That is the
 mechanism working: either cover the file or, if the change genuinely cannot be
@@ -228,7 +229,9 @@ one real `mountOption()` (also exported by `mountOptionComponent.js`) per
 established pattern — see `DownloadSaveMode.spec.js` for the shape. One
 caveat of `renderStubDefaultSlot`: it also renders a stubbed dialog/menu's
 body regardless of visibility, so a future "X is not visible" assertion needs
-a real mount too, not a shallow one.
+a real mount too, not a shallow one. That mount also needs `attachTo:
+document.body`: jsdom computes no styles for a detached element, so
+`isVisible()` is always true there (see `App.spec.js`).
 
 The extension API double (`test/doubles/browser.js`, see above) is reused
 as-is: a spec imports it directly and the component's own

@@ -89,7 +89,7 @@ const observerPort = () => browser.runtime.ports.at(-1);
 const ugoira = { context: { type: 'Illust', illustType: 2 } };
 
 afterEach(() => {
-  mounted.splice(0).forEach(wrapper => wrapper.unmount());
+  mounted.splice(0).filter(wrapper => !wrapper.vm.$.isUnmounted).forEach(wrapper => wrapper.unmount());
   vi.restoreAllMocks();
 });
 
@@ -311,11 +311,17 @@ describe('App download', () => {
       respondTo(addsDownloads);
       const wrapper = await mountWithPage();
 
-      await clickAndFlush(actionButtons(wrapper)[0]);
-      await vi.advanceTimersByTimeAsync(3000);
-      await wrapper.vm.$nextTick();
+      const notice = () => wrapper.find('.ptk__download-added-notice');
+      expect(notice().isVisible()).toBe(false);
 
-      expect(wrapper.find('.ptk__download-added-notice').isVisible()).toBe(false);
+      await clickAndFlush(actionButtons(wrapper)[0]);
+      await vi.advanceTimersByTimeAsync(2999);
+      await wrapper.vm.$nextTick();
+      expect(notice().isVisible()).toBe(true);
+
+      await vi.advanceTimersByTimeAsync(1);
+      await wrapper.vm.$nextTick();
+      expect(notice().isVisible()).toBe(false);
     } finally {
       vi.useRealTimers();
     }

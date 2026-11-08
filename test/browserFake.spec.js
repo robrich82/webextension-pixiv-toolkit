@@ -7,13 +7,12 @@ describe('promise and callback styles', () => {
     expect(await browser.storage.local.get('a')).toEqual({ a: 1 });
   });
 
-  test('calls a trailing callback with the same result', done => {
-    browser.storage.local.set({ a: 1 }, () => {
-      browser.storage.local.get('a', items => {
-        expect(items).toEqual({ a: 1 });
-        done();
-      });
+  test('calls a trailing callback with the same result', async () => {
+    const items = await new Promise(resolve => {
+      browser.storage.local.set({ a: 1 }, () => browser.storage.local.get('a', resolve));
     });
+
+    expect(items).toEqual({ a: 1 });
   });
 
   test('records the call for assertions', async () => {

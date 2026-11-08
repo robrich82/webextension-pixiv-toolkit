@@ -11,7 +11,7 @@ import ugoiraMeta from './fixtures/pixiv/illust-ugoira-meta.json';
 import unlisted from './fixtures/pixiv/illust-unlisted.json';
 import missingCreateDate from './fixtures/pixiv/illust-missing-create-date.json';
 
-// `require` caches, and `standardContext` keeps a reference to the response
+// JSON imports are cached, and `standardContext` keeps a reference to the response
 // body in `__raw`. A test that reaches into the context and mutates it would
 // otherwise leak into every later test in the file.
 const clone = fixture => JSON.parse(JSON.stringify(fixture));
