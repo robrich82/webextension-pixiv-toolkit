@@ -46,6 +46,13 @@ looks, since the only thing an open range can enforce is a floor.
   `engines.node` is only enforced *because* this is set — drop the flag
   thinking it only governs dependencies, and the Node ceiling silently stops
   being checked too, since it is the same setting doing both jobs.
+- **`engines.npm`** — `please-use-pnpm`, a range no npm version satisfies.
+  With `engine-strict=true` in `.npmrc`, `npm install` stops with
+  `EBADENGINE` before installing anything. The `preinstall` guard
+  (`scripts/only-pnpm.js`) can't do this for npm: npm runs the root
+  `preinstall` only after the dependencies' own install scripts, which is
+  where `allowBuilds` is meant to say no. The guard still turns away yarn and
+  bun by name. pnpm doesn't check `engines.npm`.
 
 **Raise a ceiling deliberately, after a green CI run on the new major — never
 to get unblocked.** Deleting a ceiling converts a loud, early failure into a
