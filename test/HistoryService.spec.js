@@ -109,7 +109,7 @@ describe('HistoryService', () => {
     });
 
     test('an unknown uid changes nothing', async () => {
-      const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
       await send('history:importItems', { items: [entry(1, 100)] });
 
       await send('history:deleteItem', { uid: 'pixiv_illust:9' });
@@ -121,7 +121,7 @@ describe('HistoryService', () => {
 
     test('a failed delete reaches the caller', async () => {
       await send('history:importItems', { items: [entry(1, 100)] });
-      jest.spyOn(Db.getDb().historyRepo(), 'deleteItem').mockRejectedValue(new Error('disk full'));
+      vi.spyOn(Db.getDb().historyRepo(), 'deleteItem').mockRejectedValue(new Error('disk full'));
 
       await expect(HistoryService.getService().deleteItem({ uid: 'pixiv_illust:1' })).rejects.toThrow('disk full');
     });

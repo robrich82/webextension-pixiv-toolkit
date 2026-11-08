@@ -42,6 +42,7 @@ export default defineConfig({
         branches: 62,
         functions: 64,
         lines: 60,
+        'src/modules/Db/**': { statements: 99, branches: 90, functions: 100, lines: 99 },
         'src/modules/Util/**': { statements: 99, branches: 99, functions: 100, lines: 99 },
         'src/modules/Parser/**': { statements: 77, branches: 68, functions: 69, lines: 76 },
         'src/content_scripts/components/**': { statements: 95, branches: 90, functions: 92, lines: 95 },

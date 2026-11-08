@@ -31,7 +31,7 @@ describe('TrackedErrorRepo (Dexie)', () => {
     await repo.addItem({ error: new Error('No tab with id: 7'), created_at: 100 });
 
     const [row] = await table.toArray();
-    // Jest's sandbox has its own Error, so check the shape, not instanceof.
+    // The row is a structured clone, so check the fields rather than identity.
     expect(row.error).toMatchObject({ name: 'Error', message: 'No tab with id: 7' });
   });
 
