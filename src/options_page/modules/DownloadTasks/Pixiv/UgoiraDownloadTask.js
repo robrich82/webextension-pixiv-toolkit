@@ -109,6 +109,7 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
     this.downloader.addListener('progress', this.onProgress, this);
     this.downloader.addListener('item-finish', this.onItemFinish, this);
     this.downloader.addListener('finish', this.onFinish, this);
+    this.downloader.addListener('failure', this.onFailure, this);
     this.downloader.addListener('item-error', this.onItemError, this);
     this.downloader.addListener('pause', this.onPause, this);
   }

@@ -64,14 +64,40 @@ class Downloader extends Event {
 
   /**
    * @override
-   * @param {'start'|'progress'|'item-finish'|'finish'|'item-error'|'pause'|'abort'} eventName
+   * @param {'start'|'progress'|'item-finish'|'finish'|'failure'|'item-error'|'pause'|'abort'} eventName
    */
   dispatch(eventName, args) {
     super.dispatch(eventName, args);
   }
 
-  removeDownloadFromCollection(download) {
-    this.downloadFilePorts = this.downloadFilePorts.splice(this.downloadFilePorts.indexOf(download), 1);
+  removeDownloadFromCollection(downloadFilePort) {
+    const index = this.downloadFilePorts.indexOf(downloadFilePort);
+
+    if (index > -1) {
+      this.downloadFilePorts.splice(index, 1);
+    }
+  }
+
+  dispatchProgress() {
+    this.dispatch('progress', [{
+      progress: this.progresses.reduce((previousValue, currentValue) => previousValue + currentValue, 0) / this.files.length,
+      successCount: this.successCount,
+      failCount: this.failedDownloadFiles.length
+    }]);
+  }
+
+  /**
+   * Set a file aside for the next `download()` to retry, and move on.
+   */
+  failFile(downloadFile, error) {
+    this.failedDownloadFiles.push(downloadFile);
+    this.progresses[downloadFile.seq] = 0;
+
+    console.error(error);
+
+    this.dispatch('item-error', [error]);
+    this.dispatchProgress();
+    this.downloadNext();
   }
 
   /**
@@ -84,7 +110,7 @@ class Downloader extends Event {
 
   /**
    * @override
-   * @param {'start'|'progress'|'item-finish'|'finish'|'item-error'|'pause'|'abort'} eventName
+   * @param {'start'|'progress'|'item-finish'|'finish'|'failure'|'item-error'|'pause'|'abort'} eventName
    * @param {Function} listener
    * @param {*} thisArg
    */
@@ -102,7 +128,7 @@ class Downloader extends Event {
 
   reset() {
     this.progresses = [];
-    this.downloadFiles = this.files;
+    this.downloadFiles = this.files.slice();
     this.failedDownloadFiles = [];
     this.successCount = 0;
   }
@@ -123,14 +149,13 @@ class Downloader extends Event {
       return;
     }
 
-    let downloadFile = this.downloadFiles.shift();
-
-    if (downloadFile) {
+    if (this.downloadFiles.length > 0) {
       if (this.downloadFilePorts.length < this.processors) {
-        this.downloadFile(downloadFile);
+        this.downloadFile(this.downloadFiles.shift());
       }
-    } else {
-      this.dispatch('finish');
+    } else if (this.downloadFilePorts.length === 0) {
+      // Every file has ended. One that failed is waiting for a retry.
+      this.dispatch(this.failedDownloadFiles.length > 0 ? 'failure' : 'finish');
     }
   }
 
@@ -154,28 +179,10 @@ class Downloader extends Event {
         // totalLength is 0 when the response has no Content-Length
         this.progresses[downloadFile.seq] = totalLength > 0 ? Math.min(loadedLength / totalLength, 1) : 0;
 
-        this.dispatch('progress', [{
-          progress: this.progresses.reduce((previousValue, currentValue) => previousValue + currentValue, 0) / this.files.length,
-          successCount: this.successCount,
-          failCount: this.failedDownloadFiles.length
-        }]);
+        this.dispatchProgress();
       } else if (message.event === 'error') {
         this.removeDownloadFromCollection(downloadFilePort);
-        const { error = errorMessage } = message.data;
-
-        this.failedDownloadFiles.push(downloadFile);
-        this.progresses[downloadFile.seq] = 0;
-
-        console.error(error);
-
-        this.dispatch('item-error', [new Error(errorMessage)]);
-        this.dispatch('progress', [{
-          progress: this.progresses.reduce((previousValue, currentValue) => previousValue + currentValue) / this.files.length,
-          successCount: this.successCount,
-          failCount: this.failedDownloadFiles.length,
-        }]);
-
-        this.downloadNext();
+        this.failFile(downloadFile, new Error(message.data.error));
       } else if (message.event === 'complete') {
         const { data, mimeType } = message.data;
 
@@ -204,9 +211,7 @@ class Downloader extends Event {
                   this.successCount++;
                   this.dispatch('item-finish', [itemFinishData]);
                   this.downloadNext();
-                }).catch((error) => {
-                  this.dispatch('item-error', [error]);
-                });
+                }, error => this.failFile(downloadFile, error));
 
                 return;
               }
@@ -226,7 +231,10 @@ class Downloader extends Event {
          */
         this.downloadFiles.unshift(downloadFile);
 
-        if (this.downloadFilePorts.length === 0) {
+        if (!this.paused) {
+          // download() was called again before this abort came back.
+          this.downloadNext();
+        } else if (this.downloadFilePorts.length === 0) {
           this.dispatch('pause');
         }
       }

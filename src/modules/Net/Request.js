@@ -74,10 +74,16 @@ class Request extends Event {
 
           this.readData(reader);
         }
-      }).catch(error => {
-        this.dispatch('onerror', [error]);
-      });
+      }).catch(error => this.dispatchFailure(error));
     });
+  }
+
+  /**
+   * fetch rejects an aborted request, and errors its body, with an AbortError,
+   * so after abort() a rejection is the abort, not a network error.
+   */
+  dispatchFailure(error) {
+    this.dispatch(this.fetchFallbackAbortSignal ? 'onabort' : 'onerror', [error]);
   }
 
   send(data = null) {
@@ -114,9 +120,7 @@ class Request extends Event {
       }
 
       this.readData(this.response.body.getReader());
-    }).catch(error => {
-      this.dispatch('onerror', [error]);
-    });
+    }).catch(error => this.dispatchFailure(error));
   }
 
   getResponseHeader(name) {

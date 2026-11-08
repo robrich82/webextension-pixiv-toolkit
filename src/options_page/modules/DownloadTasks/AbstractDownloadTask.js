@@ -107,6 +107,16 @@ class AbstractDownloadTask extends Event {
   }
 
   /**
+   * Handle the downloader's `failure` event: every file has ended and some
+   * could not be downloaded, so save nothing.
+   * @fires AbstractDownloadTask#failure
+   */
+  onFailure() {
+    this.changeState(this.FAILURE_STATE);
+    this.dispatch('failure');
+  }
+
+  /**
    * @throws {RuntimeError}
    */
   tryPending() {

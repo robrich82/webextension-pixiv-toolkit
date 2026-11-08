@@ -11,22 +11,22 @@ import MultiplePagesDownloadTask from '@/options_page/modules/DownloadTasks/Mult
 let background;
 let manager;
 
-const page = n => `https://i.pximg.net/img/${n}_p0.png`;
+const page = (n, p = 0) => `https://i.pximg.net/img/${n}_p${p}.png`;
 
-const createTask = n => new MultiplePagesDownloadTask({
+const createTask = (n, totalPages = 1) => new MultiplePagesDownloadTask({
   id: `pixiv_illust:${n}`,
   url: `https://www.pixiv.net/artworks/${n}`,
-  pages: [page(n)],
+  pages: Array.from({ length: totalPages }, (_, p) => page(n, p)),
   selectedIndexes: [],
   pageNumberStartWithOne: 1,
   pageNumberLength: -1,
   renameRule: '{id}',
   renameImageRule: 'p{pageNum}',
-  context: { id: `${n}`, title: `Work ${n}`, totalPages: 1 }
+  context: { id: `${n}`, title: `Work ${n}`, totalPages }
 });
 
 const addTasks = async (...ns) => {
-  const tasks = ns.map(createTask);
+  const tasks = ns.map(n => createTask(n));
 
   for (const task of tasks) {
     await manager.addTask(task);
@@ -44,7 +44,7 @@ beforeEach(() => {
     settings: {
       downloadSaveMode: 0,
       globalZipMultipleImages: 1,
-      downloadTasksWhenDownloadingImages: 3, // the default; 1 hits Downloader.removeDownloadFromCollection's splice bug
+      downloadTasksWhenDownloadingImages: 1,
       downloadRelativeLocation: '',
       enableDownloadMetadata: false,
       dontCreateWorkFolder: 0,
@@ -69,6 +69,7 @@ afterEach(() => {
   delete globalThis.JSZip;
 });
 
+const FAILURE = -1;
 const PENDING = 1;
 const DOWNLOADING = 2;
 const COMPLETE = 4;
@@ -100,6 +101,33 @@ test('a finished task frees its slot, and the next queued task starts', async ()
     action: 'download:saveFile',
     args: expect.objectContaining({ filename: '1.zip' })
   }));
+});
+
+test('a task downloads every page, one at a time, before saving its zip', async () => {
+  const task = createTask(1, 3);
+  await manager.addTask(task);
+
+  for (const p of [0, 1, 2]) {
+    await vi.waitFor(() => expect(background.request(page(1, p))).toBeDefined());
+    background.request(page(1, p)).complete();
+  }
+  await vi.waitFor(() => expect(task.isComplete()).toBe(true));
+
+  expect(background.requests.map(request => request.url)).toEqual([page(1, 0), page(1, 1), page(1, 2)]);
+});
+
+test('a task whose page fails ends in failure, saves nothing, and frees its slot', async () => {
+  manager.setMaxDownloadingTasks(1);
+  vi.spyOn(console, 'error').mockImplementation(() => {});
+  const tasks = await addTasks(1, 2);
+
+  background.request(page(1)).fail('HTTP 404');
+  await vi.waitFor(() => expect(tasks[0].isFailure()).toBe(true));
+  await browser._fake.flush();
+
+  expect(states(tasks)).toEqual([FAILURE, DOWNLOADING]);
+  expect(tasks[0].lastError).toEqual(new Error('HTTP 404'));
+  expect(browser.runtime.sendMessage).not.toHaveBeenCalledWith(expect.objectContaining({ action: 'download:saveFile' }));
 });
 
 test('raising the limit starts queued tasks at once; lowering it leaves running ones alone', async () => {
@@ -148,6 +176,19 @@ test('pausing a download aborts its file in the background', async () => {
 
   expect(task.isPaused()).toBe(true);
   expect(background.aborted).toEqual([page(1)]);
+});
+
+test('pausing aborts only the page in flight, not the ones already downloaded', async () => {
+  const task = createTask(1, 2);
+  await manager.addTask(task);
+  await browser._fake.flush();
+  background.request(page(1, 0)).complete();
+  await vi.waitFor(() => expect(background.request(page(1, 1))).toBeDefined());
+
+  await manager.pauseTask(task.id);
+  await browser._fake.flush();
+
+  expect(background.aborted).toEqual([page(1, 1)]);
 });
 
 test('starting a task that is already downloading is reported as an error, not a restart', async () => {

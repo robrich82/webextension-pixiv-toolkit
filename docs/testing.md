@@ -156,6 +156,21 @@ gives jsdom the `structuredClone` that fake-indexeddb needs. `Db` and each repo
 are singletons: clear `Db.instance` and the repo's `instance` in `beforeEach`,
 and call `Db.getDb().database.delete()` in `afterEach`.
 
+## Downloads
+
+Two helpers stand in for the ends of the download pipeline:
+
+- `test/helpers/downloadFileBackground.js` plays the background's end of the
+  `DownloadFile` ports. Use it for specs about tasks and the manager.
+- `test/helpers/fileServer.js` replaces `fetch` under the real background
+  (`DownloadFileService` → `Download`). Use it for specs about the transfer
+  itself. Its responses are real `Response`s, and an abort rejects with an
+  AbortError, as the fetch spec says.
+
+The background reads each finished file with `FileReader`, which Node lacks, so
+`test/Downloader.spec.js` stays in the `unit` project but opts into jsdom with a
+`// @vitest-environment jsdom` docblock.
+
 ## DOM code, without jsdom
 
 Everything runs under the `node` test environment. `CopyStr`, the one module
