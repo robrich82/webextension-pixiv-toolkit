@@ -46,13 +46,6 @@ looks, since the only thing an open range can enforce is a floor.
   `engines.node` is only enforced *because* this is set — drop the flag
   thinking it only governs dependencies, and the Node ceiling silently stops
   being checked too, since it is the same setting doing both jobs.
-- **`engines.npm`** — `please-use-pnpm`, a range no npm version satisfies.
-  With `engine-strict=true` in `.npmrc`, `npm install` stops with
-  `EBADENGINE` before installing anything. The `preinstall` guard
-  (`scripts/only-pnpm.js`) can't do this for npm: npm runs the root
-  `preinstall` only after the dependencies' own install scripts, which is
-  where `allowBuilds` is meant to say no. The guard still turns away yarn and
-  bun by name. pnpm doesn't check `engines.npm`.
 
 **Raise a ceiling deliberately, after a green CI run on the new major — never
 to get unblocked.** Deleting a ceiling converts a loud, early failure into a
@@ -67,6 +60,15 @@ the Node pin where it is passes this check having never run on that major,
 which is exactly the case the rule above asks a human to gate deliberately.
 Renovate is kept out of it: `renovate.json` disables `engines` updates, so its
 major bump of an exact pin fails install until someone raises the ceiling.
+
+**`engines.npm` is `please-use-pnpm`**, a range no npm satisfies, so with
+`engine-strict=true` in `.npmrc` npm refuses the install before it extracts or
+runs anything. npm checks engines only after resolving the tree, so another
+resolve error can come first: today `ERESOLVE` on `@vue/vue3-jest`'s Babel 7
+peer, which `--force` skips. `--force` doesn't skip the engines check.
+`scripts/only-pnpm.js` can't stop npm: npm runs the root `preinstall` after
+every dependency's install script, the scripts `allowBuilds` exists to gate.
+It still refuses yarn and bun. pnpm ignores `engines.npm`.
 
 ## Lockfile
 
