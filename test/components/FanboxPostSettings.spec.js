@@ -85,13 +85,13 @@ describe('FanboxPostSettings', () => {
     expect(browser.storage.local.items.fanboxPostRenameImageRule).toBe('img_p{pageNum}');
   });
 
-  // List item 0 opens the first rename dialog, item 1 the image one.
   test.each([
     [0, '_rename_comic.message'],
     [1, '_rename_fanbox_post_image.message'],
   ])('clicking list item %i opens the "%s" rename dialog', async (index, title) => {
     const wrapper = mountOption(FanboxPostSettings, { browserItems });
-    const dialog = wrapper.findAllComponents(RenameDialog)[index];
+    const dialogs = wrapper.findAllComponents(RenameDialog);
+    const [dialog, other] = [dialogs[index], dialogs[1 - index]];
 
     expect(dialog.props('title')).toBe(title);
     expect(dialog.props('show')).toBe(false);
@@ -99,5 +99,6 @@ describe('FanboxPostSettings', () => {
     await wrapper.findAll('.v-list-item')[index].trigger('click');
 
     expect(dialog.props('show')).toBe(true);
+    expect(other.props('show')).toBe(false);
   });
 });

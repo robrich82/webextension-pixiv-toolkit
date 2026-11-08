@@ -70,11 +70,27 @@ export function shallowMountOption(Component, options) {
       // a future "X is not visible" assertion needs a real mount, not this.
       renderStubDefaultSlot: true,
       ...built.global,
-      // A v-text-field stub renders its props as attributes, and Vue can't set
-      // `prefix` on an element (read-only in the DOM), so it warns. Render the real one.
-      stubs: { VTextField: false, VInput: false, VField: false, ...built.global.stubs }
+      stubs: withRealTextField(built.global.stubs)
     }
   });
+}
+
+// A stub renders its props as attributes, and Vue warns setting `prefix`, which
+// is read-only on a DOM element. v-select and v-textarea have the same prop, but
+// no spec renders their stubs yet.
+const realTextField = { VTextField: false, VInput: false, VField: false };
+const pascal = name => name.replace(/(^|-)(\w)/g, (_, dash, c) => c.toUpperCase());
+
+// A caller's own entry for these wins, in either casing.
+function withRealTextField(stubs = {}) {
+  if (Array.isArray(stubs)) {
+    stubs = Object.fromEntries(stubs.map(name => [name, true]));
+  }
+
+  const named = new Set(Object.keys(stubs).map(pascal));
+  const defaults = Object.entries(realTextField).filter(([name]) => !named.has(name));
+
+  return { ...Object.fromEntries(defaults), ...stubs };
 }
 
 /**

@@ -12,7 +12,7 @@ vi.mock('@/options_page/DownloadsApplication', () => ({
   app: () => ({ getService: () => mockDownloadService })
 }));
 
-// Real ids are strings, e.g. 'pixiv_illust:123' (AbstractResource.getDownloadTaskId).
+// Real task ids are strings such as 'pixiv_illust:123' (each resource's getUid).
 const task = (n, overrides) => ({
   id: `task:${n}`, title: `Task ${n}`, url: 'u', progress: 0, state: 1, type: 'PIXIV_ILLUST', ...overrides
 });

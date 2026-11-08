@@ -77,13 +77,13 @@ describe('MangaOptions', () => {
     expect(wrapper.vm.renameImageRule).toBe('');
   });
 
-  // List item 0 opens the first rename dialog, item 1 the image one.
   test.each([
     [0, '_rename_manga.message'],
     [1, '_rename_manga_image.message'],
   ])('clicking list item %i opens the "%s" rename dialog', async (index, title) => {
     const wrapper = mountOption(MangaOptions, { browserItems });
-    const dialog = wrapper.findAllComponents(RenameDialog)[index];
+    const dialogs = wrapper.findAllComponents(RenameDialog);
+    const [dialog, other] = [dialogs[index], dialogs[1 - index]];
 
     expect(dialog.props('title')).toBe(title);
     expect(dialog.props('show')).toBe(false);
@@ -91,5 +91,6 @@ describe('MangaOptions', () => {
     await wrapper.findAll('.v-list-item')[index].trigger('click');
 
     expect(dialog.props('show')).toBe(true);
+    expect(other.props('show')).toBe(false);
   });
 });

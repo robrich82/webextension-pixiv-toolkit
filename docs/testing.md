@@ -213,8 +213,9 @@ supplies both:
   changed.
 
 `shallowMountOption` auto-stubs every Vuetify component except `v-text-field`
-and the `VInput`/`VField` it is built from: a stubbed `v-text-field` sets
-`prefix`, a read-only DOM property, and Vue warns. Since Phase B,
+and the `VInput`/`VField` it is built from. A stub renders its props as
+attributes, and Vue warns when one sets `prefix`, a read-only DOM property;
+`v-select` and `v-textarea` have that prop too. Since Phase B,
 Vuetify's real components are actually registered (`createAppVuetify()`), so
 this stubbing is what makes testing these components tractable at all — a
 real `v-select` needs a full DOM layout pass to open, and these specs only

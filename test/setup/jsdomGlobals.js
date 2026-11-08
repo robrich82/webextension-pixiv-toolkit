@@ -1,3 +1,5 @@
+import { format } from 'node:util';
+import { nextTick } from 'vue';
 import { config } from '@vue/test-utils';
 
 /**
@@ -47,18 +49,37 @@ config.global.config.warnHandler = (msg, instance, trace) => {
   vueWarnings.push(`[Vue warn]: ${msg}\n${trace}`);
 };
 
-// Apps built with createApp (UIApplication) skip that config and warn through console.warn.
+// Warnings with no test-utils config behind them (apps made with createApp, and
+// @vue/reactivity's own) go to console.warn. format() can't throw on odd args.
 const consoleWarn = console.warn;
-console.warn = (msg, ...rest) => {
-  if (typeof msg === 'string' && msg.startsWith('[Vue warn]')) {
-    vueWarnings.push([msg, ...rest].join(' '));
+console.warn = (...args) => {
+  if (typeof args[0] === 'string' && args[0].startsWith('[Vue warn]')) {
+    vueWarnings.push(format(...args));
     return;
   }
-  consoleWarn(msg, ...rest);
+  consoleWarn(...args);
 };
 
-afterEach(() => {
+const failOnVueWarnings = when => {
   if (vueWarnings.length) {
-    throw new Error(vueWarnings.splice(0).join('\n\n'));
+    throw new Error(`Vue warned ${when}:\n\n${vueWarnings.splice(0).join('\n\n')}`);
   }
+};
+
+// Raised at module scope, in beforeAll, or after the previous test's check.
+beforeEach(() => failOnVueWarnings('before this test started'));
+
+afterEach(async () => {
+  // Let Vue's scheduler run the re-renders the test's last change queued.
+  await nextTick();
+  failOnVueWarnings('during this test');
+});
+
+// Captured before any spec can fake timers.
+const realSetTimeout = setTimeout;
+
+afterAll(async () => {
+  // One macrotask, for work the last test left pending.
+  await new Promise(resolve => realSetTimeout(resolve));
+  failOnVueWarnings('after the last test in this file');
 });
