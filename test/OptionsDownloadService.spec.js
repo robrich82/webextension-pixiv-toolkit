@@ -195,8 +195,11 @@ describe("what the background asks", () => {
     browser._fake.setCurrentTab({ id: 5, windowId: 2 });
     window.__CURRENT_ACTIVE_DM__ = true;
 
-    await expect(send('download:checkIfDownloadManagerOpened')).resolves.toEqual({ result: true, data: { tabId: 5, windowId: 2 } });
-    delete window.__CURRENT_ACTIVE_DM__;
+    try {
+      await expect(send('download:checkIfDownloadManagerOpened')).resolves.toEqual({ result: true, data: { tabId: 5, windowId: 2 } });
+    } finally {
+      delete window.__CURRENT_ACTIVE_DM__;
+    }
   });
 });
 
