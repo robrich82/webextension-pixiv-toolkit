@@ -30,6 +30,12 @@ class Downloader extends Event {
   downloadFilePorts = [];
 
   /**
+   * Ports the background has answered on (complete, error or abort), or that closed: nothing left to abort.
+   * @type {WeakSet<Download>}
+   */
+  endedFilePorts = new WeakSet();
+
+  /**
    * @type {number}
    */
   counter = 0;
@@ -128,9 +134,10 @@ class Downloader extends Event {
   pause() {
     this.paused = true;
 
-    this.downloadFilePorts.forEach(downloadFilePort => {
-      downloadFilePort.postMessage({ action: 'abort' });
-    });
+    // A port in afterItemDownload may already be closed, and posting to it throws.
+    this.downloadFilePorts
+      .filter(downloadFilePort => !this.endedFilePorts.has(downloadFilePort))
+      .forEach(downloadFilePort => downloadFilePort.postMessage({ action: 'abort' }));
   }
 
   reset() {
@@ -180,13 +187,10 @@ class Downloader extends Event {
       name: 'DownloadFile',
     });
 
-    // Set once the background has answered with complete, error or abort.
-    let ended = false;
-
     // Firefox closes ports when its event page idles, and a closed port sends nothing.
     downloadFilePort.onDisconnect.addListener(() => {
-      if (!ended) {
-        ended = true;
+      if (!this.endedFilePorts.has(downloadFilePort)) {
+        this.endedFilePorts.add(downloadFilePort);
         this.removeDownloadFromCollection(downloadFilePort);
         this.failFile(downloadFile, new Error('The background closed the download'));
       }
@@ -194,7 +198,7 @@ class Downloader extends Event {
 
     downloadFilePort.onMessage.addListener(message => {
       if (message.event !== 'progress') {
-        ended = true;
+        this.endedFilePorts.add(downloadFilePort);
       }
 
       if (message.event === 'progress') {

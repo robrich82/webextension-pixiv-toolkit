@@ -190,14 +190,18 @@ test('a file whose afterItemDownload throws counts as failed', async () => {
   expect(named('item-error')).toEqual([new Error('bad page key')]);
 });
 
-test('a file still in afterItemDownload is in flight: resuming then does not finish without it', async () => {
+test('a file still in afterItemDownload is in flight: resuming then does not finish without it, even once its port closes', async () => {
+  const backgroundPorts = [];
+  browser.runtime.onConnect.addListener(port => backgroundPorts.push(port));
   let decrypted;
   createDownloader([1], { afterItemDownload: () => new Promise(resolve => { decrypted = resolve; }) });
   downloader.download();
   (await nthRequest(0)).respond('one');
   await vi.waitFor(() => expect(decrypted).toBeDefined(), { interval: 1 });
+  backgroundPorts[0].disconnect();
+  await browser._fake.flush();
 
-  downloader.pause();
+  expect(() => downloader.pause()).not.toThrow();
   downloader.download();
   await browser._fake.flush();
   expect(named('finish')).toHaveLength(0);
