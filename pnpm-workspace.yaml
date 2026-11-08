@@ -26,11 +26,6 @@ minimumReleaseAge: 1440
 #
 #   @parcel/watcher  native file watching for `sass --watch`. Unreachable --
 #                    watching is webpack's job here.
-#   unrs-resolver    jest-resolve's native resolver. Its script only verifies
-#                    that the right `@unrs/resolver-binding-*` optional
-#                    dependency got installed; the binary itself arrives
-#                    prebuilt, so skipping the check costs nothing. Verified by
-#                    running the suite with the script denied.
 #
 # Adding `true` here is a security decision, not a way to clear a failed
 # install. A new entry means a dependency started wanting to execute code on
@@ -41,7 +36,6 @@ minimumReleaseAge: 1440
 # block below. Decide and replace that line; do not just re-run the install.
 allowBuilds:
   '@parcel/watcher': false
-  unrs-resolver: false
 
 # Transitive dependencies must come from the registry -- no git repositories,
 # no tarball URLs. This is pnpm's default; pinned so it survives a default flip.
@@ -56,9 +50,9 @@ trustPolicy: no-downgrade
 #
 # GHSA-gcqx-w48m-w2h4 (low): deepmerge <=4.3.1 lets `mergeObject()` return an
 # object with a poisoned prototype. There is no patched release (4.3.1, from
-# 2023, is the latest), and jest-config and addons-linter both still depend on
-# it, so neither an update nor an `overrides` floor can clear it. It is
-# dev-only: jest and web-ext pull it in, and nothing in dist/ ships it.
+# 2023, is the latest), and addons-linter still depends on it, so neither an
+# update nor an `overrides` floor can clear it. It is dev-only: web-ext pulls
+# it in, and nothing in dist/ ships it.
 auditConfig:
   ignoreGhsas:
     - GHSA-gcqx-w48m-w2h4
@@ -70,21 +64,18 @@ auditConfig:
 # patched version; Renovate never moves one to a new major (renovate.json).
 # pnpm ignores npm's top-level `overrides`.
 overrides:
-  # glob (jest, test-exclude, js-beautify; dev-only): GHSA-3g3m-2fjr-6pw4 --
+  # glob (js-beautify via @vue/test-utils; dev-only): GHSA-3g3m-2fjr-6pw4 --
   # AbortSignal cancellation bypass, patched 14.0.2.
   'glob@<14.0.2': ^14.0.2
-  # minimatch (test-exclude, js-beautify>editorconfig, web-ext's multimatch 8;
+  # minimatch (js-beautify>editorconfig, web-ext's multimatch 8;
   # dev-only): GHSA-g3hv-75wg-m249 -- DoS via globparts amplification, 11.0.1.
   'minimatch@<11.0.1': ^11.0.1
   # multimatch (web-ext): not an advisory. 6.x default-imports minimatch, which
   # v11 no longer exports, so `web-ext build` crashes (see docs/toolchain.md).
   'multimatch@<8': ^8.0.0
 
-# @vue/vue3-jest (latest 29.2.6) calls Babel's `transform` synchronously, which
-# Babel 8 rejects; the patch swaps in `transformSync` (also valid on Babel 7).
 # multimatch 8 (web-ext) under minimatch 11 reads web-ext's Windows ignore
 # patterns' backslashes as escapes, so nothing is ignored and dotfiles/zips get
 # packed; the patch restores minimatch 3's backslash-as-separator on Windows.
 patchedDependencies:
-  '@vue/vue3-jest': patches/@vue__vue3-jest.patch
   multimatch: patches/multimatch.patch
