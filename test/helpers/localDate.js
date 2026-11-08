@@ -24,4 +24,4 @@ const localDateParts = timestamp => {
   };
 };
 
-module.exports = { localDateParts };
+export { localDateParts };

@@ -7,12 +7,12 @@
  * stand in for them so a failure points at the gate rather than at what a
  * migration wrote.
  */
-const browser = require('./doubles/browser').default;
-const Application = require('../src/background/Application').default;
-const SettingService = require('../src/background/services/SettingService').default;
-const Updater = require('../src/background/modules/Updater').default;
-const updates = require('../src/background/updates').default;
-const versionCompare = require('../src/modules/Util/versionCompare');
+import browser from './doubles/browser';
+import Application from '../src/background/Application';
+import SettingService from '../src/background/services/SettingService';
+import Updater from '../src/background/modules/Updater';
+import updates from '../src/background/updates';
+import versionCompare from '../src/modules/Util/versionCompare';
 
 beforeEach(() => {
   Application.instance = undefined;

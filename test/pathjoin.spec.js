@@ -1,4 +1,4 @@
-const pathjoin = require('../src/modules/Util/pathjoin').default;
+import pathjoin from '../src/modules/Util/pathjoin';
 
 test('pathjoin join a, b, c should be a/b/c', () => {
   expect(pathjoin('a', 'b', 'c')).toBe('a/b/c');

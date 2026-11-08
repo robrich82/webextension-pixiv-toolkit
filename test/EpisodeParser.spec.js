@@ -1,15 +1,9 @@
-const EpisodeParser = require('../src/modules/Parser/PixivComic/EpisodeParser').default;
-const { installFetch } = require('./doubles/fetch');
+import EpisodeParser from '../src/modules/Parser/PixivComic/EpisodeParser';
+import { installFetch } from './doubles/fetch';
 
-const episode = require('./fixtures/pixivComic/episode.json');
+import episode from './fixtures/pixivComic/episode.json';
 
 const clone = fixture => JSON.parse(JSON.stringify(fixture));
-
-// The parser signs each request with a SHA-256 of the client time, which under
-// jest's node environment has no `crypto` global to reach for.
-if (!globalThis.crypto) {
-  globalThis.crypto = require('crypto').webcrypto;
-}
 
 const contextUrl = id => `https://comic.pixiv.net/api/app/episodes/${id}/read_v4`;
 const viewerUrl = id => `https://comic.pixiv.net/viewer/stories/${id}`;

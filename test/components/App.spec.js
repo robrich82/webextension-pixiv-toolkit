@@ -13,7 +13,7 @@ const structuredClone = value => deserialize(serialize(value));
 // Firefox structured-clones runtime messages and throws DataCloneError on Vue
 // reactive proxies; Chrome JSON-serializes them, so only Firefox surfaces it.
 const mountApp = () => {
-  window.$eventBus = { $on: jest.fn() };
+  window.$eventBus = { $on: vi.fn() };
 
   return shallowMount(App, { global: { mocks: { tl: key => key, browserItems: {} } } });
 };
@@ -59,10 +59,18 @@ const sentMessages = action => browser.runtime.sendMessage.mock.calls
   .map(([message]) => message)
   .filter(message => message.action === action);
 
+// Attached, because jsdom computes no styles for a detached element, so
+// isVisible() would miss v-show's display: none.
+const mounted = [];
 const mountLive = (browserItems = {}) => {
   installEventBus();
 
-  return mount(App, { global: { mocks: { tl: key => key, browserItems: { guideShowed: true, ...browserItems } } } });
+  const wrapper = mount(App, {
+    attachTo: document.body,
+    global: { mocks: { tl: key => key, browserItems: { guideShowed: true, ...browserItems } } }
+  });
+  mounted.push(wrapper);
+  return wrapper;
 };
 
 const mountWithPage = async (resourceOptions, browserItems) => {
@@ -81,7 +89,8 @@ const observerPort = () => browser.runtime.ports.at(-1);
 const ugoira = { context: { type: 'Illust', illustType: 2 } };
 
 afterEach(() => {
-  jest.restoreAllMocks();
+  mounted.splice(0).forEach(wrapper => wrapper.unmount());
+  vi.restoreAllMocks();
 });
 
 describe('App page lifecycle', () => {
@@ -197,7 +206,7 @@ describe('App page lifecycle', () => {
   });
 
   test('unmounting stops observing download tasks', async () => {
-    const stopObserve = jest.spyOn(DownloadTaskObserver.getObserver(), 'stopObserve');
+    const stopObserve = vi.spyOn(DownloadTaskObserver.getObserver(), 'stopObserve');
     const wrapper = await mountWithPage();
 
     wrapper.unmount();
@@ -246,7 +255,7 @@ describe('App on a restricted post', () => {
 
   test('the page before stops resolving its remaining pages', async () => {
     let resolveOld;
-    const pageResolver = jest.fn(() => new Promise(resolve => { resolveOld = resolve; }));
+    const pageResolver = vi.fn(() => new Promise(resolve => { resolveOld = resolve; }));
 
     await mountWithPage({ pages: ['old-a', 'old-b'], pageResolver });
     await showRestricted();
@@ -297,18 +306,18 @@ describe('App download', () => {
   });
 
   test('the notice hides itself after three seconds', async () => {
-    jest.useFakeTimers();
+    vi.useFakeTimers();
     try {
       respondTo(addsDownloads);
       const wrapper = await mountWithPage();
 
       await clickAndFlush(actionButtons(wrapper)[0]);
-      jest.advanceTimersByTime(3000);
-      await flushPromises();
+      await vi.advanceTimersByTimeAsync(3000);
+      await wrapper.vm.$nextTick();
 
       expect(wrapper.find('.ptk__download-added-notice').isVisible()).toBe(false);
     } finally {
-      jest.useRealTimers();
+      vi.useRealTimers();
     }
   });
 
@@ -345,7 +354,7 @@ describe('App download', () => {
   };
 
   test('asks before re-adding a task that already exists', async () => {
-    const confirm = jest.spyOn(window, 'confirm').mockReturnValue(true);
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
     respondTo(existsUntilRedownload);
     const wrapper = await mountWithPage();
 
@@ -357,7 +366,7 @@ describe('App download', () => {
   });
 
   test('declining the re-add prompt sends nothing more', async () => {
-    jest.spyOn(window, 'confirm').mockReturnValue(false);
+    vi.spyOn(window, 'confirm').mockReturnValue(false);
     respondTo(existsUntilRedownload);
     const wrapper = await mountWithPage();
 
@@ -368,7 +377,7 @@ describe('App download', () => {
   });
 
   test('alerts on any other add failure', async () => {
-    const alert = jest.spyOn(window, 'alert').mockImplementation(() => {});
+    const alert = vi.spyOn(window, 'alert').mockImplementation(() => {});
     respondTo({
       'download:ensureDownloadManagerOpen': true,
       'download:addDownload': { result: false, errorName: 'SomethingElse' }

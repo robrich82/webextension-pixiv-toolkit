@@ -1,22 +1,9 @@
 import { flushPromises } from '@vue/test-utils';
 import browser from '@/modules/Extension/browser';
 import Detector from '@/content_scripts/modules/Detector';
-
-// Same stand-in as UIApplication.spec.js: vue-i18n's ESM build doesn't load
-// under Jest.
-jest.mock('@/modules/I18n', () => ({
-  i18n: jest.fn(locale => ({
-    global: { locale },
-    install: app => { app.config.globalProperties.$t = key => key; }
-  }))
-}));
-
-// webpack's DefinePlugin constant, read by '@/core/global' at import time.
-globalThis.PRESET_BROWSER = 'chrome';
-
-const { default: Application } = require('@/content_scripts/Application');
-const article = require('../fixtures/fanbox/post-article.json');
-const restrictedPost = require('../fixtures/fanbox/post-restricted.json');
+import Application from '@/content_scripts/Application';
+import article from '../fixtures/fanbox/post-article.json';
+import restrictedPost from '../fixtures/fanbox/post-restricted.json';
 
 const articleUrl = 'https://www.fanbox.cc/@sketchbook/posts/60000001';
 const restrictedUrl = 'https://www.fanbox.cc/@sketchbook/posts/60000003';
@@ -82,10 +69,10 @@ describe('Application on a fanbox post', () => {
 
     // The tests drive urlchangeHandler directly; a live MutationObserver per
     // test would outlive it.
-    jest.spyOn(Detector.prototype, 'observeUrl').mockImplementation(() => {});
+    vi.spyOn(Detector.prototype, 'observeUrl').mockImplementation(() => {});
     // The constructor parses jsdom's own url, which no filter matches.
-    consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
-    consoleWarn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     window.$app = application = new Application();
     await flushPromises();
     consoleError.mockClear();
@@ -95,7 +82,7 @@ describe('Application on a fanbox post', () => {
   afterEach(() => {
     application.UIApp && application.UIApp.unload();
     document.querySelectorAll('#__ptk-app').forEach(container => container.remove());
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   test('a post it can read shows the download button', async () => {

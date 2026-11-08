@@ -62,7 +62,7 @@ const buildTask = (pages, settingsOverrides = {}) => {
 
 beforeEach(() => {
   globalThis.JSZip = class FakeJSZip {
-    file = jest.fn();
+    file = vi.fn();
 
     generateAsync() {
       return Promise.resolve(new Blob(['zip contents']));

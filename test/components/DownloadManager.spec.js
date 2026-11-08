@@ -3,12 +3,12 @@ import DownloadManager from '@/options_page/components/DownloadManager.vue';
 
 const mockDownloadService = {
   changed: [],
-  flushChangedTasks: jest.fn(() => mockDownloadService.changed.splice(0)),
-  deleteDownload: jest.fn(),
-  showInFolder: jest.fn()
+  flushChangedTasks: vi.fn(() => mockDownloadService.changed.splice(0)),
+  deleteDownload: vi.fn(),
+  showInFolder: vi.fn()
 };
 
-jest.mock('@/options_page/DownloadsApplication', () => ({
+vi.mock('@/options_page/DownloadsApplication', () => ({
   app: () => ({ getService: () => mockDownloadService })
 }));
 
@@ -20,7 +20,7 @@ describe('DownloadManager', () => {
   let wrapper;
 
   beforeEach(() => {
-    jest.useFakeTimers();
+    vi.useFakeTimers();
     mockDownloadService.changed = [];
     wrapper = shallowMountOption(DownloadManager, {
       global: { stubs: { 'recycle-scroller': false, DownloadTask: false } }
@@ -31,14 +31,14 @@ describe('DownloadManager', () => {
     if (!wrapper.vm.$.isUnmounted) {
       wrapper.unmount();
     }
-    jest.clearAllTimers();
-    jest.useRealTimers();
-    jest.clearAllMocks();
+    vi.clearAllTimers();
+    vi.useRealTimers();
+    vi.clearAllMocks();
   });
 
   const poll = async (...tasks) => {
     mockDownloadService.changed.push(...tasks);
-    jest.advanceTimersByTime(600);
+    vi.advanceTimersByTime(600);
     await wrapper.vm.$nextTick();
   };
 
@@ -55,13 +55,13 @@ describe('DownloadManager', () => {
   });
 
   test('polls every 600ms', () => {
-    jest.advanceTimersByTime(599);
+    vi.advanceTimersByTime(599);
     expect(mockDownloadService.flushChangedTasks).not.toHaveBeenCalled();
 
-    jest.advanceTimersByTime(1);
+    vi.advanceTimersByTime(1);
     expect(mockDownloadService.flushChangedTasks).toHaveBeenCalledTimes(1);
 
-    jest.advanceTimersByTime(600);
+    vi.advanceTimersByTime(600);
     expect(mockDownloadService.flushChangedTasks).toHaveBeenCalledTimes(2);
   });
 
@@ -132,9 +132,9 @@ describe('DownloadManager', () => {
   });
 
   test('unmounting stops polling and the close-tab warning', () => {
-    jest.advanceTimersByTime(600);
+    vi.advanceTimersByTime(600);
     wrapper.unmount();
-    jest.advanceTimersByTime(1200);
+    vi.advanceTimersByTime(1200);
 
     expect(mockDownloadService.flushChangedTasks).toHaveBeenCalledTimes(1);
     expect(window.onbeforeunload).toBeNull();

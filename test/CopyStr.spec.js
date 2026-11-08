@@ -1,8 +1,8 @@
 /**
  * `CopyStr.copy()` is the options page's "copy to clipboard": it parks the text
  * in an off-screen node, selects it, runs `execCommand('copy')` and takes the
- * node away again. There is no return value and no observable result under
- * Jest, so what is worth asserting is the sequence — a step out of order, or a
+ * node away again. There is no return value and no observable result in a
+ * test, so what is worth asserting is the sequence — a step out of order, or a
  * node removed too early, leaves the user with nothing on the clipboard.
  *
  * The `node` test environment has no DOM, and jsdom implements neither
@@ -10,7 +10,7 @@
  * up asserting against stubs regardless. These doubles are small enough to keep
  * in the spec and record what the copy path needs.
  */
-const CopyStr = require('../src/modules/Util/CopyStr').default;
+import CopyStr from '../src/modules/Util/CopyStr';
 
 let dom;
 
@@ -33,17 +33,17 @@ function createDomFake() {
 
   const selection = {
     ranges: [],
-    removeAllRanges: jest.fn(() => { selection.ranges = []; }),
-    addRange: jest.fn(range => selection.ranges.push(range))
+    removeAllRanges: vi.fn(() => { selection.ranges = []; }),
+    addRange: vi.fn(range => selection.ranges.push(range))
   };
 
-  const createElement = jest.fn(tagName => ({
+  const createElement = vi.fn(tagName => ({
     tagName,
     style: {},
     innerText: '',
     attached: false,
 
-    remove: jest.fn(function () {
+    remove: vi.fn(function () {
       const index = body.children.indexOf(this);
 
       if (index > -1) {
@@ -54,12 +54,12 @@ function createDomFake() {
     })
   }));
 
-  const createRange = jest.fn(() => ({ selectedNode: undefined, selectNode: jest.fn(function (node) { this.selectedNode = node; }) }));
+  const createRange = vi.fn(() => ({ selectedNode: undefined, selectNode: vi.fn(function (node) { this.selectedNode = node; }) }));
 
   /** What the copy saw: the selection and the document as it stood. */
   const copyCalls = [];
 
-  const execCommand = jest.fn(command => {
+  const execCommand = vi.fn(command => {
     copyCalls.push({
       command,
       selectedNodes: selection.ranges.map(range => range.selectedNode),
@@ -84,7 +84,7 @@ beforeEach(() => {
 
   // `test/setup/extensionGlobals.js` points `window` at `globalThis`, so this
   // is the same `getSelection` the module reaches through `window`.
-  globalThis.getSelection = jest.fn(() => dom.selection);
+  globalThis.getSelection = vi.fn(() => dom.selection);
 });
 
 afterEach(() => {

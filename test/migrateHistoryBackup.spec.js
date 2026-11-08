@@ -33,11 +33,11 @@ describe('the 6.4.7 historyBackup migration', () => {
     HistoryRepo.instance = undefined;
 
     app = Application.createApp();
-    jest.spyOn(console, 'info').mockImplementation(() => {});
+    vi.spyOn(console, 'info').mockImplementation(() => {});
   });
 
   afterEach(async () => {
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
     await deletePouchDatabases();
     await Db.getDb().database.delete();
   });
@@ -100,8 +100,8 @@ describe('the 6.4.7 historyBackup migration', () => {
   });
 
   test('keeps the setting when the import fails', async () => {
-    const history = { importItems: jest.fn().mockRejectedValue(new Error('closed')) };
-    const error = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const history = { importItems: vi.fn().mockRejectedValue(new Error('closed')) };
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
     await browser.storage.local.set({ historyBackup: [v5(1, 100)] });
 
     await migrateHistoryBackup(app.getService('setting'), history);

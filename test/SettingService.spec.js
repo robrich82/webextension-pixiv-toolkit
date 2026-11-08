@@ -1,9 +1,9 @@
 /**
  * Drives the real background `SettingService` against the extension API fake,
- * which is what `jest.config.js` resolves `@/modules/Extension/browser` to.
+ * which is what `vitest.config.mjs` resolves `@/modules/Extension/browser` to.
  */
-const browser = require('./doubles/browser').default;
-const SettingService = require('../src/background/services/SettingService').default;
+import browser from './doubles/browser';
+import SettingService from '../src/background/services/SettingService';
 
 let service;
 let application;

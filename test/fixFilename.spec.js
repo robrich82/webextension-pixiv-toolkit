@@ -1,4 +1,4 @@
-const { fixFilename } = require('../src/modules/Util/fixFilename');
+import { fixFilename } from '../src/modules/Util/fixFilename';
 
 test('escapes a leading dot so the file is not written as hidden', () => {
   expect(fixFilename('.hidden.jpg')).toBe('[.]hidden.jpg');

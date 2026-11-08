@@ -52,10 +52,10 @@ const responseOf = body => {
  * @param {Object.<string, any>} routes url -> response body. A body that is an
  *        `Error` is rejected instead of served, which is how the failure paths
  *        (`Request` dispatching `onerror`) get exercised.
- * @returns {jest.Mock} the installed fetch, for call assertions
+ * @returns {vi.Mock} the installed fetch, for call assertions
  */
 export const installFetch = routes => {
-  const fetchFake = jest.fn(url => {
+  const fetchFake = vi.fn(url => {
     if (!(url in routes)) {
       return Promise.reject(new Error(`No fixture registered for ${url}`));
     }

@@ -4,7 +4,7 @@ import { mountOption, shallowMountOption } from '../helpers/mountOptionComponent
 import Index from '@/options_page/Index.vue';
 
 const mountIndex = (browserItems = {}, mount = shallowMountOption) => {
-  const push = jest.fn(() => Promise.resolve());
+  const push = vi.fn(() => Promise.resolve());
   const wrapper = mount(Index, {
     browserItems,
     mocks: { $router: { push } },
@@ -26,8 +26,8 @@ describe('Index', () => {
   });
 
   afterEach(() => {
-    jest.useRealTimers();
-    jest.restoreAllMocks();
+    vi.useRealTimers();
+    vi.restoreAllMocks();
   });
 
   test('shows the extension version in the app bar', () => {
@@ -94,7 +94,7 @@ describe('Index', () => {
   });
 
   test('suggests Pixiv Omina on x86 Windows, sliding it in after a second', async () => {
-    jest.useFakeTimers();
+    vi.useFakeTimers();
     browser._fake.state.platformInfo = { os: 'win', arch: 'x86-64' };
 
     const { wrapper } = mountIndex();
@@ -104,7 +104,7 @@ describe('Index', () => {
     expect(suggest().exists()).toBe(true);
     expect(suggest().classes()).not.toContain('app-suggest_container--show');
 
-    jest.advanceTimersByTime(1000);
+    vi.advanceTimersByTime(1000);
     await wrapper.vm.$nextTick();
 
     expect(suggest().classes()).toContain('app-suggest_container--show');

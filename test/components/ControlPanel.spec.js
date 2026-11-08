@@ -16,7 +16,7 @@ const mountPanel = ({ browserItems = {}, props = {}, slots = {} } = {}) => mount
 describe('ControlPanel', () => {
   afterEach(() => {
     window.localStorage.clear();
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   test('renders its default slot inside the action wrapper', () => {
@@ -56,7 +56,7 @@ describe('ControlPanel', () => {
   });
 
   test('with an error the handler alerts instead of toggling', async () => {
-    const alert = jest.spyOn(window, 'alert').mockImplementation(() => {});
+    const alert = vi.spyOn(window, 'alert').mockImplementation(() => {});
     const wrapper = mountPanel({
       browserItems: { downloadPanelStyle: 1 },
       props: { lastError: 'boom' }

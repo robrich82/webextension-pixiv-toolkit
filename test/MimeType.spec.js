@@ -1,4 +1,4 @@
-const MimeType = require('../src/modules/Util/MimeType').default;
+import MimeType from '../src/modules/Util/MimeType';
 
 describe('getExtenstion', () => {
   test('maps a known mime type to its extension', () => {

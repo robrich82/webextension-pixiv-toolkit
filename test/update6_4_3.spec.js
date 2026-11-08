@@ -2,10 +2,10 @@
  * The 6.4.3 migration, which clears the `downloadMode` setting left inert by
  * the removal of the legacy downloader.
  */
-const browser = require('./doubles/browser').default;
-const Application = require('../src/background/Application').default;
-const SettingService = require('../src/background/services/SettingService').default;
-const update6_4_3 = require('../src/background/updates/update6_4_3').default;
+import browser from './doubles/browser';
+import Application from '../src/background/Application';
+import SettingService from '../src/background/services/SettingService';
+import update6_4_3 from '../src/background/updates/update6_4_3';
 
 beforeEach(() => {
   Application.instance = undefined;

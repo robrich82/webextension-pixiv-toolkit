@@ -1,6 +1,6 @@
-const fs = require('fs');
-const path = require('path');
-const { localFFmpegCore } = require('../config/localFFmpegCore');
+import fs from 'fs';
+import path from 'path';
+import { localFFmpegCore } from '../config/localFFmpegCore';
 
 // Mirrors the CopyPlugin pattern in config/webpack.background.config.js.
 const dir = path.resolve(__dirname, '../node_modules/@ffmpeg/ffmpeg/dist/umd');

@@ -19,16 +19,16 @@ describe('Supports', () => {
   let open;
 
   beforeEach(() => {
-    open = jest.spyOn(window, 'open').mockImplementation(() => null);
+    open = vi.spyOn(window, 'open').mockImplementation(() => null);
     window.innerWidth = 1024;
   });
 
   afterEach(() => {
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   const mountAs = (browserName, props = {}, mocks = {}) => {
-    jest.spyOn(navigator, 'userAgent', 'get').mockReturnValue(userAgents[browserName]);
+    vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(userAgents[browserName]);
 
     return mountOption(Supports, { props, mocks });
   };
@@ -57,7 +57,7 @@ describe('Supports', () => {
   });
 
   test('the inline sponsors link routes in-page by default', async () => {
-    const push = jest.fn(() => Promise.resolve());
+    const push = vi.fn(() => Promise.resolve());
     const wrapper = mountAs('chrome', { showInlineSponsorsLink: true }, { $router: { push } });
 
     await wrapper.findAll('.support-btn')[2].trigger('click');

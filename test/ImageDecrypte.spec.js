@@ -1,11 +1,5 @@
-const { ImageDecrypte } = require('../src/modules/Parser/PixivComic/ImageDecrypte');
-const { decrypteKey } = require('../src/modules/Parser/PixivComic/config');
-
-// The shuffle table is seeded from a SHA-256 of the two keys, and jest's node
-// environment has no `crypto` global for that.
-if (!globalThis.crypto) {
-  globalThis.crypto = require('crypto').webcrypto;
-}
+import { ImageDecrypte } from '../src/modules/Parser/PixivComic/ImageDecrypte';
+import { decrypteKey } from '../src/modules/Parser/PixivComic/config';
 
 const BYTES_PER_PIXEL = 4;
 const PAGE_KEY = 'aaaaaaaaaaaaaaaa';

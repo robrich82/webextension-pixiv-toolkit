@@ -1,4 +1,4 @@
-const NameFormatter = require('../src/modules/Util/NameFormatter').default;
+import NameFormatter from '../src/modules/Util/NameFormatter';
 
 const format = (rule, context = {}, fallback) =>
   NameFormatter.getFormatter({ context }).format(rule, fallback);

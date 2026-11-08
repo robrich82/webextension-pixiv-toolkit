@@ -3,9 +3,9 @@
  *
  * The real module hands back whatever `chrome`/`browser` global the extension
  * happens to be running against, so nothing that touches an extension API can
- * be tested under Jest without it. `jest.config.js` maps that module path
+ * be tested without it. `vitest.config.mjs` aliases that module path
  * here, which means specs get this fake by importing the code under test — no
- * per-spec `jest.mock` call.
+ * per-spec `vi.mock` call.
  *
  * Two properties of the real APIs are reproduced deliberately, because the
  * codebase depends on both:
@@ -17,7 +17,7 @@
  *   port that posts a message the moment it is opened must not out-run the
  *   listeners the other side attaches after `connect()` returns.
  *
- * Every API is a `jest.fn`, so calls can be asserted with the usual matchers,
+ * Every API is a `vi.fn`, so calls can be asserted with the usual matchers,
  * and the stored state (`storage.local.items`, `downloads.items`, `tabs.items`,
  * `runtime.ports`) is readable for the assertions a call log can't express.
  */
@@ -112,7 +112,7 @@ class FakePort {
 }
 
 function createBrowserFake() {
-  /** Every `jest.fn` handed out, so `reset()` can clear the call logs. */
+  /** Every `vi.fn` handed out, so `reset()` can clear the call logs. */
   const mocks = [];
 
   /**
@@ -120,7 +120,7 @@ function createBrowserFake() {
    * back, plus an optional trailing callback called with the same value.
    */
   const api = impl => {
-    const fn = jest.fn(function (...args) {
+    const fn = vi.fn(function (...args) {
       const callback = isFunction(args[args.length - 1]) ? args.pop() : null;
 
       return Promise.resolve()
@@ -139,9 +139,9 @@ function createBrowserFake() {
     return fn;
   };
 
-  /** Plain `jest.fn`, for the APIs that are synchronous in the browser too. */
+  /** Plain `vi.fn`, for the APIs that are synchronous in the browser too. */
   const syncApi = impl => {
-    const fn = jest.fn(impl);
+    const fn = vi.fn(impl);
 
     mocks.push(fn);
 

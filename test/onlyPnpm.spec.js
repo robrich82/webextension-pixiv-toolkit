@@ -4,8 +4,9 @@ import path from 'path';
 const SCRIPT = path.resolve(__dirname, '../scripts/only-pnpm.js');
 
 function run(userAgent) {
-  const env = { ...process.env };
-  delete env.npm_config_user_agent;
+  // Case-insensitive: on Windows the inherited name can arrive upper-cased.
+  const env = Object.fromEntries(Object.entries(process.env)
+    .filter(([key]) => key.toLowerCase() !== 'npm_config_user_agent'));
   if (userAgent !== undefined) env.npm_config_user_agent = userAgent;
   return spawnSync(process.execPath, [SCRIPT], { env, encoding: 'utf8' });
 }

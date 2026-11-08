@@ -5,7 +5,7 @@ import Button from '@/content_scripts/components/Button.vue';
 // templates; without `emits: ['click']` it also falls through to the root <a>
 // as a native listener and fires twice.
 const mountInParent = (props = {}) => {
-  const onClick = jest.fn();
+  const onClick = vi.fn();
   const wrapper = mount({
     components: { 'ptk-button': Button },
     data: () => ({ props }),

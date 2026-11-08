@@ -141,12 +141,12 @@ describe('HistoryOptions', () => {
       let input;
       const createElement = document.createElement.bind(document);
 
-      jest.spyOn(document, 'createElement').mockImplementation(tag => {
+      vi.spyOn(document, 'createElement').mockImplementation(tag => {
         const element = createElement(tag);
 
         if (tag === 'input') {
           input = element;
-          element.click = jest.fn();
+          element.click = vi.fn();
         }
 
         return element;
@@ -174,13 +174,13 @@ describe('HistoryOptions', () => {
       const app = Application.createApp();
       browser.runtime.onMessage.addListener((message, sender, sendResponse) => app.onMessage(message, sender, sendResponse));
 
-      window.confirm = jest.fn(() => true);
-      window.alert = jest.fn();
+      window.confirm = vi.fn(() => true);
+      window.alert = vi.fn();
     });
 
     afterEach(async () => {
       delete window.alert;
-      jest.restoreAllMocks();
+      vi.restoreAllMocks();
       await Db.getDb().database.delete();
     });
 
@@ -226,7 +226,7 @@ describe('HistoryOptions', () => {
     });
 
     test('Import does not open the file picker without confirmation', () => {
-      window.confirm = jest.fn(() => false);
+      window.confirm = vi.fn(() => false);
       const wrapper = shallowMountOption(HistoryOptions, { browserItems });
       const file = chooseFile('[]');
 
@@ -238,7 +238,7 @@ describe('HistoryOptions', () => {
     test('a background that does not answer ends the import with an error', async () => {
       const wrapper = shallowMountOption(HistoryOptions, { browserItems });
       browser.runtime.sendMessage.mockResolvedValueOnce(undefined);
-      jest.spyOn(console, 'error').mockImplementation(() => {});
+      vi.spyOn(console, 'error').mockImplementation(() => {});
 
       await wrapper.vm.importAndReport([entry(1, 100)]);
 
@@ -260,12 +260,12 @@ describe('HistoryOptions', () => {
       const captureDownload = () => {
         const download = {};
 
-        jest.spyOn(global, 'Blob').mockImplementation(function (parts, options) {
+        vi.spyOn(global, 'Blob').mockImplementation(function (parts, options) {
           download.contents = parts.join('');
           download.type = options.type;
         });
-        URL.createObjectURL = jest.fn(() => 'blob:history');
-        jest.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function () {
+        URL.createObjectURL = vi.fn(() => 'blob:history');
+        vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function () {
           download.href = this.href;
           download.filename = this.download;
         });
@@ -309,8 +309,8 @@ describe('HistoryOptions', () => {
       });
 
       test('a failed export says so and lets Import run again', async () => {
-        jest.spyOn(Db.getDb().historyRepo(), 'exportItems').mockRejectedValue(new Error('closed'));
-        jest.spyOn(console, 'error').mockImplementation(() => {});
+        vi.spyOn(Db.getDb().historyRepo(), 'exportItems').mockRejectedValue(new Error('closed'));
+        vi.spyOn(console, 'error').mockImplementation(() => {});
         const wrapper = shallowMountOption(HistoryOptions, { browserItems });
 
         await wrapper.vm.exportVisitHistory();

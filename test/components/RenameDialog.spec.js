@@ -15,7 +15,7 @@ const baseProps = {
 
 describe('RenameDialog', () => {
   afterEach(() => {
-    jest.useRealTimers();
+    vi.useRealTimers();
   });
 
   test('adopts the value prop as the rename format on creation', () => {
@@ -75,10 +75,10 @@ describe('RenameDialog', () => {
   // did under Vue 2, so `pickMeta`'s real `this.$refs.renameInput.$refs.input`
   // read sees undefined. Revisit alongside RenameDialog.vue's own migration.
   test.skip('pickMeta inserts the holder at the cursor and moves the cursor past it', () => {
-    jest.useFakeTimers();
+    vi.useFakeTimers();
 
     const wrapper = shallowMountOption(RenameDialog, { propsData: baseProps });
-    const fakeInput = { focus: jest.fn(), setSelectionRange: jest.fn() };
+    const fakeInput = { focus: vi.fn(), setSelectionRange: vi.fn() };
     wrapper.vm.$refs.renameInput = { $refs: { input: fakeInput } };
     wrapper.vm.inputPos = 3;
     wrapper.vm.renameFormat = 'foo_bar';
@@ -87,7 +87,7 @@ describe('RenameDialog', () => {
 
     expect(wrapper.vm.renameFormat).toBe('foo{id}_bar');
 
-    jest.runAllTimers();
+    vi.runAllTimers();
 
     expect(fakeInput.focus).toHaveBeenCalled();
     expect(fakeInput.setSelectionRange).toHaveBeenCalledWith(7, 7);

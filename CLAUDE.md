@@ -13,10 +13,10 @@ pnpm install
 pnpm run build             # production build -> dist/chrome
 pnpm run build:firefox     # production build -> dist/firefox
 pnpm run dev               # watch build (dev:firefox, dev:cs, dev:op, dev:bg for one bundle)
-pnpm test                  # Jest, unit + components projects, with coverage thresholds
-# Subsets need --coverage=false, or the global coverage thresholds fail the run
-pnpm exec cross-env NODE_ENV=test jest --config jest.config.js --coverage=false test/NameFormatter.spec.js
-pnpm exec cross-env NODE_ENV=test jest --config jest.config.js --coverage=false --selectProjects components
+pnpm test                  # Vitest, unit + components projects, with coverage thresholds
+# Subsets need --coverage.enabled=false, or the global coverage thresholds fail the run
+pnpm exec vitest run --coverage.enabled=false test/NameFormatter.spec.js
+pnpm exec vitest run --coverage.enabled=false --project components
 pnpm run test:e2e          # Playwright; needs `pnpm run build` first (loads dist/chrome)
 ```
 
@@ -33,7 +33,7 @@ There is no linter or formatter. CI (`.github/workflows/ci.yml`) runs `pnpm audi
 - **options page** (`src/options_page/`): two pages, `index.html` for settings and `downloads.html` for the **download manager**.
 - **popup**, plus a `common` bundle that only exposes the locales as a UMD global.
 
-Aliases: `@` → `src`, `@@` → `src/options_page`. Both are mirrored in `jest.config.js`.
+Aliases: `@` → `src`, `@@` → `src/options_page`. Both are mirrored in `vitest.config.mjs`.
 
 ### Download flow
 
@@ -71,9 +71,9 @@ UI strings are in `src/statics/_locales`. `src/statics/HISTORY_*` stops at upstr
 
 `docs/testing.md` is the reference. Key points:
 
-- Jest has two projects: `unit` (node environment, `test/**/*.spec.js`) and `components` (jsdom, `test/components/**`). Playwright files are named `*.e2e.js` so Jest doesn't pick them up.
+- Vitest has two projects: `unit` (node environment, `test/**/*.spec.js`) and `components` (jsdom, `test/components/**`). Playwright files are named `*.e2e.js` so Vitest doesn't pick them up.
 - `@/modules/Extension/browser` is mapped to the in-memory fake in `test/doubles/browser.js`. Its test controls are under `browser._fake` (`reset`, `flush`, `addTab`, …), and it's reset before every test. Specs that open a port need `await browser._fake.flush()`.
 - Services are singletons that register listeners in their constructor. Clear `Service.instance = undefined` in `beforeEach` when a spec needs live listeners.
-- `coverageThreshold` is a ratchet with per-directory floors. A new untested file can fail `pnpm test`, so either cover it or lower the floor in the same PR and say why.
+- `coverage.thresholds` in `vitest.config.mjs` is a ratchet with per-directory floors. A new untested file can fail `pnpm test`, so either cover it or lower the floor in the same PR and say why.
 
 Other docs: `docs/toolchain.md` (build toolchain) and `docs/vue3-migration.md` (Vue 2 → 3 / Vuetify migration status).
