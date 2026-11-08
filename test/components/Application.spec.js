@@ -72,7 +72,7 @@ describe('Application on a fanbox post', () => {
     vi.spyOn(Detector.prototype, 'observeUrl').mockImplementation(() => {});
     // The constructor parses jsdom's own url, which no filter matches.
     consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
-    consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    consoleWarn = vi.spyOn(console, 'warn');
     window.$app = application = new Application();
     await flushPromises();
     consoleError.mockClear();

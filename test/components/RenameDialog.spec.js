@@ -24,12 +24,14 @@ describe('RenameDialog', () => {
     expect(wrapper.vm.renameFormat).toBe('foo_bar');
   });
 
-  test('hint comes straight from the hint prop', () => {
+  test('passes the hint prop through to the text field, always shown', () => {
     const wrapper = shallowMountOption(RenameDialog, {
       propsData: { ...baseProps, hint: 'a real hint' }
     });
+    const field = wrapper.findComponent({ name: 'VTextField' });
 
-    expect(wrapper.vm.hint).toBe('a real hint');
+    expect(field.props('hint')).toBe('a real hint');
+    expect(field.props('persistentHint')).toBe(true);
   });
 
   test('re-syncs renameFormat whenever the value prop changes', async () => {

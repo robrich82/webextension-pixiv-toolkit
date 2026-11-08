@@ -12,8 +12,9 @@ vi.mock('@/options_page/DownloadsApplication', () => ({
   app: () => ({ getService: () => mockDownloadService })
 }));
 
-const task = (id, overrides) => ({
-  id, title: `Task ${id}`, url: 'u', progress: 0, state: 1, type: 'PIXIV_ILLUST', ...overrides
+// Real ids are strings, e.g. 'pixiv_illust:123' (AbstractResource.getDownloadTaskId).
+const task = (n, overrides) => ({
+  id: `task:${n}`, title: `Task ${n}`, url: 'u', progress: 0, state: 1, type: 'PIXIV_ILLUST', ...overrides
 });
 
 describe('DownloadManager', () => {
@@ -97,7 +98,7 @@ describe('DownloadManager', () => {
 
     await dialogButton('_delete.message').trigger('click');
 
-    expect(mockDownloadService.deleteDownload).toHaveBeenCalledWith(2);
+    expect(mockDownloadService.deleteDownload).toHaveBeenCalledWith('task:2');
     expect(wrapper.vm.confirmDialog).toBe(false);
     expect(titles()).toEqual(['Task 1', 'Task 3']);
   });

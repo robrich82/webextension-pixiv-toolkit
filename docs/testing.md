@@ -182,7 +182,9 @@ Vue 3 major). Vuetify 3's components each import their own stylesheet, which
 Node can't load, so `server.deps.inline` has Vite transform Vuetify instead of
 handing it to Node. `test/setup/jsdomGlobals.js` supplies the globals Vuetify
 reads at import or mount time that jsdom lacks (`CSS`, `ResizeObserver`,
-`visualViewport`); its comments say where each is used.
+`visualViewport`); its comments say where each is used. It also fails any
+test that raises a Vue warning, so fix the warning's cause rather than
+silencing it.
 
 ### Mounting: `test/helpers/mountOptionComponent.js`
 
@@ -210,7 +212,9 @@ supplies both:
   component registration, not a no-op — see the next paragraph for what that
   changed.
 
-`shallowMountOption` auto-stubs every Vuetify component. Since Phase B,
+`shallowMountOption` auto-stubs every Vuetify component except `v-text-field`
+and the `VInput`/`VField` it is built from: a stubbed `v-text-field` sets
+`prefix`, a read-only DOM property, and Vue warns. Since Phase B,
 Vuetify's real components are actually registered (`createAppVuetify()`), so
 this stubbing is what makes testing these components tractable at all — a
 real `v-select` needs a full DOM layout pass to open, and these specs only

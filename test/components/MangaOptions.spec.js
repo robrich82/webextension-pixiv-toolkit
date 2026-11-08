@@ -1,6 +1,7 @@
 import browser from '../doubles/browser';
 import { mountOption, shallowMountOption } from '../helpers/mountOptionComponent';
 import MangaOptions from '@/options_page/components/options/MangaOptions.vue';
+import RenameDialog from '@/options_page/components/options/RenameDialog.vue';
 
 const browserItems = {
   mangaRenameRule: '{id}_{title}',
@@ -74,5 +75,21 @@ describe('MangaOptions', () => {
 
     expect(browser.storage.local.items.mangaRenameImageRule).toBe('p{pageNum}');
     expect(wrapper.vm.renameImageRule).toBe('');
+  });
+
+  // List item 0 opens the first rename dialog, item 1 the image one.
+  test.each([
+    [0, '_rename_manga.message'],
+    [1, '_rename_manga_image.message'],
+  ])('clicking list item %i opens the "%s" rename dialog', async (index, title) => {
+    const wrapper = mountOption(MangaOptions, { browserItems });
+    const dialog = wrapper.findAllComponents(RenameDialog)[index];
+
+    expect(dialog.props('title')).toBe(title);
+    expect(dialog.props('show')).toBe(false);
+
+    await wrapper.findAll('.v-list-item')[index].trigger('click');
+
+    expect(dialog.props('show')).toBe(true);
   });
 });

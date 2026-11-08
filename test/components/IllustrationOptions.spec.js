@@ -1,6 +1,7 @@
 import browser from '../doubles/browser';
 import { mountOption, shallowMountOption } from '../helpers/mountOptionComponent';
 import IllustrationOptions from '@/options_page/components/options/IllustrationOptions.vue';
+import RenameDialog from '@/options_page/components/options/RenameDialog.vue';
 
 const browserItems = {
   illustRenameRule: '{id}_{title}',
@@ -84,5 +85,21 @@ describe('IllustrationOptions', () => {
 
     expect(browser.storage.local.items.illustRenameImageRule).toBe('p{pageNum}');
     expect(wrapper.vm.renameImageRule).toBe('');
+  });
+
+  // List item 0 opens the first rename dialog, item 1 the image one.
+  test.each([
+    [0, '_rename_illustration.message'],
+    [1, '_rename_illustration_image.message'],
+  ])('clicking list item %i opens the "%s" rename dialog', async (index, title) => {
+    const wrapper = mountOption(IllustrationOptions, { browserItems });
+    const dialog = wrapper.findAllComponents(RenameDialog)[index];
+
+    expect(dialog.props('title')).toBe(title);
+    expect(dialog.props('show')).toBe(false);
+
+    await wrapper.findAll('.v-list-item')[index].trigger('click');
+
+    expect(dialog.props('show')).toBe(true);
   });
 });

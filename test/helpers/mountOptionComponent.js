@@ -69,7 +69,10 @@ export function shallowMountOption(Component, options) {
       // this also renders stubbed dialogs/menus regardless of visibility, so
       // a future "X is not visible" assertion needs a real mount, not this.
       renderStubDefaultSlot: true,
-      ...built.global
+      ...built.global,
+      // A v-text-field stub renders its props as attributes, and Vue can't set
+      // `prefix` on an element (read-only in the DOM), so it warns. Render the real one.
+      stubs: { VTextField: false, VInput: false, VField: false, ...built.global.stubs }
     }
   });
 }

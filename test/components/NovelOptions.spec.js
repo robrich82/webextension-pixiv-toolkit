@@ -1,6 +1,7 @@
 import browser from '../doubles/browser';
 import { mountOption, shallowMountOption } from '../helpers/mountOptionComponent';
 import NovelOptions from '@/options_page/components/options/NovelOptions.vue';
+import RenameDialog from '@/options_page/components/options/RenameDialog.vue';
 
 const browserItems = {
   novelRenameRule: '{id}_{title}',
@@ -87,5 +88,17 @@ describe('NovelOptions', () => {
     await wrapper.vm.$nextTick();
 
     expect(browser.storage.local.items.novelIncludeDescription).toBe(true);
+  });
+
+  test('clicking the rename item opens the "_novel_rename_rule.message" rename dialog', async () => {
+    const wrapper = mountOption(NovelOptions, { browserItems });
+    const dialog = wrapper.findComponent(RenameDialog);
+
+    expect(dialog.props('title')).toBe('_novel_rename_rule.message');
+    expect(dialog.props('show')).toBe(false);
+
+    await wrapper.findAll('.v-list-item')[0].trigger('click');
+
+    expect(dialog.props('show')).toBe(true);
   });
 });

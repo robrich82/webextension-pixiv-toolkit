@@ -1,3 +1,5 @@
+import { config } from '@vue/test-utils';
+
 /**
  * jsdom doesn't implement the global `CSS` object (used for `CSS.supports()`
  * feature detection), and Vuetify 3 references it unconditionally at import
@@ -32,3 +34,31 @@ if (typeof globalThis.ResizeObserver === 'undefined') {
 if (typeof globalThis.visualViewport === 'undefined') {
   globalThis.visualViewport = null;
 }
+
+/**
+ * Every Vue warning is a bug the suite would otherwise pass over (#188), so
+ * fail the test that raised it. Collect, don't throw: Vue's warn() resets its
+ * re-entrancy flag and resumes reactivity tracking only after the handler
+ * returns, so a throw would silence every later warning in the file.
+ */
+const vueWarnings = [];
+
+config.global.config.warnHandler = (msg, instance, trace) => {
+  vueWarnings.push(`[Vue warn]: ${msg}\n${trace}`);
+};
+
+// Apps built with createApp (UIApplication) skip that config and warn through console.warn.
+const consoleWarn = console.warn;
+console.warn = (msg, ...rest) => {
+  if (typeof msg === 'string' && msg.startsWith('[Vue warn]')) {
+    vueWarnings.push([msg, ...rest].join(' '));
+    return;
+  }
+  consoleWarn(msg, ...rest);
+};
+
+afterEach(() => {
+  if (vueWarnings.length) {
+    throw new Error(vueWarnings.splice(0).join('\n\n'));
+  }
+});
