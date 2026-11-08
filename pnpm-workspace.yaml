@@ -64,16 +64,17 @@ auditConfig:
     - GHSA-gcqx-w48m-w2h4
 
 # --- Overrides --------------------------------------------------------------
-# An advisory floor stays only while `pnpm audit` fails without it. #194
-# re-resolved from scratch without each one and dropped the 14 that left the
-# audit clean. A floor sits at its advisory's first-patched version. Renovate
-# never moves one to a new major (renovate.json). pnpm ignores npm's `overrides`.
+# An advisory floor stays only while resolving without it (no lockfile) lands
+# on a vulnerable version. `pnpm audit` misses advisories published only on the
+# package's own repo, so check those too. A floor sits at the advisory's first
+# patched version; Renovate never moves one to a new major (renovate.json).
+# pnpm ignores npm's top-level `overrides`.
 overrides:
-  # glob (babel-plugin-istanbul>test-exclude, Jest only): GHSA-3g3m-2fjr-6pw4 --
+  # glob (jest, test-exclude, js-beautify; dev-only): GHSA-3g3m-2fjr-6pw4 --
   # AbortSignal cancellation bypass, patched 14.0.2.
   'glob@<14.0.2': ^14.0.2
-  # minimatch (the same test-exclude, Jest only): GHSA-g3hv-75wg-m249 -- DoS via
-  # globparts amplification, patched 11.0.1.
+  # minimatch (test-exclude, js-beautify>editorconfig, web-ext's multimatch 8;
+  # dev-only): GHSA-g3hv-75wg-m249 -- DoS via globparts amplification, 11.0.1.
   'minimatch@<11.0.1': ^11.0.1
   # multimatch (web-ext): not an advisory. 6.x default-imports minimatch, which
   # v11 no longer exports, so `web-ext build` crashes (see docs/toolchain.md).
