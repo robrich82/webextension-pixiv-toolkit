@@ -142,3 +142,9 @@ overrides:
 patchedDependencies:
   '@vue/vue3-jest': patches/@vue__vue3-jest.patch
   multimatch: patches/multimatch.patch
+
+# Agent skills a dependency ships, which pnpm links into .claude/skills on
+# install. vue-virtual-scroller's is documentation for its own API.
+permissions:
+  vue-virtual-scroller:
+    skills: true
