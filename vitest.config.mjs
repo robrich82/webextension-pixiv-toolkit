@@ -38,11 +38,12 @@ export default defineConfig({
       // global numbers. Raise a floor when coverage rises; lower one
       // only with a reason in the PR. See docs/testing.md.
       thresholds: {
-        statements: 61,
-        branches: 62,
-        functions: 64,
-        lines: 60,
+        statements: 67,
+        branches: 67,
+        functions: 70,
+        lines: 66,
         'src/modules/Db/**': { statements: 99, branches: 90, functions: 100, lines: 99 },
+        'src/options_page/modules/**': { statements: 38, branches: 34, functions: 42, lines: 37 },
         'src/modules/Util/**': { statements: 99, branches: 99, functions: 100, lines: 99 },
         'src/modules/Parser/**': { statements: 77, branches: 68, functions: 69, lines: 76 },
         'src/content_scripts/components/**': { statements: 95, branches: 90, functions: 92, lines: 95 },
