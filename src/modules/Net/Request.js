@@ -79,8 +79,7 @@ class Request extends Event {
   }
 
   /**
-   * fetch rejects an aborted request, and errors its body, with an AbortError,
-   * so after abort() a rejection is the abort, not a network error.
+   * After abort(), any rejection is reported as onabort: fetch rejects an aborted request, and errors its body, with an AbortError.
    */
   dispatchFailure(error) {
     this.dispatch(this.fetchFallbackAbortSignal ? 'onabort' : 'onerror', [error]);

@@ -20,12 +20,11 @@ const createDownloader = (ns, options = {}) => {
   downloader = new Downloader({ processors: 1, ...options });
   ns.forEach(n => downloader.appendFile(file(n), { n }));
 
-  events = [];
+  // Per downloader, so a late event from an earlier test can't land in this one's log.
+  const log = events = [];
   ['start', 'progress', 'item-finish', 'item-error', 'finish', 'failure', 'pause'].forEach(name => {
-    downloader.addListener(name, (...args) => events.push([name, ...args]));
+    downloader.addListener(name, (...args) => log.push([name, ...args]));
   });
-
-  return downloader;
 };
 
 const nextEvent = name => new Promise(resolve => downloader.addListener(name, (...args) => resolve(args)));
@@ -76,7 +75,7 @@ test('downloads its files one at a time, handing each over with its args and typ
   expect(named('failure')).toHaveLength(0);
 });
 
-test('reports progress across all files as each body arrives, and 0 for a body of unknown length', async () => {
+test('reports progress across all files as each body arrives, counting a body of unknown length once it ends', async () => {
   createDownloader([1, 2]);
   const finished = nextEvent('finish');
 
@@ -93,7 +92,9 @@ test('reports progress across all files as each body arrives, and 0 for a body o
     { progress: 0.25, successCount: 0, failCount: 0 },
     { progress: 0.5, successCount: 0, failCount: 0 },
     { progress: 0.5, successCount: 1, failCount: 0 },
-    { progress: 0.5, successCount: 1, failCount: 0 }
+    { progress: 0.5, successCount: 1, failCount: 0 },
+    { progress: 0.5, successCount: 1, failCount: 0 },
+    { progress: 1, successCount: 2, failCount: 0 }
   ]);
 });
 
@@ -112,6 +113,30 @@ test('a file that fails is reported and set aside, the rest still download, and 
   expect(downloader.failedDownloadFiles.map(downloadFile => downloadFile.file)).toEqual([file(1)]);
 });
 
+test('a connection dropped mid-body fails the file rather than pausing it', async () => {
+  createDownloader([1]);
+  const failed = nextEvent('failure');
+
+  downloader.download();
+  const first = await nthRequest(0);
+  first.respond('abcd', { stall: true });
+  await vi.waitFor(() => expect(lastProgress().progress).toBe(0.5), { interval: 1 });
+  first.drop();
+  await failed;
+
+  expect(named('item-error')).toEqual([new Error('network error')]);
+  expect(named('pause')).toHaveLength(0);
+  expect(lastProgress()).toEqual({ progress: 0, successCount: 0, failCount: 1 });
+});
+
+test('with no files, downloading finishes at once', () => {
+  createDownloader([]);
+
+  downloader.download();
+
+  expect(events.map(([name]) => name)).toEqual(['finish']);
+});
+
 test('downloading again retries only the files that failed', async () => {
   createDownloader([1, 2]);
   const failed = nextEvent('failure');
@@ -126,8 +151,7 @@ test('downloading again retries only the files that failed', async () => {
   await finished;
 
   expect(requestedUrls()).toEqual([file(1), file(2), file(1)]);
-  expect(lastProgress()).toEqual({ progress: 1, successCount: 1, failCount: 0 });
-  expect(downloader.successCount).toBe(2);
+  expect(lastProgress()).toEqual({ progress: 1, successCount: 2, failCount: 0 });
 });
 
 test('an HTTP error status fails the file instead of saving the error page', async () => {
@@ -135,10 +159,10 @@ test('an HTTP error status fails the file instead of saving the error page', asy
   const failed = nextEvent('failure');
 
   downloader.download();
-  (await nthRequest(0)).respond('Forbidden', { status: 403, type: 'text/html' });
+  (await nthRequest(0)).respond('Forbidden', { status: 403, statusText: 'Forbidden', type: 'text/html' });
   await failed;
 
-  expect(named('item-error')).toEqual([new Error('HTTP 403')]);
+  expect(named('item-error')).toEqual([new Error('HTTP 403 Forbidden')]);
   expect(named('item-finish')).toHaveLength(0);
 });
 
@@ -153,6 +177,57 @@ test('a file whose afterItemDownload rejects counts as failed', async () => {
   expect(named('item-error')).toEqual([new Error('could not decrypt')]);
   expect(named('item-finish')).toHaveLength(0);
   expect(downloader.successCount).toBe(0);
+});
+
+test('a file whose afterItemDownload throws counts as failed', async () => {
+  createDownloader([1], { afterItemDownload: () => { throw new Error('bad page key'); } });
+  const failed = nextEvent('failure');
+
+  downloader.download();
+  (await nthRequest(0)).respond('one');
+  await failed;
+
+  expect(named('item-error')).toEqual([new Error('bad page key')]);
+});
+
+test('a file still in afterItemDownload is in flight: resuming then does not finish without it', async () => {
+  let decrypted;
+  createDownloader([1], { afterItemDownload: () => new Promise(resolve => { decrypted = resolve; }) });
+  downloader.download();
+  (await nthRequest(0)).respond('one');
+  await vi.waitFor(() => expect(decrypted).toBeDefined(), { interval: 1 });
+
+  downloader.pause();
+  downloader.download();
+  await browser._fake.flush();
+  expect(named('finish')).toHaveLength(0);
+
+  const finished = nextEvent('finish');
+  decrypted();
+  await finished;
+
+  expect(events.map(([name]) => name).filter(name => name !== 'progress')).toEqual(['start', 'item-finish', 'finish']);
+});
+
+test('a file whose port closes before it ends counts as failed; a port closing after its file ended does not', async () => {
+  const backgroundPorts = [];
+  browser.runtime.onConnect.addListener(port => backgroundPorts.push(port));
+  createDownloader([1, 2]);
+  const failed = nextEvent('failure');
+
+  downloader.download();
+  (await nthRequest(0)).respond('abcd', { stall: true });
+  await vi.waitFor(() => expect(lastProgress().progress).toBe(0.25), { interval: 1 });
+  backgroundPorts[0].disconnect();
+  (await nthRequest(1)).respond('two');
+  await failed;
+
+  backgroundPorts[1].disconnect();
+  await browser._fake.flush();
+
+  expect(named('item-error')).toEqual([new Error('The background closed the download')]);
+  expect(named('item-finish').map(item => item.args)).toEqual([{ n: 2 }]);
+  expect(downloader.downloadFilePorts).toHaveLength(0);
 });
 
 test('pausing aborts the file in flight and puts it back; downloading again restarts it', async () => {
@@ -212,6 +287,31 @@ test('downloading again before the abort comes back still downloads the file, in
   expect(first.aborted).toBe(true);
   expect(named('item-finish').map(item => item.args)).toEqual([{ n: 1 }]);
   expect(named('pause')).toHaveLength(0);
+});
+
+test('with room for several files, one started while an abort is on its way still finishes once, after both', async () => {
+  createDownloader([1, 2], { processors: 3 });
+  downloader.download();
+  const first = await nthRequest(0);
+  first.respond('abcd', { stall: true });
+  await vi.waitFor(() => expect(lastProgress().progress).toBe(0.25), { interval: 1 });
+
+  downloader.pause();
+  downloader.download();
+  const [second, restarted] = await Promise.all([nthRequest(1), nthRequest(2)]);
+  expect([second.url, restarted.url]).toEqual([file(2), file(1)]);
+
+  second.respond('two');
+  await vi.waitFor(() => expect(named('item-finish')).toHaveLength(1), { interval: 1 });
+  expect(named('finish')).toHaveLength(0);
+
+  const finished = nextEvent('finish');
+  restarted.respond('one');
+  await finished;
+  await browser._fake.flush();
+
+  expect(named('item-finish').map(item => item.args)).toEqual([{ n: 2 }, { n: 1 }]);
+  expect(named('finish')).toHaveLength(1);
 });
 
 test('reset after a pause starts every file over', async () => {

@@ -28,7 +28,7 @@ export function installFileServer() {
          * Answer with `content`, split into `chunks` parts. With `stall`, only
          * the first part is sent, and the body stays open until `finish()`.
          */
-        respond(content = 'file', { type = 'image/png', status = 200, chunks = 2, contentLength = true, stall = false } = {}) {
+        respond(content = 'file', { type = 'image/png', status = 200, statusText = '', chunks = 2, contentLength = true, stall = false } = {}) {
           const bytes = new TextEncoder().encode(content);
           const size = Math.ceil(bytes.length / chunks);
           const parts = Array.from({ length: chunks }, (_, i) => bytes.slice(i * size, (i + 1) * size));
@@ -54,7 +54,12 @@ export function installFileServer() {
             body.close();
           };
 
-          resolve(new Response(stream, { status, headers }));
+          resolve(new Response(stream, { status, statusText, headers }));
+        },
+
+        /** Drop the connection mid-body, after a stalled `respond()`. */
+        drop() {
+          body.error(new TypeError('network error'));
         },
 
         /** Fail the way a dropped connection does. */
@@ -62,6 +67,10 @@ export function installFileServer() {
           reject(new TypeError('Failed to fetch'));
         }
       };
+
+      if (init.signal?.aborted) {
+        reject(abortError());
+      }
 
       init.signal?.addEventListener('abort', () => {
         request.aborted = true;
@@ -76,12 +85,7 @@ export function installFileServer() {
   globalThis.fetch = fetchFake;
 
   return {
-    fetch: fetchFake,
     requests,
-    /** The latest request for `url`. */
-    request(url) {
-      return requests.filter(request => request.url === url).pop();
-    },
     uninstall() {
       globalThis.fetch = realFetch;
     }

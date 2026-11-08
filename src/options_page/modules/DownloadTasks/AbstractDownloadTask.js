@@ -108,7 +108,7 @@ class AbstractDownloadTask extends Event {
 
   /**
    * Handle the downloader's `failure` event: every file has ended and some
-   * could not be downloaded, so save nothing.
+   * could not be downloaded. No zip is saved; pages already saved one by one stay.
    * @fires AbstractDownloadTask#failure
    */
   onFailure() {

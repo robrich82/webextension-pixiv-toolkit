@@ -3,7 +3,7 @@
 `pnpm test` runs Vitest over every `*.spec.js` under `test/`, with coverage
 collected from `src/**/*.{js,vue}`. `vitest.config.mjs` defines two projects:
 `unit` (everything under `test/` except `test/components/`, in the `node`
-environment; see below for why) and `components` (`test/components/**/*.spec.js`,
+environment, see below for why; one spec opts into jsdom, see "Downloads") and `components` (`test/components/**/*.spec.js`,
 under `jsdom`, covered in its own section further down). Vite transforms both
 specs and sources, so everything is ESM.
 
@@ -173,7 +173,7 @@ The background reads each finished file with `FileReader`, which Node lacks, so
 
 ## DOM code, without jsdom
 
-Everything runs under the `node` test environment. `CopyStr`, the one module
+The `unit` project runs under the `node` test environment. `CopyStr`, the one module
 in `src/modules/Util` that reaches for the DOM, is covered with a small
 `document` double declared in its own spec, assigned to `globalThis` in
 `beforeEach` and deleted again afterwards.

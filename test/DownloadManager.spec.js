@@ -109,11 +109,17 @@ test('a task downloads every page, one at a time, before saving its zip', async 
 
   for (const p of [0, 1, 2]) {
     await vi.waitFor(() => expect(background.request(page(1, p))).toBeDefined());
+    await browser._fake.flush();
+    expect(background.requests).toHaveLength(p + 1);
     background.request(page(1, p)).complete();
   }
   await vi.waitFor(() => expect(task.isComplete()).toBe(true));
 
   expect(background.requests.map(request => request.url)).toEqual([page(1, 0), page(1, 1), page(1, 2)]);
+  expect(browser.runtime.sendMessage).toHaveBeenCalledWith(expect.objectContaining({
+    action: 'download:saveFile',
+    args: expect.objectContaining({ filename: '1.zip' })
+  }));
 });
 
 test('a task whose page fails ends in failure, saves nothing, and frees its slot', async () => {
@@ -179,6 +185,7 @@ test('pausing a download aborts its file in the background', async () => {
 });
 
 test('pausing aborts only the page in flight, not the ones already downloaded', async () => {
+  window.$app.settings.downloadTasksWhenDownloadingImages = 3;
   const task = createTask(1, 2);
   await manager.addTask(task);
   await browser._fake.flush();
