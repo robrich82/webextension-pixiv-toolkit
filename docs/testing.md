@@ -21,21 +21,12 @@ ratchet, not a target: the numbers are set a hair under the current ones, so
 nothing can quietly regress, and they get raised whenever a change clears them
 by a useful margin.
 
-There are four groups, because one global number would let a well-tested
-directory pay for an untested one:
-
-| Group | statements | branches | functions | lines |
-| --- | --- | --- | --- | --- |
-| `src/modules/Util/` | 95 | 86 | 100 | 99 |
-| `src/modules/Parser/` | 77 | 66 | 67 | 76 |
-| `src/options_page/components/options/` | 88 | 78 | 95 | 88 |
-| everything else | 7.1 | 6.5 | 7.0 | 7.0 |
-
-`Util`, `Parser` and the options components are the parts that are actually
-tested, so they are held to a real standard; the global row is the rest of
+The tested parts of `src` each get their own path group, because one global
+number would let a well-tested directory pay for an untested one;
+`coverageThreshold` itself lists them. The `global` entry is the rest of
 `src`, which is mostly untested UI, services and download tasks. Note that
 Jest removes a path group's files from the global pool, so the global row is
-*not* the whole-repo number — that currently reads around 48% statements.
+*not* the whole-repo number.
 
 A PR that adds a large untested file will trip the global floor. That is the
 mechanism working: either cover the file or, if the change genuinely cannot be

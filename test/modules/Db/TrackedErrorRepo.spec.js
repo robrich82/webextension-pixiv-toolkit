@@ -35,14 +35,44 @@ describe('TrackedErrorRepo (Dexie)', () => {
     expect(row.error).toMatchObject({ name: 'Error', message: 'No tab with id: 7' });
   });
 
+  const errors = async () => (await table.toArray()).map(row => row.error);
+
   test('keeps at most max entries, dropping the oldest', async () => {
     repo.setMax(3);
 
     for (let i = 1; i <= 5; i++) {
       await repo.addItem({ error: `e${i}`, created_at: i });
+      expect(await table.count()).toBeLessThanOrEqual(3);
     }
 
-    expect((await table.toArray()).map(row => row.error)).toEqual(['e3', 'e4', 'e5']);
+    expect(await errors()).toEqual(['e3', 'e4', 'e5']);
+  });
+
+  test('trims a table that is already over the cap down to it', async () => {
+    await table.bulkAdd([1, 2, 3, 4, 5].map(i => ({ error: `e${i}`, created_at: i })));
+    repo.setMax(3);
+
+    await repo.addItem({ error: 'e6', created_at: 6 });
+
+    expect(await errors()).toEqual(['e4', 'e5', 'e6']);
+  });
+
+  test('concurrent adds stay within the cap', async () => {
+    repo.setMax(3);
+
+    await Promise.all([1, 2, 3, 4, 5].map(i => repo.addItem({ error: `e${i}`, created_at: i })));
+
+    expect(await table.count()).toBe(3);
+  });
+
+  test('an add that fails at the cap keeps the rows it would have trimmed', async () => {
+    repo.setMax(2);
+    await repo.addItem({ error: 'a', created_at: 1 });
+    await repo.addItem({ error: 'b', created_at: 2 });
+
+    await expect(repo.addItem({ error: () => {}, created_at: 3 })).rejects.toThrow();
+
+    expect(await errors()).toEqual(['a', 'b']);
   });
 
   test('defaults to a cap of 500', () => {
@@ -59,9 +89,9 @@ describe('TrackedErrorRepo (Dexie)', () => {
     await repo.addItem({ error: 'b', created_at: 2 });
     const [first] = await table.toArray();
 
-    await repo.deleteItem(first.id);
+    expect(await repo.deleteItem(first.id)).toBe(1);
 
-    expect((await table.toArray()).map(row => row.error)).toEqual(['b']);
+    expect(await errors()).toEqual(['b']);
   });
 
   test('getItem finds an entry by an indexed field, clear empties the table', async () => {

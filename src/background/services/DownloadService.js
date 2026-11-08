@@ -78,7 +78,8 @@ class DownloadService extends AbstractService {
         const tab = await browser.tabs.get(setting._download_manager_tab.tabId);
         return tab;
       } catch (error) {
-        Db.getDb().trackedErrorRepo().addItem({ error, created_at: moment.now() });
+        Db.getDb().trackedErrorRepo().addItem({ error, created_at: moment.now() })
+          .catch(e => console.warn('Could not record the tracked error', e));
       }
     }
   }

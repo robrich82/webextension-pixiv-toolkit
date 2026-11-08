@@ -28,14 +28,18 @@ class AbstractRepo {
    * @param {Object} data
    */
   async addItem(data) {
-    let count = await this.table.count();
+    // One transaction, so a failed add keeps the rows it trimmed and
+    // concurrent adds can't overshoot the cap.
+    await this.table.db.transaction('rw', this.table, async () => {
+      const count = await this.table.count();
 
-    // Make room first, so the table holds at most max entries after the add.
-    if (count >= this.max) {
-      await this.table.limit(count - this.max + 1).delete();
-    }
+      // Make room first, so the table holds at most max entries after the add.
+      if (count >= this.max) {
+        await this.table.limit(count - this.max + 1).delete();
+      }
 
-    await this.table.add(data);
+      await this.table.add(data);
+    });
   }
 
   /**
