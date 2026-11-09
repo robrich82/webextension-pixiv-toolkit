@@ -7,6 +7,7 @@ import browser from './doubles/browser';
 import { fakeDownloadFileBackground } from './helpers/downloadFileBackground';
 import DownloadManager from '@/options_page/modules/DownloadManager';
 import MultiplePagesDownloadTask from '@/options_page/modules/DownloadTasks/MultiplePagesDownloadTask';
+import NovelDownloadTask from '@/options_page/modules/DownloadTasks/Pixiv/NovelDownloadTask';
 
 let background;
 let manager;
@@ -273,4 +274,57 @@ test('getAvaliableTasksJson lists every task not marked deleted', async () => {
   tasks[1].markDelete();
 
   expect(manager.getAvaliableTasksJson().map(json => json.id)).toEqual([tasks[0].id]);
+});
+
+describe('a novel task', () => {
+  let releaseSave;
+  let novelSaves;
+
+  const createNovel = () => NovelDownloadTask.create({
+    id: 'pixiv:illust:9',
+    url: 'https://www.pixiv.net/novel/show.php?id=9',
+    renameRule: '{id}',
+    includeDescription: false,
+    context: { id: '9', title: 'Novel 9', userName: 'Author', sections: ['text'] }
+  });
+
+  beforeEach(() => {
+    novelSaves = 0;
+    // Hold the novel's save until the spec releases it.
+    browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
+      if (message.action === 'download:saveFile' && message.args.filename.endsWith('.txt')) {
+        novelSaves++;
+        releaseSave = () => sendResponse(99);
+        return true;
+      }
+    });
+  });
+
+  test('holds a slot while it saves, then starts the next queued task', async () => {
+    manager.setMaxDownloadingTasks(1);
+    const novel = createNovel();
+    await manager.addTask(novel);
+    const [queued] = await addTasks(1);
+
+    expect(states([novel, queued])).toEqual([DOWNLOADING, PENDING]);
+
+    releaseSave();
+    await vi.waitFor(() => expect(novel.isComplete()).toBe(true));
+
+    expect(queued.isDownloading()).toBe(true);
+  });
+
+  test('is not started again when another task finishing restarts the queue', async () => {
+    manager.setMaxDownloadingTasks(2);
+    const [other] = await addTasks(1);
+    const novel = createNovel();
+    await manager.addTask(novel);
+
+    background.request(page(1)).complete();
+    await vi.waitFor(() => expect(other.isComplete()).toBe(true));
+    releaseSave();
+    await vi.waitFor(() => expect(novel.isComplete()).toBe(true));
+
+    expect(novelSaves).toBe(1);
+  });
 });

@@ -71,7 +71,7 @@ class NovelDownloadTask extends AbstractDownloadTask {
       }, false, false));
     });
 
-    // downloadEpub() resolves nothing and saves through FileSaver, which isn't loaded.
+    // Not downloadEpub(): it returns nothing and saves through a global saveAs() that isn't loaded.
     await this.saveBook(await epubMaker.makeEpub(), 'epub');
   }
 
@@ -114,10 +114,15 @@ class NovelDownloadTask extends AbstractDownloadTask {
     } finally {
       URL.revokeObjectURL(url);
     }
+
+    // The background answers a failed save with no download id rather than an error.
+    if (this.lastDownloadId === undefined) {
+      throw new Error(`Could not save ${extension} book`);
+    }
   }
 
   /**
-   * Builds and saves the book. A task that isn't pending (running or done) isn't started again.
+   * Builds and saves the book. Only a pending task starts.
    * @override
    */
   async start() {
@@ -135,9 +140,9 @@ class NovelDownloadTask extends AbstractDownloadTask {
         await this.makeTxtBook();
       }
     } catch (error) {
+      console.error(`Could not save novel ${this.id}`, error);
       this.lastError = error;
-      this.changeState(this.FAILURE_STATE);
-      this.dispatch('failure');
+      this.onFailure();
       return;
     }
 

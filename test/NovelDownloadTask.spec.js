@@ -1,13 +1,16 @@
 /**
  * NovelDownloadTask builds the book in the page and saves it through the
- * background's `download:saveFile`. EpubMaker is a global script on the download
- * manager page, so the epub specs stand one in.
+ * background's `download:saveFile`. The epub specs run the vendored EpubMaker
+ * with the globals downloads.html loads; only its cover fetch is stubbed.
  */
+import JSZip from '../src/statics/lib/jszip/jszip.js';
+import Handlebars from '../src/statics/lib/handlebars-latest.js';
 import browser from './doubles/browser';
 import NovelDownloadTask from '@/options_page/modules/DownloadTasks/Pixiv/NovelDownloadTask';
 
 let saved;
-let epubMakers;
+let saveResponse;
+let coverError;
 
 const createTask = options => NovelDownloadTask.create({
   id: 'pixiv:illust:555',
@@ -26,35 +29,51 @@ const createTask = options => NovelDownloadTask.create({
   ...options
 });
 
-class FakeEpubMaker {
-  calls = [];
-  sections = [];
-  makeEpub = vi.fn(async () => new Blob(['epub'], { type: 'application/epub+zip' }));
+const events = task => {
+  const fired = [];
 
-  constructor() {
-    epubMakers.push(this);
-
-    for (const method of ['withTemplate', 'withUuid', 'withAuthor', 'withAttributionUrl', 'withCover', 'withTitle']) {
-      this[method] = value => this.calls.push([method, value]);
-    }
+  for (const name of ['start', 'complete', 'failure']) {
+    task.addListener(name, () => fired.push([name, task.state]));
   }
 
-  withSection(section) {
-    this.sections.push(section.content.content);
-  }
+  return fired;
+};
 
-  static Section = class {
-    constructor(epubType, id, content) {
-      Object.assign(this, { epubType, id, content });
-    }
+const epubFiles = async blob => {
+  const zip = await JSZip.loadAsync(await blob.arrayBuffer());
+  const text = name => zip.file(name).async('string');
+
+  return { names: Object.keys(zip.files), text };
+};
+
+beforeAll(async () => {
+  globalThis.JSZip = JSZip;
+  globalThis.Handlebars = Handlebars;
+  globalThis.JSZipUtils = {
+    getBinaryContent: (url, callback) => (coverError ? callback(coverError) : callback(null, new Uint8Array([1, 2, 3])))
   };
-}
+  // Silence its debug output, as the spies below are restored after every test.
+  const { log, info, debug } = console;
+  console.log = console.info = console.debug = () => {};
+  // Sets window.EpubMaker (window is globalThis here), as it does on the page.
+  await import('../src/statics/lib/js-epub-maker/js-epub-maker.js');
+  Object.assign(console, { log, info, debug });
+});
+
+afterAll(() => {
+  delete globalThis.JSZip;
+  delete globalThis.Handlebars;
+  delete globalThis.JSZipUtils;
+  delete globalThis.EpubMaker;
+});
 
 beforeEach(() => {
   window.$app = { settings: { downloadRelativeLocation: 'novels' } };
   saved = [];
-  epubMakers = [];
-  globalThis.EpubMaker = FakeEpubMaker;
+  saveResponse = () => saved.length;
+  coverError = null;
+  vi.spyOn(console, 'info').mockImplementation(() => {});
+  vi.spyOn(console, 'debug').mockImplementation(() => {});
 
   // Read each saved blob while its object url is still alive.
   const createObjectURL = URL.createObjectURL;
@@ -69,7 +88,7 @@ beforeEach(() => {
     if (message.to === 'ws' && message.action === 'download:saveFile') {
       const { url, filename } = message.args;
       saved.push({ url, filename, blob: blobs.get(url) });
-      sendResponse(saved.length);
+      sendResponse(saveResponse());
       return true;
     }
   });
@@ -77,19 +96,8 @@ beforeEach(() => {
 
 afterEach(() => {
   delete window.$app;
-  delete globalThis.EpubMaker;
   vi.restoreAllMocks();
 });
-
-const events = task => {
-  const fired = [];
-
-  for (const name of ['start', 'complete', 'failure']) {
-    task.addListener(name, () => fired.push([name, task.state]));
-  }
-
-  return fired;
-};
 
 test('saves the novel as text, one part per paragraph block, under the rename rule', async () => {
   const task = createTask();
@@ -127,53 +135,49 @@ test('falls back to id_title when the rename rule is empty', async () => {
   expect(saved.map(file => file.filename)).toEqual(['novels/555_A Novel.txt']);
 });
 
-test('saves an epub with the metadata, description and sections', async () => {
+test('saves an epub with the cover, the description and the sections', async () => {
   const task = createTask({ bookType: 'epub', includeDescription: true });
   const fired = events(task);
 
   await task.start();
 
-  const [maker] = epubMakers;
-  expect(maker.calls).toEqual([
-    ['withTemplate', 'idpf-wasteland'],
-    ['withUuid', 'https://www.pixiv.net/novel/show.php?id=555'],
-    ['withAuthor', 'Author'],
-    ['withAttributionUrl', 'https://www.pixiv.net/novel/show.php?id=555'],
-    ['withCover', 'https://i.pximg.net/c/cover.jpg'],
-    ['withTitle', 'A Novel']
-  ]);
-  expect(maker.sections).toEqual(['About<br />it', 'First<br />page ', 'Second page']);
   expect(saved.map(file => file.filename)).toEqual(['novels/555_A Novel.epub']);
   expect(saved[0].blob.type).toBe('application/epub+zip');
+  const epub = await epubFiles(saved[0].blob);
+  expect(epub.names).toContain('EPUB/a novel-cover.jpg');
+  expect(await epub.text('EPUB/a novel.opf')).toContain('<dc:creator>Author</dc:creator>');
+  const content = await epub.text('EPUB/a novel-content.xhtml');
+  expect(content.indexOf('About')).toBeLessThan(content.indexOf('First'));
+  expect(content).toContain('Second page');
   expect(fired).toEqual([['start', task.DOWNLOADING_STATE], ['complete', task.COMPLETE_STATE]]);
 });
 
-test('an epub that fails to build fails the task, and nothing is saved', async () => {
+test('an epub whose cover cannot be fetched fails the task, and nothing is saved', async () => {
+  vi.spyOn(console, 'error').mockImplementation(() => {});
+  coverError = new Error('HTTP 403');
   const task = createTask({ bookType: 'epub' });
   const fired = events(task);
-  const error = new Error('cover request failed');
-  globalThis.EpubMaker = class extends FakeEpubMaker {
-    makeEpub = vi.fn(async () => {
-      throw error;
-    });
-  };
 
   await task.start();
 
   expect(task.isFailure()).toBe(true);
-  expect(task.lastError).toBe(error);
+  expect(task.lastError).toBe(coverError);
   expect(saved).toEqual([]);
   expect(fired).toEqual([['start', task.DOWNLOADING_STATE], ['failure', task.FAILURE_STATE]]);
+  expect(console.error).toHaveBeenCalledWith('Could not save novel pixiv:illust:555', coverError);
 });
 
-test('a save the background rejects fails the task', async () => {
+test('a save the background could not make fails the task', async () => {
+  vi.spyOn(console, 'error').mockImplementation(() => {});
+  // Application.onMessage answers a failed handler with undefined.
+  saveResponse = () => undefined;
   const task = createTask();
-  browser.runtime.sendMessage.mockRejectedValueOnce(new Error('downloads disabled'));
 
   await task.start();
 
   expect(task.isFailure()).toBe(true);
-  expect(task.lastError).toEqual(new Error('downloads disabled'));
+  expect(task.lastError).toEqual(new Error('Could not save txt book'));
+  expect(URL.revokeObjectURL).toHaveBeenCalledWith(saved[0].url);
 });
 
 test('start while the book is being saved does not save it twice', async () => {
