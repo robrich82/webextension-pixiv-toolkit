@@ -226,6 +226,7 @@ test.each([
 
 test('saves the work information beside the zip when metadata is on', async () => {
   window.$app.settings.enableDownloadMetadata = true;
+  const revoke = vi.spyOn(URL, 'revokeObjectURL');
   const task = createTask({ id: '125' });
 
   task.start();
@@ -235,6 +236,7 @@ test('saves the work information beside the zip when metadata is on', async () =
 
   const info = saved.find(file => file.filename === 'info.json');
   expect(JSON.parse(await info.blob.text())).toMatchObject({ id: '125', title: 'Moving' });
+  expect(revoke).toHaveBeenCalledWith(background.saves.find(save => save.filename === 'info.json').url);
 });
 
 test('a custom command runs line by line, and its last output names the file', async () => {

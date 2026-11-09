@@ -195,11 +195,13 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
      * Save work information accroding the enableDownloadMetadata setting
      */
     if (GlobalSettings().enableDownloadMetadata && this.options.context) {
-      const info = new Blob([JSON.stringify(this.options.context)], { type: 'application/json' });
-      await FileSystem.getDefault().saveFileInBackground({
-        url: URL.createObjectURL(info),
-        filename: 'info.json'
-      });
+      const infoUrl = URL.createObjectURL(new Blob([JSON.stringify(this.options.context)], { type: 'application/json' }));
+
+      try {
+        await FileSystem.getDefault().saveFileInBackground({ url: infoUrl, filename: 'info.json' });
+      } finally {
+        URL.revokeObjectURL(infoUrl);
+      }
     }
 
     // Cached for another conversion of the same work only once everything saved, so a retry downloads again.

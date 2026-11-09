@@ -88,6 +88,12 @@ const actionLabels = wrapper => actionButtons(wrapper).map(a => a.text());
 const observerPort = () => browser.runtime.ports.at(-1);
 const ugoira = { context: { type: 'Illust', illustType: 2 } };
 
+beforeEach(() => {
+  // jsdom may leave it out; the panel revokes its preview urls.
+  URL.revokeObjectURL ??= () => {};
+  vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+});
+
 afterEach(() => {
   mounted.splice(0).filter(wrapper => !wrapper.vm.$.isUnmounted).forEach(wrapper => wrapper.unmount());
   vi.restoreAllMocks();
@@ -168,6 +174,24 @@ describe('App page lifecycle', () => {
 
     expect(wrapper.findComponent({ name: 'page-selector' }).vm.pages.map(p => p.page))
       .toEqual(['new-a.jpg', 'new-b.jpg']);
+    // Nobody shows it, so it is released at once.
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('old-a-resolved.jpg');
+  });
+
+  test("resolved previews are released when the page changes, and the next page's when the panel unmounts", async () => {
+    const wrapper = await mountWithPage({ pages: ['a', 'b'], pageResolver: async page => `blob:${page}` });
+
+    expect(URL.revokeObjectURL).not.toHaveBeenCalled();
+
+    window.$app = { resource: fakeResource({ pages: ['c', 'd'], pageResolver: async page => `blob:${page}` }) };
+    window.$eventBus.$emit('pagechange', { url: window.$app.resource.getUrl(), type: 'illust' });
+    await flushPromises();
+
+    expect(URL.revokeObjectURL.mock.calls.flat()).toEqual(['blob:a', 'blob:b']);
+
+    wrapper.unmount();
+
+    expect(URL.revokeObjectURL.mock.calls.flat()).toEqual(['blob:a', 'blob:b', 'blob:c', 'blob:d']);
   });
 
   test('ugoira pages offer one button per format', async () => {

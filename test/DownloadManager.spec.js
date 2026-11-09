@@ -106,6 +106,7 @@ test('a finished task frees its slot, and the next queued task starts', async ()
 });
 
 test('a task downloads every page, one at a time, before saving its zip', async () => {
+  const revoke = vi.spyOn(URL, 'revokeObjectURL');
   const task = createTask(1, 3);
   await manager.addTask(task);
 
@@ -124,6 +125,20 @@ test('a task downloads every page, one at a time, before saving its zip', async 
   }));
   // The background's id for the zip's download.
   expect(task.toJson().downloadId).toBe(1);
+  expect(revoke).toHaveBeenCalledWith(background.saves[0].url);
+});
+
+test('info.json saved beside the pages has its url revoked once saved', async () => {
+  Object.assign(window.$app.settings, { downloadSaveMode: 1, enableDownloadMetadata: true });
+  const revoke = vi.spyOn(URL, 'revokeObjectURL');
+  const task = createTask(1, 1, { Task: IllustDownloadTask });
+  await manager.addTask(task);
+  await vi.waitFor(() => expect(background.request(page(1))).toBeDefined());
+  background.request(page(1)).complete();
+  await vi.waitFor(() => expect(task.isComplete()).toBe(true));
+
+  const info = background.saves.find(save => save.filename === 'info.json');
+  expect(revoke).toHaveBeenCalledWith(info.url);
 });
 
 test('a page still saving when the task pauses is kept, and the task resumes from the next page', async () => {
@@ -537,10 +552,12 @@ describe('a save that fails fails the task', () => {
   });
 
   test('the zip the background could not save', async () => {
+    const revoke = vi.spyOn(URL, 'revokeObjectURL');
     background.failSaves(save => save.filename === '1.zip');
     const task = await failedTask({});
 
     expect(task.lastError).toEqual(new Error('Could not save "1.zip"'));
+    expect(revoke).toHaveBeenCalledWith(background.saves.at(-1).url);
   });
 
   test('a zip that could not be generated', async () => {

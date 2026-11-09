@@ -279,10 +279,13 @@ class MultipleDownloadTask extends AbstractDownloadTask {
     if (this.shouldZipFile()) {
       this.zip.file(metaFilename, blob, { date: this.now });
     } else {
-      await FileSystem.getDefault().saveFileInBackground({
-        url: URL.createObjectURL(blob),
-        filename: metaFilename
-      });
+      const url = URL.createObjectURL(blob);
+
+      try {
+        await FileSystem.getDefault().saveFileInBackground({ url, filename: metaFilename });
+      } finally {
+        URL.revokeObjectURL(url);
+      }
     }
   }
 
@@ -322,12 +325,16 @@ class MultipleDownloadTask extends AbstractDownloadTask {
         GlobalSettings().downloadRelativeLocation,
         this.formatPostName()
       ));
-      const blob = await this.zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(await this.zip.generateAsync({ type: 'blob' }));
 
-      this.lastDownloadId = await FileSystem.getDefault().saveFileInBackground({
-        url: URL.createObjectURL(blob),
-        filename: filename + '.zip'
-      });
+      try {
+        this.lastDownloadId = await FileSystem.getDefault().saveFileInBackground({
+          url,
+          filename: filename + '.zip'
+        });
+      } finally {
+        URL.revokeObjectURL(url);
+      }
     }
   }
 

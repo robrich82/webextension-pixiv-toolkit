@@ -80,6 +80,7 @@ afterEach(() => {
 });
 
 test('fetches each page with its gridshuffle key, decrypts it, and zips it, named for its decrypted type', async () => {
+  const revoke = vi.spyOn(URL, 'revokeObjectURL');
   const task = createTask();
   const completed = vi.fn();
   task.addListener('complete', completed);
@@ -98,6 +99,7 @@ test('fetches each page with its gridshuffle key, decrypts it, and zips it, name
   expect(zipped.map(entry => entry.name)).toEqual(['p1.png', 'p2.png']);
   expect(await zipped[0].blob.text()).toBe('decrypted encrypted 0');
   expect(savedFilenames()).toEqual(['pixiv/77_Episode 1.zip']);
+  expect(revoke).toHaveBeenCalledWith(background.saves[0].url);
   expect(completed).toHaveBeenCalledTimes(1);
   expect(task.toJson()).toMatchObject({ type: 'PIXIV_COMIC_EPISODE', state: task.COMPLETE_STATE, progress: 1 });
 });
@@ -234,6 +236,7 @@ describe('a save that fails fails the task', () => {
   });
 
   test('the episode zip', async () => {
+    const revoke = vi.spyOn(URL, 'revokeObjectURL');
     background.failSaves(() => true);
     const task = createTask();
 
@@ -242,6 +245,7 @@ describe('a save that fails fails the task', () => {
     await vi.waitFor(() => expect(task.isFailure()).toBe(true));
 
     expect(task.lastError).toEqual(new Error('Could not save "pixiv/77_Episode 1.zip"'));
+    expect(revoke).toHaveBeenCalledWith(background.saves[0].url);
   });
 
   test('a page saved on its own', async () => {
