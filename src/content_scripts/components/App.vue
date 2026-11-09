@@ -243,14 +243,21 @@ export default {
                 return;
               }
 
-              const url = await pageResolver(page);
+              let url;
+
+              try {
+                url = await pageResolver(page);
+              } catch (error) {
+                // Leave this preview blank and carry on with the rest.
+                console.error(`Could not load the preview of page ${index + 1}`, error);
+              }
 
               // A later pagechange owns the selector now.
               if (pageChangeToken !== this.pageChangeToken) {
                 return;
               }
 
-              if (this.$refs.pageSelector) {
+              if (url && this.$refs.pageSelector) {
                 this.$refs.pageSelector.updatePage(index, url);
               }
 

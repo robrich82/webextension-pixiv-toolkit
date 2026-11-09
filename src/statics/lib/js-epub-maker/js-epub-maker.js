@@ -991,6 +991,8 @@
                   addContent(zip, epubConfig)
               ).then(function() {
                   deferred.resolve(zip);
+              }, function(err) {
+                  deferred.reject(err);
               });
 
               return deferred.promise;

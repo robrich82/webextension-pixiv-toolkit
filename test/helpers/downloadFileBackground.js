@@ -18,6 +18,7 @@ export function fakeDownloadFileBackground() {
       if (message.action === 'download') {
         requests.push({
           url: message.url,
+          options: message.options,
           port,
           complete(body = 'file', mimeType = 'image/png') {
             const data = `data:${mimeType};base64,${Buffer.from(body).toString('base64')}`;

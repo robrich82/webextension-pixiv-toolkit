@@ -71,21 +71,8 @@ class NovelDownloadTask extends AbstractDownloadTask {
       }, false, false));
     });
 
-    let blob = await epubMaker.downloadEpub();
-    let url = URL.createObjectURL(blob);
-
-    this.lastDownloadId = await FileSystem.getDefault().saveFileInBackground({
-      url,
-      filename: pathjoin(GlobalSettings().downloadRelativeLocationnameFormatter.format(
-        GlobalSettings().novelRenameFormat,
-        this.context.id + '_' + this.context.title
-      )) + '.epub'
-    });
-
-    this.changeState(this.COMPLETE_STATE);
-    this.dispatch('complete');
-
-    URL.revokeObjectURL(saveUrl);
+    // Not downloadEpub(): it returns nothing and saves through a global saveAs() that isn't loaded.
+    await this.saveBook(await epubMaker.makeEpub(), 'epub');
   }
 
   async makeTxtBook() {
@@ -104,36 +91,64 @@ class NovelDownloadTask extends AbstractDownloadTask {
     });
 
     let content = contentParts.join("\r\n".repeat(2));
-    let url = URL.createObjectURL(new Blob([content], { type: 'text/plain' }));
-    let nameFormatter = NameFormatter.getFormatter({ context: this.context });
 
-    this.lastDownloadId = await FileSystem.getDefault().saveFileInBackground({
-      url,
-      filename: pathjoin(GlobalSettings().downloadRelativeLocation, nameFormatter.format(
-        this.options.renameRule,
-        this.context.id + '_' + this.context.title
-      )) + '.txt'
-    });
-
-    this.changeState(this.COMPLETE_STATE);
-    this.dispatch('complete');
-
-    URL.revokeObjectURL(url);
+    await this.saveBook(new Blob([content], { type: 'text/plain' }), 'txt');
   }
 
   /**
+   * @param {Blob} blob
+   * @param {'txt'|'epub'} extension
+   */
+  async saveBook(blob, extension) {
+    let url = URL.createObjectURL(blob);
+    let nameFormatter = NameFormatter.getFormatter({ context: this.context });
+
+    try {
+      this.lastDownloadId = await FileSystem.getDefault().saveFileInBackground({
+        url,
+        filename: pathjoin(GlobalSettings().downloadRelativeLocation, nameFormatter.format(
+          this.options.renameRule,
+          this.context.id + '_' + this.context.title
+        )) + '.' + extension
+      });
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+
+    // The background answers a failed save with no download id rather than an error.
+    if (this.lastDownloadId === undefined) {
+      throw new Error(`Could not save ${extension} book`);
+    }
+  }
+
+  /**
+   * Builds and saves the book. Only a pending task starts.
    * @override
    */
   async start() {
-    if (this.options.bookType === 'epub') {
-      await this.makeEpubBook();
-    } else {
-      await this.makeTxtBook();
+    if (!this.isPending()) {
+      return;
+    }
+
+    this.changeState(this.DOWNLOADING_STATE);
+    this.dispatch('start');
+
+    try {
+      if (this.options.bookType === 'epub') {
+        await this.makeEpubBook();
+      } else {
+        await this.makeTxtBook();
+      }
+    } catch (error) {
+      console.error(`Could not save novel ${this.id}`, error);
+      this.lastError = error;
+      this.onFailure();
+      return;
     }
 
     this.progress = 1;
-
-    this.dispatch('start');
+    this.changeState(this.COMPLETE_STATE);
+    this.dispatch('complete');
   }
 
   /**

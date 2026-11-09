@@ -160,7 +160,9 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
     let nameFormatter = NameFormatter.getFormatter({ context: this.context });
 
     this.zip = new JSZip();
-    await this.zip.loadAsync(blob);
+    // Downloader doesn't wait for this handler, so onFinish waits on the zip instead.
+    this.zipLoaded = this.zip.loadAsync(blob);
+    await this.zipLoaded;
 
     if (this.options.packAnimationJsonType > 0) {
       this.zip.file('animation.json', this.makeAnimationJsonContent(this.options.packAnimationJsonType));
@@ -221,6 +223,8 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
         coreURL: ffmpegBaseUrl + 'ffmpeg-core.js',
         wasmURL: ffmpegBaseUrl + 'ffmpeg-core.wasm',
       });
+
+      await this.zipLoaded;
 
       let framesContent = '';
       let loadedFiles = [];
@@ -296,10 +300,25 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
    * When resource is downloaded, then generate animation file using ffmpeg
    * @fires UgoiraDownloadTask#progress
    * @fires UgoiraDownloadTask#complete
+   * @fires UgoiraDownloadTask#failure
    */
   async onFinish() {
     this.changeState(this.PROCESSING_STATE);
 
+    try {
+      await this.convert();
+    } catch (error) {
+      console.error(`Could not convert ugoira ${this.id}`, error);
+      this.lastError = error;
+      this.onFailure();
+      return;
+    }
+
+    this.changeState(this.COMPLETE_STATE);
+    this.dispatch('complete');
+  }
+
+  async convert() {
     await this.runFFmpeg(async ({ data, outputFilename }) => {
       /**
        * Save file to disk
@@ -320,9 +339,6 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
 
       URL.revokeObjectURL(animationFileUrl);
     });
-
-    this.changeState(this.COMPLETE_STATE);
-    this.dispatch('complete');
   }
 
   /**
@@ -375,7 +391,8 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
       if (data) {
         this.data = data;
         this.zip = new JSZip();
-        await this.zip.loadAsync(this.data);
+        this.zipLoaded = this.zip.loadAsync(this.data);
+        await this.zipLoaded;
         this.progress = 1;
         this.dispatch('progress', [this.progress]);
         this.onFinish();
