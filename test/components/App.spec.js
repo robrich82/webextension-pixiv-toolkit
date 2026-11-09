@@ -194,6 +194,19 @@ describe('App page lifecycle', () => {
     expect(URL.revokeObjectURL.mock.calls.flat()).toEqual(['blob:a', 'blob:b', 'blob:c', 'blob:d']);
   });
 
+  test('a preview that resolves after the panel unmounts is revoked, and the rest are not fetched', async () => {
+    let resolveFirst;
+    const pageResolver = vi.fn(() => new Promise(resolve => { resolveFirst = resolve; }));
+    const wrapper = await mountWithPage({ pages: ['a', 'b'], pageResolver });
+
+    wrapper.unmount();
+    resolveFirst('blob:a');
+    await flushPromises();
+
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:a');
+    expect(pageResolver).toHaveBeenCalledTimes(1);
+  });
+
   test('ugoira pages offer one button per format', async () => {
     const wrapper = await mountWithPage(ugoira);
 

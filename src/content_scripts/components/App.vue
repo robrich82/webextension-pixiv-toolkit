@@ -287,6 +287,8 @@ export default {
   },
 
   beforeUnmount() {
+    // A preview still resolving is now stale: it gets revoked, and the rest aren't fetched.
+    ++this.pageChangeToken;
     this.revokePreviews();
     this.downloadTaskObserver.stopObserve();
   },
