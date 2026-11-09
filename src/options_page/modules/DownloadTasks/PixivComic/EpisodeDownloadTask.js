@@ -51,12 +51,9 @@ class EpisodeDownloadTask extends MultipleDownloadTask {
           'x-cobalt-thumber-parameter-gridshuffle-key': this.options.pages[downloadFile.args.index].key
         };
       },
-      afterItemDownload: ({ itemFinishData, downloadFile }) => {
-        return new Promise(async (resolve) => {
-          const blob = await decrypteImage(this.options.pages[downloadFile.args.index], itemFinishData.blob, 'blob');
-          itemFinishData.blob = blob;
-          resolve();
-        });
+      // A rejection here fails the file, through Downloader.
+      afterItemDownload: async ({ itemFinishData, downloadFile }) => {
+        itemFinishData.blob = await decrypteImage(this.options.pages[downloadFile.args.index], itemFinishData.blob, 'blob');
       }
     });
     this.downloader.addListener('start', this.onStart, this);

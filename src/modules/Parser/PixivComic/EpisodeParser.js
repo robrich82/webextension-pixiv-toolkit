@@ -161,9 +161,8 @@ class EpisodeParser {
                 }
               });
 
-              download.addListener('onfinish', async data => {
-                const url = await decrypteImage(page, data);
-                resolve(url);
+              download.addListener('onfinish', data => {
+                decrypteImage(page, data).then(resolve, reject);
               });
 
               download.download();

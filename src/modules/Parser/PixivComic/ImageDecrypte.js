@@ -26,25 +26,38 @@ export const decrypteImage = async (page, encryptedImageBlob, returnType = 'url'
     canvas.width = page.width;
     canvas.height = page.height;
 
+    const imageUrl = URL.createObjectURL(encryptedImageBlob);
     const image = new Image(canvas.width, canvas.height);
-    image.onload = async () => {
-      c2d.drawImage(image, 0, 0);
-      const imageData = c2d.getImageData(0, 0, canvas.width, canvas.height);
-      const decryptedImageData = await ImageDecrypte(
-        imageData.data, 4, page.width, page.height, page.gridsize, page.gridsize, decrypteKey, page.key, true
-      );
-      const realImageData = new ImageData(decryptedImageData, page.width, page.height);
-      c2d.putImageData(realImageData, 0, 0);
-      canvas.toBlob((blob) => {
-        if (returnType === 'blob') {
-          resolve(blob);
-          return;
-        }
-        const url = URL.createObjectURL(blob);
-        resolve(url);
-      });
+    image.onload = () => {
+      URL.revokeObjectURL(imageUrl);
+      Promise.resolve().then(() => {
+        c2d.drawImage(image, 0, 0);
+        const imageData = c2d.getImageData(0, 0, canvas.width, canvas.height);
+        return ImageDecrypte(
+          imageData.data, 4, page.width, page.height, page.gridsize, page.gridsize, decrypteKey, page.key, true
+        );
+      }).then(decryptedImageData => {
+        const realImageData = new ImageData(decryptedImageData, page.width, page.height);
+        c2d.putImageData(realImageData, 0, 0);
+        canvas.toBlob((blob) => {
+          if (!blob) {
+            reject(new Error("Couldn't encode the decrypted image"));
+            return;
+          }
+          if (returnType === 'blob') {
+            resolve(blob);
+            return;
+          }
+          const url = URL.createObjectURL(blob);
+          resolve(url);
+        });
+      }).catch(reject);
     };
-    image.src = URL.createObjectURL(encryptedImageBlob);
+    image.onerror = () => {
+      URL.revokeObjectURL(imageUrl);
+      reject(new Error("Couldn't load the encrypted image"));
+    };
+    image.src = imageUrl;
   });
 };
 
