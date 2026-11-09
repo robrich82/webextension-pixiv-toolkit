@@ -198,7 +198,9 @@ class Downloader extends Event {
 
     downloadFilePort.onMessage.addListener(message => {
       if (message.event !== 'progress') {
+        // The file has ended (complete, error or abort), so the port has nothing left to carry.
         this.endedFilePorts.add(downloadFilePort);
+        downloadFilePort.disconnect();
       }
 
       if (message.event === 'progress') {

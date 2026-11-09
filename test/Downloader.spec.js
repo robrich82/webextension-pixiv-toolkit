@@ -342,3 +342,54 @@ test('reset after a pause starts every file over', async () => {
   expect(downloader.successCount).toBe(2);
   expect(lastProgress().progress).toBe(1);
 });
+
+describe('port lifecycle', () => {
+  /** The download manager's ends of every DownloadFile port opened so far. */
+  const clientPorts = () => browser.runtime.ports.filter(port => port.name === 'DownloadFile');
+
+  test('a port is closed once its file is saved, failed or aborted', async () => {
+    createDownloader([1, 2, 3]);
+    downloader.download();
+    (await nthRequest(0)).respond('one');
+    (await nthRequest(1)).respond('nope', { status: 404 });
+    (await nthRequest(2)).respond('abcd', { stall: true });
+    await vi.waitFor(() => expect(named('item-error')).toHaveLength(1), { interval: 1 });
+    await vi.waitFor(() => expect(lastProgress().progress).toBeCloseTo(0.5), { interval: 1 });
+    const paused = nextEvent('pause');
+    downloader.pause();
+    await paused;
+    await browser._fake.flush();
+
+    expect(clientPorts().map(port => port.disconnected)).toEqual([true, true, true]);
+  });
+
+  test('closing a port mid-download aborts the background fetch and posts nothing more', async () => {
+    createDownloader([1]);
+    downloader.download();
+    const first = await nthRequest(0);
+    first.respond('abcd', { stall: true });
+    await vi.waitFor(() => expect(lastProgress().progress).toBe(0.5), { interval: 1 });
+    const [port] = clientPorts();
+    const posted = port.peer.postedMessages.length;
+
+    // What the browser does to every port when the download manager page closes.
+    port.disconnect();
+    await vi.waitFor(() => expect(first.aborted).toBe(true), { interval: 1 });
+    await browser._fake.flush();
+
+    expect(port.peer.postedMessages).toHaveLength(posted);
+  });
+
+  test('a port that closes after its file was saved aborts nothing', async () => {
+    createDownloader([1]);
+    const finished = nextEvent('finish');
+    downloader.download();
+    const first = await nthRequest(0);
+    first.respond('one');
+    await finished;
+    await browser._fake.flush();
+
+    expect(clientPorts()[0].disconnected).toBe(true);
+    expect(first.aborted).toBe(false);
+  });
+});
