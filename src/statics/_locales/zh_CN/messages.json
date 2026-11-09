@@ -833,6 +833,9 @@
     "_rename_manga_image": {
         "message": "重命名漫画图片"
     },
+    "_rename_fanbox_post": {
+        "message": "重命名FANBOX文章"
+    },
     "_rename_fanbox_post_image": {
         "message": "重命名FANBOX文章图片"
     },
