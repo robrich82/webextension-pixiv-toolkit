@@ -418,3 +418,52 @@ test('start does nothing unless the task is pending', async () => {
 
   expect(background.requests).toEqual([]);
 });
+
+describe('a save that fails fails the task', () => {
+  beforeEach(() => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  test('the frames zip: nothing is converted, and a retry downloads it again', async () => {
+    background.failSaves(save => save.filename.endsWith('.zip'));
+    const task = createTask({ id: '150' });
+
+    task.start();
+    await completeDownload(task);
+    await vi.waitFor(() => expect(task.isFailure()).toBe(true));
+
+    expect(task.lastError).toEqual(new Error('Could not save "ugoira/150_Moving.zip"'));
+    expect(ffmpegs).toEqual([]);
+
+    background.failSaves(() => false);
+    const retry = createTask({ id: '150' });
+    retry.start();
+    await completeDownload(retry);
+    await vi.waitFor(() => expect(retry.isComplete()).toBe(true));
+    expect(background.requests).toHaveLength(2);
+  });
+
+  test('info.json', async () => {
+    window.$app.settings.enableDownloadMetadata = true;
+    background.failSaves(save => save.filename === 'info.json');
+    const task = createTask({ id: '151' });
+
+    task.start();
+    await completeDownload(task);
+    await vi.waitFor(() => expect(task.isFailure()).toBe(true));
+
+    expect(task.lastError).toEqual(new Error('Could not save "info.json"'));
+  });
+
+  test('the converted animation', async () => {
+    background.failSaves(save => save.filename.endsWith('.gif'));
+    const task = createTask({ id: '152' });
+
+    task.start();
+    await completeDownload(task);
+    await vi.waitFor(() => expect(task.isFailure()).toBe(true));
+
+    expect(task.lastError).toEqual(new Error('Could not save "ugoira/152_Moving.gif"'));
+    expect(ffmpegs[0].terminated).toBe(true);
+  });
+});

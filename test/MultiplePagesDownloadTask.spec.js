@@ -61,7 +61,11 @@ const buildTask = (pages, settingsOverrides = {}) => {
   });
 };
 
+/** The background's answer to every save, see answerSaves(). */
+let saves;
+
 beforeEach(() => {
+  saves = answerSaves();
   globalThis.JSZip = class FakeJSZip {
     file = vi.fn();
 
@@ -153,7 +157,6 @@ test.each([
   ['a page saved to a folder', 'https://example.fanbox.cc/images/1.png', 'image/png', { downloadSaveMode: 1 }],
   ['a single zip page', 'https://example.fanbox.cc/files/archive.zip', 'application/zip', {}]
 ])('%s keeps its blob url until its download finishes (#296)', async (_, page, mimeType, settings) => {
-  const saves = answerSaves();
   vi.spyOn(URL, 'revokeObjectURL');
   const task = buildTask([page], settings);
 

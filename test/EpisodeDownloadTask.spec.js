@@ -228,3 +228,32 @@ test('start does nothing unless the task is pending', async () => {
 
   expect(background.requests).toEqual([]);
 });
+
+describe('a save that fails fails the task', () => {
+  beforeEach(() => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  test('the episode zip', async () => {
+    background.failSaves(() => true);
+    const task = createTask();
+
+    task.start();
+    await completePages(0, 1);
+    await vi.waitFor(() => expect(task.isFailure()).toBe(true));
+
+    expect(task.lastError).toEqual(new Error('Could not save "pixiv/77_Episode 1.zip"'));
+  });
+
+  test('a page saved on its own', async () => {
+    settings({ globalZipMultipleImages: 0 });
+    background.failSaves(save => save.filename.endsWith('p1.png'));
+    const task = createTask();
+
+    task.start();
+    await completePages(0, 1);
+    await vi.waitFor(() => expect(task.isFailure()).toBe(true));
+
+    expect(task.lastError).toEqual(new Error('Could not save "pixiv/77_Episode 1/p1.png"'));
+  });
+});

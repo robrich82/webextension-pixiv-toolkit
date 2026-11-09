@@ -291,6 +291,7 @@ describe('a novel task', () => {
   beforeEach(() => {
     novelSaves = 0;
     // Hold the novel's save until the spec releases it.
+    background.leaveSaves(save => save.filename.endsWith('.txt'));
     browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
       if (message.action === 'download:saveFile' && message.args.filename.endsWith('.txt')) {
         novelSaves++;
@@ -465,5 +466,74 @@ describe('retry and resume', () => {
     expect(() => manager.startAll()).not.toThrow();
     expect(states(tasks)).toEqual([DOWNLOADING]);
     expect(manager.lastError).toBeNull();
+  });
+});
+
+describe('a save that fails fails the task', () => {
+  const failedTask = async (settings, prepare = () => {}) => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    Object.assign(window.$app.settings, settings);
+    const task = createTask(1, 2);
+    prepare(task);
+    await manager.addTask(task);
+    await browser._fake.flush();
+
+    for (const p of [0, 1]) {
+      await vi.waitFor(() => expect(background.request(page(1, p))).toBeDefined());
+      background.request(page(1, p)).complete();
+    }
+    await vi.waitFor(() => expect(task.isFailure()).toBe(true));
+    await browser._fake.flush();
+
+    return task;
+  };
+
+  test('a page saved on its own that the background could not save', async () => {
+    background.failSaves(save => save.filename.endsWith('p2.png'));
+    const task = await failedTask({ downloadSaveMode: 1 });
+
+    expect(task.lastError).toEqual(new Error('Could not save "1/p2.png"'));
+    expect(background.saves.map(save => save.filename)).toEqual(['1/p1.png', '1/p2.png']);
+  });
+
+  test('the zip the background could not save', async () => {
+    background.failSaves(save => save.filename === '1.zip');
+    const task = await failedTask({});
+
+    expect(task.lastError).toEqual(new Error('Could not save "1.zip"'));
+  });
+
+  test('a zip that could not be generated', async () => {
+    const error = new Error('zip failed');
+    const task = await failedTask({}, task => {
+      task.zip.generateAsync = () => Promise.reject(error);
+    });
+
+    expect(task.lastError).toBe(error);
+    expect(background.saves).toEqual([]);
+  });
+
+  test('an info.json the background could not save', async () => {
+    background.failSaves(save => save.filename === 'info.json');
+    const task = await failedTask({ downloadSaveMode: 1, enableDownloadMetadata: true }, task => {
+      task.canSaveInfo = () => true;
+    });
+
+    expect(task.lastError).toEqual(new Error('Could not save "info.json"'));
+  });
+
+  test('a failed save is retried with its page when the task is started again', async () => {
+    let failing = true;
+    background.failSaves(save => failing && save.filename === '1/p2.png');
+    const task = await failedTask({ downloadSaveMode: 1 });
+
+    failing = false;
+    task.changeState(task.PENDING_STATE);
+    task.start();
+    await vi.waitFor(() => expect(background.requests).toHaveLength(3));
+    background.request(page(1, 1)).complete();
+    await vi.waitFor(() => expect(task.isComplete()).toBe(true));
+
+    expect(background.saves.map(save => save.filename)).toEqual(['1/p1.png', '1/p2.png', '1/p2.png']);
   });
 });

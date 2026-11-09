@@ -5,7 +5,6 @@ import FileSystem from "../FileSystem";
 import NameFormattor from "@/modules/Util/NameFormatter";
 import MimeType from "@/modules/Util/MimeType";
 import pathjoin from "@/modules/Util/pathjoin";
-import browser from "@/modules/Extension/browser";
 import { fixFilename } from "@/modules/Util";
 
 /**
@@ -225,13 +224,9 @@ class MultipleDownloadTask extends AbstractDownloadTask {
         this.formatPostName()
       ) + `.${this.resolveExtension(mimeType, pageUrl)}`;
 
-      downloadId = this.lastDownloadId = await browser.runtime.sendMessage({
-        to: 'ws',
-        action: 'download:saveFile',
-        args: {
-          url,
-          filename: fixFilename(filename)
-        }
+      downloadId = this.lastDownloadId = await FileSystem.getDefault().saveFileInBackground({
+        url,
+        filename: fixFilename(filename)
       });
 
       this.singleArchivePageSaved = true;
@@ -252,13 +247,9 @@ class MultipleDownloadTask extends AbstractDownloadTask {
         ) + `.${this.resolveExtension(mimeType, pageUrl)}`;
       }
 
-      downloadId = this.lastDownloadId = await browser.runtime.sendMessage({
-        to: 'ws',
-        action: 'download:saveFile',
-        args: {
-          url,
-          filename: fixFilename(filename)
-        }
+      downloadId = this.lastDownloadId = await FileSystem.getDefault().saveFileInBackground({
+        url,
+        filename: fixFilename(filename)
       });
     }
 
@@ -277,36 +268,41 @@ class MultipleDownloadTask extends AbstractDownloadTask {
 
   async saveInfo() {
     const metaFilename = 'info.json';
-    const that = this;
-
-    return new Promise(async resolve => {
-      const blob = new Blob([JSON.stringify(that.options.context)], {
-        type: 'application/json'
-      });
-
-      if (that.shouldZipFile()) {
-        that.zip.file(metaFilename, blob, { date: this.now });
-      } else {
-        await browser.runtime.sendMessage({
-          to: 'ws',
-          action: 'download:saveFile',
-          args: {
-            url: URL.createObjectURL(blob),
-            filename: metaFilename
-          }
-        })
-      }
-      resolve();
+    const blob = new Blob([JSON.stringify(this.options.context)], {
+      type: 'application/json'
     });
+
+    if (this.shouldZipFile()) {
+      this.zip.file(metaFilename, blob, { date: this.now });
+    } else {
+      await FileSystem.getDefault().saveFileInBackground({
+        url: URL.createObjectURL(blob),
+        filename: metaFilename
+      });
+    }
   }
 
   /**
+   * Save what is left once every page is in (info.json, the zip), then complete.
    * @fires MultipleDownloadTask#complete
+   * @fires MultipleDownloadTask#failure
    */
   async onFinish() {
+    try {
+      await this.saveRest();
+    } catch (error) {
+      console.error(`Could not save ${this.id}`, error);
+      this.lastError = error;
+      this.onFailure();
+      return;
+    }
+
+    this.changeState(this.COMPLETE_STATE);
+    this.dispatch('complete');
+  }
+
+  async saveRest() {
     if (this.singleArchivePageSaved) {
-      this.changeState(this.COMPLETE_STATE);
-      this.dispatch('complete');
       return;
     }
 
@@ -318,28 +314,16 @@ class MultipleDownloadTask extends AbstractDownloadTask {
     }
 
     if (this.shouldZipFile()) {
-      let filename = pathjoin(
+      const filename = fixFilename(pathjoin(
         GlobalSettings().downloadRelativeLocation,
         this.formatPostName()
-      );
-      filename = fixFilename(filename);
+      ));
+      const blob = await this.zip.generateAsync({ type: 'blob' });
 
-      this.zip.generateAsync({ type: 'blob' }).then(async blob => {
-        this.lastDownloadId = await browser.runtime.sendMessage({
-          to: 'ws',
-          action: 'download:saveFile',
-          args: {
-            url: URL.createObjectURL(blob),
-            filename: filename + '.zip'
-          }
-        });
-
-        this.changeState(this.COMPLETE_STATE);
-        this.dispatch('complete');
+      this.lastDownloadId = await FileSystem.getDefault().saveFileInBackground({
+        url: URL.createObjectURL(blob),
+        filename: filename + '.zip'
       });
-    } else {
-      this.changeState(this.COMPLETE_STATE);
-      this.dispatch('complete');
     }
   }
 

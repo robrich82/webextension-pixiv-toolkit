@@ -153,8 +153,6 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
    * @fires UgoiraDownloadTask#progress
    */
   async onItemFinish({ blob, mimeType }) {
-    ZipRepo.getDefault().storeZip(this.uid, blob);
-
     this.data = blob;
 
     let nameFormatter = NameFormatter.getFormatter({ context: this.context });
@@ -169,18 +167,18 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
     }
 
     let url = URL.createObjectURL(await this.zip.generateAsync({ type: 'blob' }));
+    let downloadId;
 
-    this.lastDownloadId = await browser.runtime.sendMessage({
-      to: 'ws', action: 'download:saveFile',
-      args: {
+    try {
+      downloadId = this.lastDownloadId = await FileSystem.getDefault().saveFileInBackground({
         url,
         filename: pathjoin(GlobalSettings().downloadRelativeLocation, nameFormatter.format(
           this.options.renameRule
         )) + '.' + MimeType.getExtenstion(mimeType)
-      }
-    })
-
-    FileSystem.getDefault().revokeWhenSaved(this.lastDownloadId, url);
+      });
+    } finally {
+      FileSystem.getDefault().revokeWhenSaved(downloadId, url);
+    }
 
     this.dispatch('progress', [this.progress]);
 
@@ -188,15 +186,15 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
      * Save work information accroding the enableDownloadMetadata setting
      */
     if (GlobalSettings().enableDownloadMetadata && this.options.context) {
-      const blob = new Blob([JSON.stringify(this.options.context)], { type: 'application/json' });
-      await browser.runtime.sendMessage({
-        to: 'ws', action: 'download:saveFile',
-        args: {
-          url: URL.createObjectURL(blob),
-          filename: 'info.json'
-        }
+      const info = new Blob([JSON.stringify(this.options.context)], { type: 'application/json' });
+      await FileSystem.getDefault().saveFileInBackground({
+        url: URL.createObjectURL(info),
+        filename: 'info.json'
       });
     }
+
+    // Cached for another conversion of the same work only once everything saved, so a retry downloads again.
+    ZipRepo.getDefault().storeZip(this.uid, blob);
   }
 
   /**
@@ -325,19 +323,18 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
        */
       let animationFileUrl = URL.createObjectURL(new Blob([data], { type: MimeType.getFileMimeType(outputFilename) }));
       let nameFormatter = NameFormatter.getFormatter({ context: this.context });
+      let downloadId;
 
-      this.lastDownloadId = await browser.runtime.sendMessage({
-        to: 'ws',
-        action: 'download:saveFile',
-        args: {
+      try {
+        downloadId = this.lastDownloadId = await FileSystem.getDefault().saveFileInBackground({
           url: animationFileUrl,
           filename: pathjoin(GlobalSettings().downloadRelativeLocation, nameFormatter.format(
             this.options.renameRule
           )) + '.' + MimeType.getFileExtension(outputFilename)
-        }
-      });
-
-      FileSystem.getDefault().revokeWhenSaved(this.lastDownloadId, animationFileUrl);
+        });
+      } finally {
+        FileSystem.getDefault().revokeWhenSaved(downloadId, animationFileUrl);
+      }
     });
   }
 

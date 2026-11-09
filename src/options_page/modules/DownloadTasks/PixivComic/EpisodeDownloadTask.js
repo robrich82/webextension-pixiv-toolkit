@@ -161,24 +161,18 @@ class EpisodeDownloadTask extends MultipleDownloadTask {
   }
 
   /**
-   * @fires MultipleDownloadTask#complete
+   * Save the zip, if pages are zipped. The base class's onFinish() completes or fails the task.
+   * @override
    */
-  onFinish() {
+  async saveRest() {
     if (this.shouldZipFile()) {
       const nameFormatter = NameFormattor.getFormatter({ context: Object.assign({}, this.context) });
+      const blob = await this.zip.generateAsync({ type: 'blob' });
 
-      this.zip.generateAsync({ type: 'blob' }).then(async blob => {
-        this.lastDownloadId = await FileSystem.getDefault().saveFileInBackground({
-          url: URL.createObjectURL(blob),
-          filename: pathjoin(GlobalSettings().downloadRelativeLocation, nameFormatter.format(this.options.renameRule, this.context.id)) + '.zip'
-        });
-
-        this.changeState(this.COMPLETE_STATE);
-        this.dispatch('complete');
+      this.lastDownloadId = await FileSystem.getDefault().saveFileInBackground({
+        url: URL.createObjectURL(blob),
+        filename: pathjoin(GlobalSettings().downloadRelativeLocation, nameFormatter.format(this.options.renameRule, this.context.id)) + '.zip'
       });
-    } else {
-      this.changeState(this.COMPLETE_STATE);
-      this.dispatch('complete');
     }
   }
 
