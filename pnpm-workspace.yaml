@@ -83,3 +83,9 @@ overrides:
 # packed; the patch restores minimatch 3's backslash-as-separator on Windows.
 patchedDependencies:
   multimatch: patches/multimatch.patch
+
+# Agent skills a dependency ships, which pnpm links into .claude/skills on
+# install. vue-virtual-scroller's is documentation for its own API.
+permissions:
+  vue-virtual-scroller:
+    skills: true
