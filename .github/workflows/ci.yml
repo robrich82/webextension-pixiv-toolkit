@@ -24,7 +24,7 @@ jobs:
       # The default key ignores package.json, so it would miss a pnpm bump.
       - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         with:
-          version: 2026.11.1
+          version: 2026.11.4
           cache_key: "{{default}}-${{ hashFiles('package.json') }}"
 
       - name: Locate pnpm store
