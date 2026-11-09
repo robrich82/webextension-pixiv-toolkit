@@ -40,14 +40,14 @@ export default defineConfig({
       thresholds: {
         statements: 77,
         branches: 75,
-        functions: 78,
+        functions: 79,
         lines: 77,
         'src/modules/Db/**': { statements: 99, branches: 90, functions: 100, lines: 99 },
         'src/options_page/modules/**': { statements: 62, branches: 54, functions: 70, lines: 62 },
         'src/options_page/services/**': { statements: 63, branches: 62, functions: 59, lines: 63 },
         'src/modules/Net/**': { statements: 91, branches: 75, functions: 97, lines: 91 },
         'src/modules/Util/**': { statements: 99, branches: 99, functions: 100, lines: 99 },
-        'src/modules/Parser/**': { statements: 85, branches: 72, functions: 73, lines: 84 },
+        'src/modules/Parser/**': { statements: 86, branches: 72, functions: 76, lines: 86 },
         'src/content_scripts/components/**': { statements: 95, branches: 90, functions: 92, lines: 95 },
         'src/content_scripts/UIApplication.js': { statements: 100, branches: 100, functions: 100, lines: 100 },
         // Per file. Options.vue's one branch is a v-if="false", and
