@@ -430,26 +430,9 @@ export default {
           }
           return;
         } else {
+          // The download manager records the download history once the task completes.
           this.displayNotice(this.tl('_download_added'));
         }
-
-        /**
-         * Save download history
-         */
-        browser.runtime.sendMessage({
-          to: 'ws',
-          action: 'history:itemDownload',
-          args: {
-            uid: this.resource.getUid(),
-            title: this.resource.getTitle(),
-            userName: this.resource.getUserName(),
-            cover: this.resource.getCover(),
-            url: this.resource.getUrl(),
-            type: this.resource.getType(),
-            r: this.resource.getR(),
-            downloaded_at: moment().unix(),
-          }
-        });
       });
     },
 

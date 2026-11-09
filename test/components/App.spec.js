@@ -309,7 +309,7 @@ describe('App download', () => {
 
   const addsDownloads = { 'download:ensureDownloadManagerOpen': true, 'download:addDownload': { result: true } };
 
-  test('adds the download and records it in history', async () => {
+  test('adds the download, leaving its history to the download manager', async () => {
     respondTo({ 'download:getDownloadManagerTab': true, ...addsDownloads });
     const wrapper = await mountWithPage();
 
@@ -319,7 +319,8 @@ describe('App download', () => {
       unpackedResource: { type: 'Illust' },
       options: { selectedIndexes: [], redownload: false }
     });
-    expect(sentMessages('history:itemDownload')).toHaveLength(1);
+    // Recorded once the task completes, not on enqueue (OptionsDownloadService.spec).
+    expect(sentMessages('history:itemDownload')).toHaveLength(0);
     expect(wrapper.find('.ptk__download-added-notice').isVisible()).toBe(true);
     expect(wrapper.find('.ptk__download-added-notice').text()).toBe('_download_added');
   });
