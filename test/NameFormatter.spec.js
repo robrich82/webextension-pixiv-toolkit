@@ -144,6 +144,22 @@ describe('fallback', () => {
     expect(format(undefined, {}, 'fallback.jpg')).toBe('fallback.jpg');
   });
 
+  test('replaces illegal characters in the fallback, "/" included', () => {
+    expect(format('', {}, '1_A/B: C?')).toBe('1_A_B_ C_');
+  });
+
+  test('applies the filename rules to the fallback, as to a formatted name', () => {
+    expect(format('', {}, '1_Title\u{1F600}...')).toBe('1_Title');
+  });
+
+  test('truncates the fallback to 200 characters', () => {
+    expect(format('', {}, 'x'.repeat(250))).toBe('x'.repeat(200));
+  });
+
+  test('a fallback that sanitises to nothing becomes a timestamped name', () => {
+    expect(format('', {}, '...')).toMatch(/^file_\d+$/);
+  });
+
   test('returns an empty string when there is no rule and no fallback', () => {
     expect(format('')).toBe('');
   });
