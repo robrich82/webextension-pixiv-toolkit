@@ -28,13 +28,18 @@ class AbstractRepo {
    * @param {Object} data
    */
   async addItem(data) {
-    let count = await this.table.count();
+    // One transaction, so a failed add keeps the rows it trimmed and
+    // concurrent adds can't overshoot the cap.
+    await this.table.db.transaction('rw', this.table, async () => {
+      const count = await this.table.count();
 
-    if (count > this.max) {
-      await this.table.limit(count - this.max).delete();
-    }
+      // Make room first, so the table holds at most max entries after the add.
+      if (count >= this.max) {
+        await this.table.limit(count - this.max + 1).delete();
+      }
 
-    this.table.add(data);
+      await this.table.add(data);
+    });
   }
 
   /**
@@ -48,35 +53,7 @@ class AbstractRepo {
    * @param {string} id
    */
   deleteItem(id) {
-    this.table.where('id').equals(id).delete();
-  }
-
-  /**
-   * @param {{ page: number?, count: number?}} param0
-   * @returns
-   */
-  async getItems({ page, count = 20 }) {
-    let collection = this.table.reverse();
-    let offset = (page - 1) * count;
-
-    if (offset > 0) {
-      return await collection.offset(offset).limit(count).toArray();
-    } else {
-      return await collection.limit(count).toArray();
-    }
-  }
-
-  async searchItems({ query, page, count = 20}) {
-    let collection = this.table.reverse().filter(item => {
-      return item.title.indexOf(query) > -1 || (item.userName && item.userName.indexOf(query) > -1);
-    });
-    let offset = (page - 1) * count;
-
-    if (offset > 0) {
-      return await collection.offset(offset).limit(count).toArray();
-    } else {
-      return await collection.limit(count).toArray();
-    }
+    return this.table.where('id').equals(id).delete();
   }
 
   clear() {

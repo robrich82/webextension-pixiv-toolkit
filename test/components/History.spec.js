@@ -5,11 +5,11 @@ import { shallowMountOption } from '../helpers/mountOptionComponent';
 import History from '@/options_page/components/History.vue';
 
 const mockRepo = {
-  getItems: jest.fn(),
-  searchItems: jest.fn()
+  getItems: vi.fn(),
+  searchItems: vi.fn()
 };
 
-jest.mock('@/modules/Db/Db', () => ({
+vi.mock('@/modules/Db/Db', () => ({
   __esModule: true,
   default: { getDb: () => ({ historyRepo: () => mockRepo }) }
 }));
@@ -46,8 +46,8 @@ describe('History', () => {
   afterEach(() => {
     mounted.forEach(wrapper => wrapper.unmount());
     mounted = [];
-    jest.useRealTimers();
-    jest.restoreAllMocks();
+    vi.useRealTimers();
+    vi.restoreAllMocks();
     mockRepo.getItems.mockReset();
     mockRepo.searchItems.mockReset();
   });
@@ -105,7 +105,7 @@ describe('History', () => {
 
   test('scrolling far from the bottom loads nothing', async () => {
     servePages(mockRepo.getItems, [item(1)], [item(2)]);
-    jest.spyOn(document.documentElement, 'scrollHeight', 'get').mockReturnValue(10000);
+    vi.spyOn(document.documentElement, 'scrollHeight', 'get').mockReturnValue(10000);
 
     mountHistory();
     await flushPromises();
@@ -129,14 +129,14 @@ describe('History', () => {
   });
 
   test('scrolling during a search pages the search, not the full history', async () => {
-    jest.useFakeTimers();
+    vi.useFakeTimers();
     servePages(mockRepo.getItems, [item(1)]);
     servePages(mockRepo.searchItems, [item(2)], [item(3)]);
 
     const wrapper = mountHistory();
     await flushPromises();
     await wrapper.setData({ searchQuery: 'Work' });
-    jest.advanceTimersByTime(600);
+    vi.advanceTimersByTime(600);
     await flushPromises();
 
     scroll();
@@ -148,7 +148,7 @@ describe('History', () => {
   });
 
   test('a search query reloads from page 1 after a 600ms pause; clearing it lists everything again', async () => {
-    jest.useFakeTimers();
+    vi.useFakeTimers();
     servePages(mockRepo.getItems, [item(1)], [item(1), item(2)]);
     servePages(mockRepo.searchItems, [item(2)]);
 
@@ -157,17 +157,17 @@ describe('History', () => {
 
     await wrapper.setData({ searchQuery: 'Wo' });
     await wrapper.setData({ searchQuery: 'Work 2' });
-    jest.advanceTimersByTime(599);
+    vi.advanceTimersByTime(599);
     expect(mockRepo.searchItems).not.toHaveBeenCalled();
 
-    jest.advanceTimersByTime(1);
+    vi.advanceTimersByTime(1);
     await flushPromises();
 
     expect(mockRepo.searchItems.mock.calls).toEqual([[{ page: 1, query: 'Work 2' }]]);
     expect(titles(wrapper)).toEqual(['Work 2']);
 
     await wrapper.setData({ searchQuery: '  ' });
-    jest.advanceTimersByTime(600);
+    vi.advanceTimersByTime(600);
     await flushPromises();
 
     expect(mockRepo.getItems).toHaveBeenLastCalledWith({ page: 1 });
@@ -175,14 +175,14 @@ describe('History', () => {
   });
 
   test('a search typed while a page is loading runs at once and drops that stale page', async () => {
-    jest.useFakeTimers();
+    vi.useFakeTimers();
     let resolveLoad;
     mockRepo.getItems.mockReturnValueOnce(new Promise(resolve => { resolveLoad = resolve; }));
     servePages(mockRepo.searchItems, [item(2)]);
 
     const wrapper = mountHistory();
     await wrapper.setData({ searchQuery: 'Work 2' });
-    jest.advanceTimersByTime(600);
+    vi.advanceTimersByTime(600);
     await flushPromises();
 
     expect(mockRepo.searchItems.mock.calls).toEqual([[{ page: 1, query: 'Work 2' }]]);
@@ -196,7 +196,7 @@ describe('History', () => {
   });
 
   test('confirming a delete after the list was reset leaves the new list alone', async () => {
-    jest.useFakeTimers();
+    vi.useFakeTimers();
     servePages(mockRepo.getItems, [item(1)]);
     servePages(mockRepo.searchItems, [item(2), item(3)]);
 
@@ -205,7 +205,7 @@ describe('History', () => {
     await wrapper.find('.history-item__actions-btn').trigger('click');
 
     await wrapper.setData({ searchQuery: 'Work' });
-    jest.advanceTimersByTime(600);
+    vi.advanceTimersByTime(600);
     await flushPromises();
 
     await dialogButton(wrapper, '_delete.message').trigger('click');
@@ -264,7 +264,7 @@ describe('History', () => {
   });
 
   test('clicking a cover opens the work in a new tab', async () => {
-    const open = jest.spyOn(window, 'open').mockImplementation(() => null);
+    const open = vi.spyOn(window, 'open').mockImplementation(() => null);
     servePages(mockRepo.getItems, [item(1)]);
 
     const wrapper = mountHistory();

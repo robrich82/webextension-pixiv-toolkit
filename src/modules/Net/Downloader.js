@@ -13,7 +13,7 @@ class Downloader extends Event {
   files = [];
 
   /**
-   * The files used for download tracking. It's as same as property files at begining or after reseting
+   * The queue of files still to download: a copy of `files` after `reset()`, consumed by `downloadNext()`
    * @type {{file: string, seq: number|string, args: Object}[]}
    */
   downloadFiles = [];
@@ -28,6 +28,12 @@ class Downloader extends Event {
    * @type {Download[]}
    */
   downloadFilePorts = [];
+
+  /**
+   * Ports the background has answered on (complete, error or abort), or that closed: nothing left to abort.
+   * @type {WeakSet<Download>}
+   */
+  endedFilePorts = new WeakSet();
 
   /**
    * @type {number}
@@ -64,14 +70,47 @@ class Downloader extends Event {
 
   /**
    * @override
-   * @param {'start'|'progress'|'item-finish'|'finish'|'item-error'|'pause'|'abort'} eventName
+   * @param {'start'|'progress'|'item-finish'|'finish'|'failure'|'item-error'|'pause'|'abort'} eventName
    */
   dispatch(eventName, args) {
     super.dispatch(eventName, args);
   }
 
-  removeDownloadFromCollection(download) {
-    this.downloadFilePorts = this.downloadFilePorts.splice(this.downloadFilePorts.indexOf(download), 1);
+  removeDownloadFromCollection(downloadFilePort) {
+    const index = this.downloadFilePorts.indexOf(downloadFilePort);
+
+    if (index > -1) {
+      this.downloadFilePorts.splice(index, 1);
+    }
+  }
+
+  dispatchProgress() {
+    this.dispatch('progress', [{
+      progress: this.progresses.reduce((previousValue, currentValue) => previousValue + currentValue, 0) / this.files.length,
+      successCount: this.successCount,
+      failCount: this.failedDownloadFiles.length
+    }]);
+  }
+
+  finishFile(itemFinishData) {
+    this.successCount++;
+    this.dispatchProgress();
+    this.dispatch('item-finish', [itemFinishData]);
+    this.downloadNext();
+  }
+
+  /**
+   * Set a file aside for the next `download()` to retry, and move on.
+   */
+  failFile(downloadFile, error) {
+    this.failedDownloadFiles.push(downloadFile);
+    this.progresses[downloadFile.seq] = 0;
+
+    console.error(`Could not download ${downloadFile.file}`, error);
+
+    this.dispatch('item-error', [error]);
+    this.dispatchProgress();
+    this.downloadNext();
   }
 
   /**
@@ -84,7 +123,7 @@ class Downloader extends Event {
 
   /**
    * @override
-   * @param {'start'|'progress'|'item-finish'|'finish'|'item-error'|'pause'|'abort'} eventName
+   * @param {'start'|'progress'|'item-finish'|'finish'|'failure'|'item-error'|'pause'|'abort'} eventName
    * @param {Function} listener
    * @param {*} thisArg
    */
@@ -95,14 +134,15 @@ class Downloader extends Event {
   pause() {
     this.paused = true;
 
-    this.downloadFilePorts.forEach(downloadFilePort => {
-      downloadFilePort.postMessage({ action: 'abort' });
-    });
+    // A port in afterItemDownload may already be closed, and posting to it throws.
+    this.downloadFilePorts
+      .filter(downloadFilePort => !this.endedFilePorts.has(downloadFilePort))
+      .forEach(downloadFilePort => downloadFilePort.postMessage({ action: 'abort' }));
   }
 
   reset() {
     this.progresses = [];
-    this.downloadFiles = this.files;
+    this.downloadFiles = this.files.slice();
     this.failedDownloadFiles = [];
     this.successCount = 0;
   }
@@ -123,14 +163,13 @@ class Downloader extends Event {
       return;
     }
 
-    let downloadFile = this.downloadFiles.shift();
-
-    if (downloadFile) {
+    if (this.downloadFiles.length > 0) {
       if (this.downloadFilePorts.length < this.processors) {
-        this.downloadFile(downloadFile);
+        this.downloadFile(this.downloadFiles.shift());
       }
-    } else {
-      this.dispatch('finish');
+    } else if (this.downloadFilePorts.length === 0) {
+      // Nothing queued or in flight. Failed files wait for download() to retry them.
+      this.dispatch(this.failedDownloadFiles.length > 0 ? 'failure' : 'finish');
     }
   }
 
@@ -148,85 +187,71 @@ class Downloader extends Event {
       name: 'DownloadFile',
     });
 
+    // Firefox closes ports when its event page idles, and a closed port sends nothing.
+    downloadFilePort.onDisconnect.addListener(() => {
+      if (!this.endedFilePorts.has(downloadFilePort)) {
+        this.endedFilePorts.add(downloadFilePort);
+        this.removeDownloadFromCollection(downloadFilePort);
+        this.failFile(downloadFile, new Error('The background closed the download'));
+      }
+    });
+
     downloadFilePort.onMessage.addListener(message => {
+      if (message.event !== 'progress') {
+        this.endedFilePorts.add(downloadFilePort);
+      }
+
       if (message.event === 'progress') {
         const { totalLength, loadedLength } = message.data.progress;
         // totalLength is 0 when the response has no Content-Length
         this.progresses[downloadFile.seq] = totalLength > 0 ? Math.min(loadedLength / totalLength, 1) : 0;
 
-        this.dispatch('progress', [{
-          progress: this.progresses.reduce((previousValue, currentValue) => previousValue + currentValue, 0) / this.files.length,
-          successCount: this.successCount,
-          failCount: this.failedDownloadFiles.length
-        }]);
+        this.dispatchProgress();
       } else if (message.event === 'error') {
         this.removeDownloadFromCollection(downloadFilePort);
-        const { error = errorMessage } = message.data;
-
-        this.failedDownloadFiles.push(downloadFile);
-        this.progresses[downloadFile.seq] = 0;
-
-        console.error(error);
-
-        this.dispatch('item-error', [new Error(errorMessage)]);
-        this.dispatch('progress', [{
-          progress: this.progresses.reduce((previousValue, currentValue) => previousValue + currentValue) / this.files.length,
-          successCount: this.successCount,
-          failCount: this.failedDownloadFiles.length,
-        }]);
-
-        this.downloadNext();
+        this.failFile(downloadFile, new Error(message.data.error));
       } else if (message.event === 'complete') {
         const { data, mimeType } = message.data;
 
         this.progresses[downloadFile.seq] = 1;
 
-        fetch(data).then(response => {
-          response.blob().then(data => {
-            this.removeDownloadFromCollection(downloadFilePort);
-
+        // The port counts as in flight until afterItemDownload settles, so the run can't end around it.
+        fetch(data)
+          .then(response => response.blob())
+          .then(blob => {
             const itemFinishData = {
-              blob: this.asBlob ? data : null,
-              data: this.asBlob ? null : data,
+              blob: this.asBlob ? blob : null,
+              data: this.asBlob ? null : blob,
               args: downloadFile.args,
               downloadFilePort,
               mimeType
             };
 
-            if (this.afterItemDownload && typeof this.afterItemDownload === 'function') {
-              const afterItemDownloadResult = this.afterItemDownload.call(this, {
-                itemFinishData,
-                downloadFile
-              });
-
-              if (afterItemDownloadResult instanceof Promise) {
-                afterItemDownloadResult.then(() => {
-                  this.successCount++;
-                  this.dispatch('item-finish', [itemFinishData]);
-                  this.downloadNext();
-                }).catch((error) => {
-                  this.dispatch('item-error', [error]);
-                });
-
-                return;
-              }
+            if (typeof this.afterItemDownload !== 'function') {
+              return itemFinishData;
             }
 
-            this.successCount++;
-            this.dispatch('item-finish', [itemFinishData]);
-            this.downloadNext();
+            return Promise.resolve(this.afterItemDownload.call(this, { itemFinishData, downloadFile }))
+              .then(() => itemFinishData);
+          })
+          .then(itemFinishData => {
+            this.removeDownloadFromCollection(downloadFilePort);
+            this.finishFile(itemFinishData);
+          }, error => {
+            this.removeDownloadFromCollection(downloadFilePort);
+            this.failFile(downloadFile, error);
           });
-        });
       } else if (message.event === 'abort') {
         this.removeDownloadFromCollection(downloadFilePort);
         this.progresses[downloadFile.seq] = 0;
 
-        /**
-         * Put the downloadFile back to the downloadFiles for re-tracking it
-         */
+        // Put the file back in the queue.
         this.downloadFiles.unshift(downloadFile);
 
-        if (this.downloadFilePorts.length === 0) {
+        if (!this.paused) {
+          // download() was called again before this abort came back.
+          this.downloadNext();
+        } else if (this.downloadFilePorts.length === 0) {
           this.dispatch('pause');
         }
       }

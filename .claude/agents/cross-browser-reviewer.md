@@ -29,7 +29,7 @@ Get the diff you were pointed at (for example `git diff origin/main...HEAD`). Re
 ## Verify where you can
 
 - `pnpm run build` and `pnpm run build:firefox`. Check that both pass and inspect `dist/firefox/manifest.json` when the manifest or webpack config changed. Each build empties `dist/<platform>` first, so skip it if a dev watch or e2e run may be using `dist/` in this checkout.
-- `pnpm exec cross-env NODE_ENV=test jest --config jest.config.js --coverage=false --findRelatedTests <files>`
+- `pnpm exec vitest related <files> --run --coverage.enabled=false`
 
 ## Report
 

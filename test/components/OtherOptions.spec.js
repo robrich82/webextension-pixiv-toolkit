@@ -11,7 +11,7 @@ const originalFileReader = global.FileReader;
 
 describe('OtherOptions', () => {
   afterEach(() => {
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
     delete URL.createObjectURL;
     delete window.alert;
     global.FileReader = originalFileReader;
@@ -36,7 +36,7 @@ describe('OtherOptions', () => {
   });
 
   test('viewDiagnosis() routes to the diagnosis messages page', () => {
-    const push = jest.fn().mockResolvedValue();
+    const push = vi.fn().mockResolvedValue();
     const wrapper = shallowMountOption(OtherOptions, {
       mocks: { $router: { push } }
     });
@@ -47,8 +47,8 @@ describe('OtherOptions', () => {
   });
 
   test('exportSettings() downloads every current setting by default', () => {
-    URL.createObjectURL = jest.fn(() => 'blob:fake');
-    const clickSpy = jest.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    URL.createObjectURL = vi.fn(() => 'blob:fake');
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
 
     const wrapper = shallowMountOption(OtherOptions, {
       browserItems: { language: 'en' }
@@ -61,12 +61,12 @@ describe('OtherOptions', () => {
   });
 
   test('exportSettings() writes the current settings as they are', () => {
-    URL.createObjectURL = jest.fn();
+    URL.createObjectURL = vi.fn();
     const captured = [];
-    jest.spyOn(global, 'Blob').mockImplementation(function (parts) {
+    vi.spyOn(global, 'Blob').mockImplementation(function (parts) {
       captured.push(JSON.parse(parts[0]));
     });
-    jest.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
 
     const wrapper = shallowMountOption(OtherOptions, {
       browserItems: { language: 'en', maxHistoryItems: 5000 }
@@ -103,13 +103,13 @@ describe('OtherOptions', () => {
     };
 
     let changeListener;
-    jest.spyOn(HTMLInputElement.prototype, 'addEventListener').mockImplementation(function (event, listener) {
+    vi.spyOn(HTMLInputElement.prototype, 'addEventListener').mockImplementation(function (event, listener) {
       if (event === 'change') {
         changeListener = listener;
       }
     });
-    jest.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(() => {});
-    window.alert = jest.fn();
+    vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(() => {});
+    window.alert = vi.fn();
 
     const wrapper = shallowMountOption(OtherOptions);
 

@@ -26,11 +26,9 @@ minimumReleaseAge: 1440
 #
 #   @parcel/watcher  native file watching for `sass --watch`. Unreachable --
 #                    watching is webpack's job here.
-#   unrs-resolver    jest-resolve's native resolver. Its script only verifies
-#                    that the right `@unrs/resolver-binding-*` optional
-#                    dependency got installed; the binary itself arrives
-#                    prebuilt, so skipping the check costs nothing. Verified by
-#                    running the suite with the script denied.
+#   fsevents         macOS-only file watching for Vite's dev server, which
+#                    `vitest run` never starts. The tarball ships a prebuilt
+#                    binary, so its `node-gyp rebuild` is redundant anyway.
 #
 # Adding `true` here is a security decision, not a way to clear a failed
 # install. A new entry means a dependency started wanting to execute code on
@@ -41,7 +39,7 @@ minimumReleaseAge: 1440
 # block below. Decide and replace that line; do not just re-run the install.
 allowBuilds:
   '@parcel/watcher': false
-  unrs-resolver: false
+  fsevents: false
 
 # Transitive dependencies must come from the registry -- no git repositories,
 # no tarball URLs. This is pnpm's default; pinned so it survives a default flip.
@@ -56,89 +54,32 @@ trustPolicy: no-downgrade
 #
 # GHSA-gcqx-w48m-w2h4 (low): deepmerge <=4.3.1 lets `mergeObject()` return an
 # object with a poisoned prototype. There is no patched release (4.3.1, from
-# 2023, is the latest), and jest-config and addons-linter both still depend on
-# it, so neither an update nor an `overrides` floor can clear it. It is
-# dev-only: jest and web-ext pull it in, and nothing in dist/ ships it.
+# 2023, is the latest), and addons-linter still depends on it, so neither an
+# update nor an `overrides` floor can clear it. It is dev-only: web-ext pulls
+# it in, and nothing in dist/ ships it.
 auditConfig:
   ignoreGhsas:
     - GHSA-gcqx-w48m-w2h4
 
 # --- Overrides --------------------------------------------------------------
-# `multimatch` keeps `web-ext` working under the `minimatch` floor (see docs/toolchain.md).
-# Every other floor below fixes an actual advisory, pinned at the advisory's
-# own first-patched version so the resolved version sitting above the floor is
-# the `^` working, not a weaker guard. `js-yaml` is split per major because
-# 4.x dropped `safeLoad`/`safeDump`, so 3.x consumers cannot cross, and this
-# tree carries both lines. `brace-expansion` is split the same way across its
-# 1.x/2.x/4.x lines; with every minimatch now on 11 only 5.x is in the tree,
-# and the lower floors stay as guards should an old minimatch return.
-#
-# pnpm does not read npm's top-level `overrides` field, so these live here.
-# Drop them and the advisories come back. Renovate never moves one to a new
-# major (renovate.json): a floor moves when its advisory does.
+# An advisory floor stays only while resolving without it (no lockfile) lands
+# on a vulnerable version. `pnpm audit` misses advisories published only on the
+# package's own repo, so check those too. A floor sits at the advisory's first
+# patched version; Renovate never moves one to a new major (renovate.json).
+# pnpm ignores npm's top-level `overrides`.
 overrides:
-  'js-yaml@>=4.0.0 <4.3.2': ^4.3.2
-  'js-yaml@<3.15.2': ^3.15.2
-  # fast-uri (ajv, via webpack/css-loader/etc.): GHSA-hrr3-gc8f-f4qj,
-  # GHSA-w74x-v6f9-j3xg, GHSA-wjr9-j795-jxcr -- host/scheme confusion and
-  # case-normalization bugs, all patched by 3.1.9.
-  'fast-uri@<3.1.9': ^3.1.9
-  # brace-expansion (minimatch, via jest/@vue/test-utils): GHSA-q2hr-2g5m-vwhr,
-  # GHSA-qhr7-859c-m2p7, GHSA-6j4f-fj2g-mc7p -- ReDoS and stack-exhaustion DoS
-  # via crafted brace patterns, each patched per major line below.
-  'brace-expansion@<1.1.21': ^1.1.21
-  'brace-expansion@>=2.0.0 <2.1.7': ^2.1.7
-  'brace-expansion@>=4.0.0 <5.0.12': ^5.0.12
-  # source-map-js (vue/postcss, everywhere): GHSA-68fv-2mgg-jv7q -- a crafted
-  # indexed source-map section offset can hang the event loop, patched 1.2.2.
-  'source-map-js@<1.2.2': ^1.2.2
-  # shell-quote (web-ext>fx-runner, dev-only): GHSA-pqg4-j6r4-53mv -- `quote()`
-  # command injection via a line terminator after a `{ comment }` token,
-  # patched 1.11.0.
-  'shell-quote@<1.11.0': ^1.11.0
-  # undici (web-ext>addons-linter>cheerio, dev-only): GHSA-4qv8-2p9j-2685,
-  # GHSA-f72v-6w45-q472, GHSA-xjj6-f33q-929c -- EventSource memory DoS, SRI
-  # algorithm-case bypass, and unhandled-encoding DoS, all patched by 7.30.1;
-  # GHSA-mqg3-3v4r-cm32, GHSA-7xg3-fphp-28hg, GHSA-5rm8-gv32-r954,
-  # GHSA-9v6h-8rgp-m69f, GHSA-3g9m-rv3r-w5w2, GHSA-r4pc-4jcp-7pqc -- redirect
-  # and cache-interceptor disclosure, a cache-replay DoS, and an SRI whitespace
-  # bypass, patched by 7.30.2.
-  'undici@<7.30.2': ^7.30.2
-  # serialize-javascript (copy-webpack-plugin): GHSA-m5mm-p8h7-m29v -- an
-  # unescaped `</script` in a serialized function body can break out of the
-  # surrounding tag, patched 7.1.3.
-  'serialize-javascript@<7.1.3': ^7.1.3
-  # web-ext's addons-linter/firefox-profile pull these in transitively.
-  # image-size <=2.0.2 (GHSA-w3rx-r6r6-pgpr, GHSA-5p2g-fcmc-qvqq): ICNS/JXL/HEIF
-  # parsers allow a denial-of-service infinite loop, patched 2.0.3.
-  'image-size@<=2.0.2': ^2.0.3
-  # adm-zip <=0.6.0 (GHSA-vwc7-r8mq-g2x9): extraction follows destination
-  # symlinks, allowing an arbitrary file overwrite, patched 0.6.1.
-  'adm-zip@<=0.6.0': ^0.6.1
-  # postcss-selector-parser (css-loader's postcss-modules-*): GHSA-rj75-hqrm-r3gf
-  # -- quadratic complexity in flat selector parsing allows CPU exhaustion,
-  # patched 7.1.6.
-  'postcss-selector-parser@<7.1.6': ^7.1.6
-  # node-forge (web-ext>@devicefarmer/adbkit, dev-only): GHSA-7wch-p9px-956x,
-  # GHSA-8hrf-8g6f-7xwp, GHSA-hqq3-7jhf-c5jx, GHSA-5x38-2vff-x55p,
-  # GHSA-jc66-7q78-782g and others -- DoS and verification bypasses, all
-  # patched by 1.4.1.
-  'node-forge@<1.4.1': ^1.4.1
-  # glob (jest, js-beautify, dev-only): GHSA-3g3m-2fjr-6pw4 -- AbortSignal
-  # cancellation bypass, patched 14.0.2.
+  # glob (js-beautify via @vue/test-utils; dev-only): GHSA-3g3m-2fjr-6pw4 --
+  # AbortSignal cancellation bypass, patched 14.0.2.
   'glob@<14.0.2': ^14.0.2
-  # minimatch (jest, eslint, postcss-url, web-ext, dev-only):
-  # GHSA-g3hv-75wg-m249 -- DoS via globparts amplification, patched 11.0.1.
+  # minimatch (js-beautify>editorconfig, web-ext's multimatch 8;
+  # dev-only): GHSA-g3hv-75wg-m249 -- DoS via globparts amplification, 11.0.1.
   'minimatch@<11.0.1': ^11.0.1
-  # multimatch (web-ext, dev-only): 6.x default-imports minimatch, which v11 no
-  # longer exports, so `web-ext build` crashes. Needed by the override above.
+  # multimatch (web-ext): not an advisory. 6.x default-imports minimatch, which
+  # v11 no longer exports, so `web-ext build` crashes (see docs/toolchain.md).
   'multimatch@<8': ^8.0.0
 
-# @vue/vue3-jest (latest 29.2.6) calls Babel's `transform` synchronously, which
-# Babel 8 rejects; the patch swaps in `transformSync` (also valid on Babel 7).
 # multimatch 8 (web-ext) under minimatch 11 reads web-ext's Windows ignore
 # patterns' backslashes as escapes, so nothing is ignored and dotfiles/zips get
 # packed; the patch restores minimatch 3's backslash-as-separator on Windows.
 patchedDependencies:
-  '@vue/vue3-jest': patches/@vue__vue3-jest.patch
   multimatch: patches/multimatch.patch

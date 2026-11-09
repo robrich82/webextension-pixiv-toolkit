@@ -40,7 +40,7 @@ jobs:
 
       # pnpm denies dependency lifecycle scripts by default and fails the
       # install if a package wants to build without an entry in `allowBuilds`
-      # (see pnpm-workspace.yaml, where all three such packages are denied).
+      # (see pnpm-workspace.yaml, where every such package is denied).
       # That replaces the old `npm ci --ignore-scripts` flag with a default
       # that also protects local installs, not just this line of YAML.
       #

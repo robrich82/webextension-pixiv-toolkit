@@ -1,4 +1,4 @@
-const DateFormatter = require('../src/modules/Util/DateFormatter').default;
+import DateFormatter from '../src/modules/Util/DateFormatter';
 
 // Pixiv serves ISO 8601 timestamps with a UTC offset, but the getters below
 // read local-time fields. Fixtures therefore use a plain local-time string, so

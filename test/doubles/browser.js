@@ -3,9 +3,9 @@
  *
  * The real module hands back whatever `chrome`/`browser` global the extension
  * happens to be running against, so nothing that touches an extension API can
- * be tested under Jest without it. `jest.config.js` maps that module path
+ * be tested without it. `vitest.config.mjs` aliases that module path
  * here, which means specs get this fake by importing the code under test — no
- * per-spec `jest.mock` call.
+ * per-spec `vi.mock` call.
  *
  * Two properties of the real APIs are reproduced deliberately, because the
  * codebase depends on both:
@@ -13,11 +13,12 @@
  * - Every async call returns a promise *and* invokes an optional trailing
  *   callback. `SettingService` wraps callbacks in promises while
  *   `DownloadService` awaits the call directly, sometimes for the same API.
- * - `runtime.onConnect` is dispatched asynchronously, as the browser does. A
- *   port that posts a message the moment it is opened must not out-run the
- *   listeners the other side attaches after `connect()` returns.
+ * - `runtime.onConnect`, port messages and disconnects are dispatched
+ *   asynchronously and in order, as the browser does. A port that posts a
+ *   message the moment it is opened must not out-run the listeners the other
+ *   side attaches in `onConnect`.
  *
- * Every API is a `jest.fn`, so calls can be asserted with the usual matchers,
+ * Every API is a `vi.fn`, so calls can be asserted with the usual matchers,
  * and the stored state (`storage.local.items`, `downloads.items`, `tabs.items`,
  * `runtime.ports`) is readable for the assertions a call log can't express.
  */
@@ -69,8 +70,8 @@ class FakeEvent {
 }
 
 /**
- * One end of a `runtime.connect()` pair. Posting on one end delivers to the
- * `onMessage` of the other.
+ * One end of a `runtime.connect()` pair. Posting on one end delivers, on a later
+ * microtask, to the `onMessage` of the other.
  */
 class FakePort {
   constructor(name, sender) {
@@ -90,10 +91,21 @@ class FakePort {
       throw new Error('Attempting to use a disconnected port object');
     }
 
-    this.postedMessages.push(message);
+    // Serialized now, as the browser does, so later changes to `message` don't travel.
+    const payload = clone(message);
 
-    if (this.peer) {
-      this.peer.onMessage.emit(message, this.peer);
+    this.postedMessages.push(payload);
+
+    // Delivered later, as the browser does, so a message posted right after
+    // connect() reaches the listeners the other side attaches in onConnect.
+    const peer = this.peer;
+
+    if (peer) {
+      Promise.resolve().then(() => {
+        if (!peer.disconnected) {
+          peer.onMessage.emit(clone(payload), peer);
+        }
+      });
     }
   }
 
@@ -104,15 +116,23 @@ class FakePort {
 
     this.disconnected = true;
 
-    if (this.peer && !this.peer.disconnected) {
-      this.peer.disconnected = true;
-      this.peer.onDisconnect.emit(this.peer);
+    const peer = this.peer;
+
+    // Queued behind any message already posted, so the order holds. Until it
+    // runs, the peer can still post; the browser drops those messages.
+    if (peer) {
+      Promise.resolve().then(() => {
+        if (!peer.disconnected) {
+          peer.disconnected = true;
+          peer.onDisconnect.emit(peer);
+        }
+      });
     }
   }
 }
 
 function createBrowserFake() {
-  /** Every `jest.fn` handed out, so `reset()` can clear the call logs. */
+  /** Every `vi.fn` handed out, so `reset()` can clear the call logs. */
   const mocks = [];
 
   /**
@@ -120,7 +140,7 @@ function createBrowserFake() {
    * back, plus an optional trailing callback called with the same value.
    */
   const api = impl => {
-    const fn = jest.fn(function (...args) {
+    const fn = vi.fn(function (...args) {
       const callback = isFunction(args[args.length - 1]) ? args.pop() : null;
 
       return Promise.resolve()
@@ -139,9 +159,9 @@ function createBrowserFake() {
     return fn;
   };
 
-  /** Plain `jest.fn`, for the APIs that are synchronous in the browser too. */
+  /** Plain `vi.fn`, for the APIs that are synchronous in the browser too. */
   const syncApi = impl => {
-    const fn = jest.fn(impl);
+    const fn = vi.fn(impl);
 
     mocks.push(fn);
 
@@ -527,8 +547,9 @@ function createBrowserFake() {
     },
 
     /**
-     * Let the queued microtasks and timers run. Needed after a `connect()`,
-     * whose `onConnect` dispatch is deferred.
+     * Let the queued microtasks and timers run. Needed after `connect()`,
+     * `postMessage()` or `disconnect()`, whose delivery is deferred. It waits on
+     * a real timer, so under `vi.useFakeTimers()` use `advanceTimersByTimeAsync`.
      */
     flush() {
       return new Promise(resolve => setTimeout(resolve, 0));

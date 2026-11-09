@@ -1,4 +1,4 @@
-const versionCompare = require('../src/modules/Util/versionCompare');
+import versionCompare from '../src/modules/Util/versionCompare';
 
 describe('ordering', () => {
   test('reports a newer version as greater', () => {

@@ -41,12 +41,7 @@ describe('DownloadTask', () => {
   });
 
   test('a well-formed task passes the data validator', () => {
-    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
-
-    mountOption(DownloadTask, { props: { data: task() } });
-
-    expect(warn).not.toHaveBeenCalled();
-    warn.mockRestore();
+    expect(DownloadTask.props.data.validator(task())).toBe(true);
   });
 
   test.each([

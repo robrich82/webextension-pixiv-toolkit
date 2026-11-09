@@ -74,10 +74,15 @@ class Request extends Event {
 
           this.readData(reader);
         }
-      }).catch(error => {
-        this.dispatch('onerror', [error]);
-      });
+      }).catch(error => this.dispatchFailure(error));
     });
+  }
+
+  /**
+   * After abort(), any rejection is reported as onabort: fetch rejects an aborted request, and errors its body, with an AbortError.
+   */
+  dispatchFailure(error) {
+    this.dispatch(this.fetchFallbackAbortSignal ? 'onabort' : 'onerror', [error]);
   }
 
   send(data = null) {
@@ -114,9 +119,7 @@ class Request extends Event {
       }
 
       this.readData(this.response.body.getReader());
-    }).catch(error => {
-      this.dispatch('onerror', [error]);
-    });
+    }).catch(error => this.dispatchFailure(error));
   }
 
   getResponseHeader(name) {

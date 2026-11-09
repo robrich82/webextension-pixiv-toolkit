@@ -1,17 +1,17 @@
-const IllustParser = require('../src/modules/Parser/Pixiv/IllustParser').default;
-const { installFetch } = require('./doubles/fetch');
-const { localDateParts } = require('./helpers/localDate');
+import IllustParser from '../src/modules/Parser/Pixiv/IllustParser';
+import { installFetch } from './doubles/fetch';
+import { localDateParts } from './helpers/localDate';
 
-const single = require('./fixtures/pixiv/illust-single.json');
-const singlePages = require('./fixtures/pixiv/illust-single-pages.json');
-const manga = require('./fixtures/pixiv/illust-manga.json');
-const mangaPages = require('./fixtures/pixiv/illust-manga-pages.json');
-const ugoira = require('./fixtures/pixiv/illust-ugoira.json');
-const ugoiraMeta = require('./fixtures/pixiv/illust-ugoira-meta.json');
-const unlisted = require('./fixtures/pixiv/illust-unlisted.json');
-const missingCreateDate = require('./fixtures/pixiv/illust-missing-create-date.json');
+import single from './fixtures/pixiv/illust-single.json';
+import singlePages from './fixtures/pixiv/illust-single-pages.json';
+import manga from './fixtures/pixiv/illust-manga.json';
+import mangaPages from './fixtures/pixiv/illust-manga-pages.json';
+import ugoira from './fixtures/pixiv/illust-ugoira.json';
+import ugoiraMeta from './fixtures/pixiv/illust-ugoira-meta.json';
+import unlisted from './fixtures/pixiv/illust-unlisted.json';
+import missingCreateDate from './fixtures/pixiv/illust-missing-create-date.json';
 
-// `require` caches, and `standardContext` keeps a reference to the response
+// JSON imports are cached, and `standardContext` keeps a reference to the response
 // body in `__raw`. A test that reaches into the context and mutates it would
 // otherwise leak into every later test in the file.
 const clone = fixture => JSON.parse(JSON.stringify(fixture));

@@ -10,4 +10,5 @@ if (typeof globalThis.structuredClone === 'undefined') {
   globalThis.structuredClone = value => v8.deserialize(v8.serialize(value));
 }
 
-require('fake-indexeddb/auto');
+// After the polyfill: a static import would be hoisted above it.
+await import('fake-indexeddb/auto');

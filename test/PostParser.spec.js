@@ -1,11 +1,11 @@
-const PostParser = require('../src/modules/Parser/Fanbox/PostParser').default;
-const browser = require('./doubles/browser').default;
-const { localDateParts } = require('./helpers/localDate');
-const { RestrictedPostError } = require('../src/errors');
+import PostParser from '../src/modules/Parser/Fanbox/PostParser';
+import browser from './doubles/browser';
+import { localDateParts } from './helpers/localDate';
+import { RestrictedPostError } from '../src/errors';
 
-const article = require('./fixtures/fanbox/post-article.json');
-const legacyImagePost = require('./fixtures/fanbox/post-image-legacy-body.json');
-const restrictedPost = require('./fixtures/fanbox/post-restricted.json');
+import article from './fixtures/fanbox/post-article.json';
+import legacyImagePost from './fixtures/fanbox/post-image-legacy-body.json';
+import restrictedPost from './fixtures/fanbox/post-restricted.json';
 
 const clone = fixture => JSON.parse(JSON.stringify(fixture));
 
@@ -16,7 +16,7 @@ const clone = fixture => JSON.parse(JSON.stringify(fixture));
  * the response is what the fixtures stand in for.
  */
 const backgroundReplies = response => {
-  const listener = jest.fn((message, sender, sendResponse) => {
+  const listener = vi.fn((message, sender, sendResponse) => {
     sendResponse(response);
     return true;
   });

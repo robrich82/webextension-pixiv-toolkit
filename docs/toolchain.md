@@ -110,7 +110,7 @@ denied.
 | Package | Why it is denied |
 | --- | --- |
 | `@parcel/watcher` | native file watching for `sass --watch`. Unreachable — watching is webpack's job here. |
-| `unrs-resolver` | jest-resolve's native resolver. Its script only checks that the right `@unrs/resolver-binding-*` optional dependency was installed; the binary arrives prebuilt. The suite passes with the script denied. |
+| `fsevents` | macOS-only file watching for Vite's dev server, which `vitest run` never starts. The tarball ships a prebuilt binary, so its `node-gyp rebuild` is redundant anyway. Skipped on Windows and Linux, so only a Mac install would fail without the entry. |
 
 This replaces `npm ci --ignore-scripts`, which was correct but lived in one line
 of CI YAML and did nothing for a local install. Adding a `true` here is a
@@ -146,8 +146,8 @@ Vue 2's tooling (`@vue/test-utils@1`, `@vue/vue2-jest`, `vue-template-compiler`)
 used to be exact-pinned here, since those were abandoned last-Vue-2-compatible
 releases and `vue-template-compiler` had to match `vue` exactly or it threw at
 require time (see `docs/vue3-migration.md`, done as of the Vue 3 migration's
-Phase A). Vue 3's equivalents (`vue`, `@vue/test-utils`, `@vue/vue3-jest`) are
-all back on ordinary caret ranges — none of them are abandoned, and there is no
+Phase A). Vue 3's equivalents (`vue`, `@vue/test-utils`) are
+both back on ordinary caret ranges — none of them are abandoned, and there is no
 version-matching constraint between them to protect.
 
 The committed lockfile is the second layer, and `minimumReleaseAge` is the
@@ -314,7 +314,7 @@ A red audit step still needs clearing: `pnpm update`, an `overrides` floor, or
 CircleCI (`.circleci/config.yml`) ran the identical job and was dropped as
 duplication.
 
-The `pnpm test` step is the Jest suite; see `docs/testing.md` for how it is
+The `pnpm test` step is the Vitest suite; see `docs/testing.md` for how it is
 configured and for the extension API double the specs run against.
 
 ## Known remaining issues

@@ -1,17 +1,19 @@
 import { spawnSync } from 'child_process';
 import path from 'path';
+import pkg from '../package.json';
 
 const SCRIPT = path.resolve(__dirname, '../scripts/only-pnpm.js');
 
 function run(userAgent) {
-  const env = { ...process.env };
-  delete env.npm_config_user_agent;
+  // Case-insensitive: on Windows the inherited name can arrive upper-cased.
+  const env = Object.fromEntries(Object.entries(process.env)
+    .filter(([key]) => key.toLowerCase() !== 'npm_config_user_agent'));
   if (userAgent !== undefined) env.npm_config_user_agent = userAgent;
   return spawnSync(process.execPath, [SCRIPT], { env, encoding: 'utf8' });
 }
 
 test('the preinstall hook runs the guard', () => {
-  expect(require('../package.json').scripts.preinstall).toBe('node scripts/only-pnpm.js');
+  expect(pkg.scripts.preinstall).toBe('node scripts/only-pnpm.js');
 });
 
 test('pnpm passes', () => {

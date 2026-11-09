@@ -1,9 +1,8 @@
-jest.mock('vue-i18n', () => ({
-  createI18n: jest.fn(options => ({ global: { locale: options.locale } }))
+vi.mock('vue-i18n', () => ({
+  createI18n: vi.fn(options => ({ global: { locale: options.locale } }))
 }));
-jest.mock('locales', () => ({ localeEn: {}, localeZhCN: {} }), { virtual: true });
 
-const I18n = require('../src/modules/I18n').default;
+import I18n from '../src/modules/I18n';
 
 test('i18n with undefined locale falls back without throwing', () => {
   expect(() => I18n.i18n(undefined, 'en-US')).not.toThrow();

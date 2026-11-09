@@ -5,7 +5,7 @@ import Downloads from '@/options_page/Downloads.vue';
 
 // The download-manager stub doesn't stop DownloadManager.vue's imports
 // loading, and DownloadsApplication boots the whole app.
-jest.mock('@/options_page/DownloadsApplication', () => ({ app: () => ({ getService: () => ({}) }) }));
+vi.mock('@/options_page/DownloadsApplication', () => ({ app: () => ({ getService: () => ({}) }) }));
 
 // Downloads reads openedTabId/openedWindowId off $root, which in a test is the
 // test-utils host. The $parent guard keeps them off Downloads' own same-named computeds.
@@ -22,7 +22,7 @@ describe('Downloads', () => {
   });
 
   afterEach(() => {
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   test('shows the download manager when no other manager tab is open', () => {
@@ -40,8 +40,8 @@ describe('Downloads', () => {
   });
 
   test('switching to the open manager focuses it and closes this tab', async () => {
-    const close = jest.spyOn(window, 'close').mockImplementation(() => {});
-    jest.spyOn(console, 'log').mockImplementation(() => {});
+    const close = vi.spyOn(window, 'close').mockImplementation(() => {});
+    vi.spyOn(console, 'log').mockImplementation(() => {});
     browser._fake.addTab({ id: 7, windowId: 3 });
     const wrapper = mountDownloads({ openedTabId: 7, openedWindowId: 3 });
 
@@ -54,7 +54,7 @@ describe('Downloads', () => {
   });
 
   test('the settings entry opens the options page in a new tab', async () => {
-    const open = jest.spyOn(window, 'open').mockImplementation(() => null);
+    const open = vi.spyOn(window, 'open').mockImplementation(() => null);
     // A real mount: v-list-item declares onClick as a prop, which a stub stringifies.
     const wrapper = mountDownloads({}, mountOption);
 

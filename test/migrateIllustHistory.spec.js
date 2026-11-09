@@ -35,11 +35,11 @@ describe('migrateIllustHistory', () => {
     HistoryRepo.instance = undefined;
 
     app = Application.createApp();
-    jest.spyOn(console, 'info').mockImplementation(() => {});
+    vi.spyOn(console, 'info').mockImplementation(() => {});
   });
 
   afterEach(async () => {
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
     await deletePouchDatabases();
     await Db.getDb().database.delete();
   });
@@ -47,7 +47,7 @@ describe('migrateIllustHistory', () => {
   describe('a store written by PouchDB 7.2.2, as v5 used it', () => {
     test('imports what PouchDB itself listed: winning revisions only, no deleted or design docs', async () => {
       await restoreDatabases();
-      const importItems = jest.spyOn(app.getService('history'), 'importItems');
+      const importItems = vi.spyOn(app.getService('history'), 'importItems');
 
       await migrateIllustHistory(app.getService('history'));
 
@@ -165,10 +165,10 @@ describe('migrateIllustHistory', () => {
 
   test('a failed delete of the old store still reports the move', async () => {
     await writeStore([v5(1, 100)]);
-    jest.spyOn(indexedDB, 'deleteDatabase').mockImplementation(() => {
+    vi.spyOn(indexedDB, 'deleteDatabase').mockImplementation(() => {
       throw new Error('blocked');
     });
-    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     expect(await migrateIllustHistory(app.getService('history'))).toEqual({ imported: 1, skipped: 0 });
 
@@ -178,7 +178,7 @@ describe('migrateIllustHistory', () => {
 
   test('a store in another schema version is kept, not guessed at', async () => {
     await restoreDatabases([{ ...storeDump, version: 4 }]);
-    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     expect(await migrateIllustHistory(app.getService('history'))).toBeNull();
 
@@ -191,7 +191,7 @@ describe('migrateIllustHistory', () => {
     const db = await request(indexedDB.open(STORE));
     await request(db.transaction('by-sequence', 'readwrite').objectStore('by-sequence').delete(2));
     db.close();
-    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     expect(await migrateIllustHistory(app.getService('history'))).toEqual({ imported: 1, skipped: 1 });
 
@@ -204,14 +204,14 @@ describe('migrateIllustHistory', () => {
     await restoreDatabases();
     const [, index] = fixture.databases.map(db => db.name);
     const deleteDatabase = indexedDB.deleteDatabase.bind(indexedDB);
-    jest.spyOn(indexedDB, 'deleteDatabase').mockImplementation(name => {
+    vi.spyOn(indexedDB, 'deleteDatabase').mockImplementation(name => {
       if (name === index) {
         throw new Error('blocked');
       }
 
       return deleteDatabase(name);
     });
-    jest.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(console, 'error').mockImplementation(() => {});
 
     expect(await migrateIllustHistory(app.getService('history'))).toEqual({ imported: 5, skipped: 0 });
 
@@ -222,7 +222,7 @@ describe('migrateIllustHistory', () => {
 
   test('a version-5 store without its object stores is kept, and its connection closed', async () => {
     (await request(indexedDB.open(STORE, storeDump.version))).close();
-    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     expect(await migrateIllustHistory(app.getService('history'))).toBeNull();
 
@@ -253,8 +253,8 @@ describe('migrateIllustHistory', () => {
 
   test('a failed import keeps the store, and the update still completes', async () => {
     await writeStore([v5(1, 100)]);
-    jest.spyOn(app.getService('history'), 'importItems').mockRejectedValue(new Error('quota'));
-    jest.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(app.getService('history'), 'importItems').mockRejectedValue(new Error('quota'));
+    vi.spyOn(console, 'error').mockImplementation(() => {});
 
     await expect(update6_4_7()).resolves.toBeUndefined();
 
@@ -264,8 +264,8 @@ describe('migrateIllustHistory', () => {
   test('a failed import keeps the store and returns null', async () => {
     await writeStore([v5(1, 100)]);
     const history = app.getService('history');
-    jest.spyOn(history, 'importItems').mockRejectedValue(new Error('quota'));
-    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(history, 'importItems').mockRejectedValue(new Error('quota'));
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     expect(await migrateIllustHistory(history)).toBeNull();
 

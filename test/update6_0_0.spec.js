@@ -11,11 +11,11 @@
  * The v5 shapes seeded below are the deprecated keys still carried in
  * `src/config/default.js` under `@deprecated since version 6.0.0`.
  */
-const browser = require('./doubles/browser').default;
-const Application = require('../src/background/Application').default;
-const SettingService = require('../src/background/services/SettingService').default;
-const defaultSettings = require('../src/config/default').default;
-const update6_0_0 = require('../src/background/updates/update6_0_0').default;
+import browser from './doubles/browser';
+import Application from '../src/background/Application';
+import SettingService from '../src/background/services/SettingService';
+import defaultSettings from '../src/config/default';
+import update6_0_0 from '../src/background/updates/update6_0_0';
 
 /**
  * A v5 install with every rename option customised, so a dropped or renamed

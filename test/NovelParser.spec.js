@@ -1,10 +1,10 @@
-const NovelParser = require('../src/modules/Parser/Pixiv/NovelParser').default;
-const { installFetch } = require('./doubles/fetch');
-const { localDateParts } = require('./helpers/localDate');
+import NovelParser from '../src/modules/Parser/Pixiv/NovelParser';
+import { installFetch } from './doubles/fetch';
+import { localDateParts } from './helpers/localDate';
 
-const single = require('./fixtures/pixiv/novel-single.json');
-const series = require('./fixtures/pixiv/novel-series.json');
-const missingCreateDate = require('./fixtures/pixiv/novel-missing-create-date.json');
+import single from './fixtures/pixiv/novel-single.json';
+import series from './fixtures/pixiv/novel-series.json';
+import missingCreateDate from './fixtures/pixiv/novel-missing-create-date.json';
 
 const clone = fixture => JSON.parse(JSON.stringify(fixture));
 

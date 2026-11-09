@@ -2,9 +2,9 @@
  * `FileSystem` is the narrowest real call site for `downloads.download`, so it
  * is where a formatted name first becomes a filename the browser is asked for.
  */
-const browser = require('./doubles/browser').default;
-const NameFormatter = require('../src/modules/Util/NameFormatter').default;
-const FileSystem = require('../src/options_page/modules/FileSystem').default;
+import browser from './doubles/browser';
+import NameFormatter from '../src/modules/Util/NameFormatter';
+import FileSystem from '../src/options_page/modules/FileSystem';
 
 const fileSystem = () => {
   FileSystem.instance = undefined;

@@ -450,7 +450,7 @@ under `src/` (confirmed via repo-wide grep). This was the last item in
 2. Component tests landed in #27 (merged via #44, done) — `test/components/`
    now covers the leaf `option-items` and `options_page/components/options`
    trees by mounting the real `.vue` components with `shallowMountOption`,
-   enforced by a coverage floor in `jest.config.js`; see `docs/testing.md`.
+   enforced by a coverage floor in `vitest.config.mjs`; see `docs/testing.md`.
    `content_scripts/` and the rest of the options page are still untested
    (#98).
 3. ~~Migrate the leaf `option-items`~~ (done — Phase B; 4 files, this doc

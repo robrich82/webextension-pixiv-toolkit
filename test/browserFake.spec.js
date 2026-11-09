@@ -1,4 +1,4 @@
-const browser = require('./doubles/browser').default;
+import browser from './doubles/browser';
 
 describe('promise and callback styles', () => {
   test('resolves with the result', async () => {
@@ -7,13 +7,12 @@ describe('promise and callback styles', () => {
     expect(await browser.storage.local.get('a')).toEqual({ a: 1 });
   });
 
-  test('calls a trailing callback with the same result', done => {
-    browser.storage.local.set({ a: 1 }, () => {
-      browser.storage.local.get('a', items => {
-        expect(items).toEqual({ a: 1 });
-        done();
-      });
+  test('calls a trailing callback with the same result', async () => {
+    const items = await new Promise(resolve => {
+      browser.storage.local.set({ a: 1 }, () => browser.storage.local.get('a', resolve));
     });
+
+    expect(items).toEqual({ a: 1 });
   });
 
   test('records the call for assertions', async () => {
@@ -59,7 +58,7 @@ describe('storage.local', () => {
 
 describe('storage.onChanged', () => {
   test('fires with the old and new values of a written key', async () => {
-    const listener = jest.fn();
+    const listener = vi.fn();
 
     browser.storage.onChanged.addListener(listener);
     await browser.storage.local.set({ a: 1 });
@@ -69,7 +68,7 @@ describe('storage.onChanged', () => {
   });
 
   test('omits the old value for a key that was not stored yet', async () => {
-    const listener = jest.fn();
+    const listener = vi.fn();
 
     browser.storage.onChanged.addListener(listener);
     await browser.storage.local.set({ a: 1 });
@@ -80,7 +79,7 @@ describe('storage.onChanged', () => {
   test('fires on a remove, with only the old value', async () => {
     await browser.storage.local.set({ a: 1 });
 
-    const listener = jest.fn();
+    const listener = vi.fn();
 
     browser.storage.onChanged.addListener(listener);
     await browser.storage.local.remove('a');
@@ -89,7 +88,7 @@ describe('storage.onChanged', () => {
   });
 
   test('stays quiet when a remove matches nothing', async () => {
-    const listener = jest.fn();
+    const listener = vi.fn();
 
     browser.storage.onChanged.addListener(listener);
     await browser.storage.local.remove('nope');
@@ -98,7 +97,7 @@ describe('storage.onChanged', () => {
   });
 
   test('does not fire for a removed listener', async () => {
-    const listener = jest.fn();
+    const listener = vi.fn();
 
     browser.storage.onChanged.addListener(listener);
     browser.storage.onChanged.removeListener(listener);
@@ -135,7 +134,7 @@ describe('runtime.sendMessage', () => {
   });
 
   test('passes the sender to the listener', async () => {
-    const listener = jest.fn();
+    const listener = vi.fn();
 
     browser.runtime.onMessage.addListener(listener);
     await browser.runtime.sendMessage({ action: 'ping' });
@@ -150,7 +149,7 @@ describe('runtime.sendMessage', () => {
 
 describe('runtime.connect', () => {
   test('reaches onConnect with a port of the same name', async () => {
-    const onConnect = jest.fn();
+    const onConnect = vi.fn();
 
     browser.runtime.onConnect.addListener(onConnect);
     browser.runtime.connect({ name: 'download-record-port' });
@@ -160,7 +159,7 @@ describe('runtime.connect', () => {
   });
 
   test('does not dispatch before the caller can attach its listeners', async () => {
-    const onConnect = jest.fn();
+    const onConnect = vi.fn();
 
     browser.runtime.onConnect.addListener(onConnect);
     browser.runtime.connect({ name: 'a-port' });
@@ -169,7 +168,7 @@ describe('runtime.connect', () => {
   });
 
   test('delivers a message posted from one end to the other', async () => {
-    const received = jest.fn();
+    const received = vi.fn();
 
     browser.runtime.onConnect.addListener(port => port.onMessage.addListener(received));
 
@@ -177,12 +176,42 @@ describe('runtime.connect', () => {
 
     await browser._fake.flush();
     client.postMessage({ action: 'hello' });
+    await browser._fake.flush();
 
     expect(received).toHaveBeenCalledWith({ action: 'hello' }, client.peer);
   });
 
+  // Downloader posts its request the moment it connects.
+  test('delivers a message posted right after connect() to the listener onConnect attaches', async () => {
+    const received = vi.fn();
+
+    browser.runtime.onConnect.addListener(port => port.onMessage.addListener(received));
+    browser.runtime.connect({ name: 'a-port' }).postMessage({ action: 'download' });
+    await browser._fake.flush();
+
+    expect(received).toHaveBeenCalledWith({ action: 'download' }, expect.anything());
+  });
+
+  test('delivers messages before a disconnect that follows them', async () => {
+    const events = [];
+
+    browser.runtime.onConnect.addListener(port => {
+      port.onMessage.addListener(message => events.push(message.n));
+      port.onDisconnect.addListener(() => events.push('disconnect'));
+    });
+
+    const client = browser.runtime.connect({ name: 'a-port' });
+    await browser._fake.flush();
+    client.postMessage({ n: 1 });
+    client.postMessage({ n: 2 });
+    client.disconnect();
+    await browser._fake.flush();
+
+    expect(events).toEqual([1, 2, 'disconnect']);
+  });
+
   test('delivers a reply back to the caller', async () => {
-    const received = jest.fn();
+    const received = vi.fn();
 
     browser.runtime.onConnect.addListener(port => port.postMessage({ action: 'ready' }));
 
@@ -194,8 +223,39 @@ describe('runtime.connect', () => {
     expect(received).toHaveBeenCalledWith({ action: 'ready' }, client);
   });
 
+  test('lets the other end post until it hears of a disconnect, and drops what it posts', async () => {
+    let server;
+    const received = vi.fn();
+
+    browser.runtime.onConnect.addListener(port => { server = port; });
+
+    const client = browser.runtime.connect({ name: 'a-port' });
+    client.onMessage.addListener(received);
+    await browser._fake.flush();
+    client.disconnect();
+
+    expect(() => server.postMessage({ late: true })).not.toThrow();
+    await browser._fake.flush();
+
+    expect(received).not.toHaveBeenCalled();
+    expect(() => server.postMessage({ later: true })).toThrow('disconnected port');
+  });
+
+  test('sends a copy, so changing the message after posting it changes nothing', async () => {
+    const received = vi.fn();
+
+    browser.runtime.onConnect.addListener(port => port.onMessage.addListener(received));
+
+    const message = { n: 1 };
+    browser.runtime.connect({ name: 'a-port' }).postMessage(message);
+    message.n = 2;
+    await browser._fake.flush();
+
+    expect(received).toHaveBeenCalledWith({ n: 1 }, expect.anything());
+  });
+
   test('notifies the other end of a disconnect', async () => {
-    const onDisconnect = jest.fn();
+    const onDisconnect = vi.fn();
 
     browser.runtime.onConnect.addListener(port => port.onDisconnect.addListener(onDisconnect));
 
@@ -203,6 +263,7 @@ describe('runtime.connect', () => {
 
     await browser._fake.flush();
     client.disconnect();
+    await browser._fake.flush();
 
     expect(onDisconnect).toHaveBeenCalled();
   });

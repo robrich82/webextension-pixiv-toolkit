@@ -3,22 +3,20 @@ import browser from '@/modules/Extension/browser';
 import DownloadTaskObserver from '@/content_scripts/modules/DownloadTaskObserver';
 import { fakeResource } from '../helpers/fakeResource';
 
-// Neither vue-i18n's ESM browser build (what jsdom resolves) nor the
-// webpack-only `locales` alias loads under Jest; I18n has its own spec, so a
-// stand-in exposing `global.locale` will do.
+// I18n has its own spec. This stand-in records the locale UIApplication
+// asks for, so the specs below can assert on it.
 let mockI18n;
-jest.mock('@/modules/I18n', () => ({
-  i18n: jest.fn(locale => {
-    mockI18n = { global: { locale }, install: app => { app.config.globalProperties.$t = key => key; } };
-    return mockI18n;
-  })
+vi.mock('@/modules/I18n', () => ({
+  default: {
+    i18n: vi.fn(locale => {
+      mockI18n = { global: { locale }, install: app => { app.config.globalProperties.$t = key => key; } };
+      return mockI18n;
+    })
+  }
 }));
 
-// webpack's DefinePlugin constant, read by '@/core/global' at import time.
-globalThis.PRESET_BROWSER = 'chrome';
-
-const { default: UIApplication } = require('@/content_scripts/UIApplication');
-const I18n = require('@/modules/I18n');
+import UIApplication from '@/content_scripts/UIApplication';
+import I18n from '@/modules/I18n';
 
 describe('UIApplication', () => {
   let app;
@@ -29,7 +27,7 @@ describe('UIApplication', () => {
   });
 
   afterEach(() => {
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
 
     if (app.container.parentElement) {
       app.unload();
@@ -67,7 +65,7 @@ describe('UIApplication', () => {
   });
 
   test('the $eventBus shim forwards one payload and honours $off', () => {
-    const listener = jest.fn();
+    const listener = vi.fn();
 
     window.$eventBus.$on('custom', listener);
     window.$eventBus.$emit('custom', 'first', 'dropped');
@@ -90,7 +88,7 @@ describe('UIApplication', () => {
   });
 
   test('unload unmounts the app (running beforeUnmount) and removes the container', () => {
-    const stopObserve = jest.spyOn(DownloadTaskObserver.getObserver(), 'stopObserve');
+    const stopObserve = vi.spyOn(DownloadTaskObserver.getObserver(), 'stopObserve');
 
     app.unload();
 

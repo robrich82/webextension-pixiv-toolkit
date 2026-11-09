@@ -98,4 +98,32 @@ describe('HistoryService', () => {
     // 6.4.7 migrated the v5 backup away; Clear must not write it back.
     expect('historyBackup' in browser.storage.local.items).toBe(false);
   });
+
+  describe('history:deleteItem', () => {
+    test('removes that entry', async () => {
+      await send('history:importItems', { items: [entry(1, 100), entry(2, 200)] });
+
+      await send('history:deleteItem', { uid: 'pixiv_illust:1' });
+
+      expect(await storedUids()).toEqual(['pixiv_illust:2']);
+    });
+
+    test('an unknown uid changes nothing', async () => {
+      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+      await send('history:importItems', { items: [entry(1, 100)] });
+
+      await send('history:deleteItem', { uid: 'pixiv_illust:9' });
+
+      expect(await storedUids()).toEqual(['pixiv_illust:1']);
+      expect(consoleError).not.toHaveBeenCalled();
+      consoleError.mockRestore();
+    });
+
+    test('a failed delete reaches the caller', async () => {
+      await send('history:importItems', { items: [entry(1, 100)] });
+      vi.spyOn(Db.getDb().historyRepo(), 'deleteItem').mockRejectedValue(new Error('disk full'));
+
+      await expect(HistoryService.getService().deleteItem({ uid: 'pixiv_illust:1' })).rejects.toThrow('disk full');
+    });
+  });
 });

@@ -27,6 +27,12 @@ class Download extends Request {
     let self = this;
 
     this.addListener('onload', data => {
+      // fetch resolves on any HTTP status; an error page is not the file.
+      if (!self.response.ok) {
+        self.dispatch('onerror', [new Error(`HTTP ${self.response.status} ${self.response.statusText}`.trim())]);
+        return;
+      }
+
       let mimeType = self.getResponseHeader('Content-Type');
       self.dispatch('onfinish', [self.asBlob ? new Blob([data.buffer], { type: mimeType }) : data.buffer, mimeType]);
     });

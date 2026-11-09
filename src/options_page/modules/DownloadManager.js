@@ -50,10 +50,11 @@ class DownloadManager extends Event {
    * @param {number} number
    */
   setMaxDownloadingTasks(number) {
-    let increaseProcessed = this.maxDownloadingTasks < number;
+    number = Number(number);
+    // NaN (a cleared field, which Firefox's storage keeps) would lift the cap.
+    number = Number.isFinite(number) ? Math.min(3, Math.max(1, number)) : 1;
 
-    number = number < 0 ? 1 : number;
-    number = number > 3 ? 3 : number;
+    let increaseProcessed = this.maxDownloadingTasks < number;
 
     this.maxDownloadingTasks = number;
 
@@ -252,6 +253,8 @@ class DownloadManager extends Event {
     downloadTask.markDelete();
     downloadTask.stop();
     this.tasks.delete(id);
+    // A deleted download frees its slot for the next queued one.
+    this.startTasks();
   }
 
   /**

@@ -38,12 +38,12 @@ describe('layout pages', () => {
 
 describe('ThirdParty', () => {
   afterEach(() => {
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   // A real mount: the list items render their name through #title.
   test('lists each library and opens its homepage on click', async () => {
-    const open = jest.spyOn(window, 'open').mockImplementation(() => null);
+    const open = vi.spyOn(window, 'open').mockImplementation(() => null);
     const wrapper = mountOption(ThirdParty);
     const items = wrapper.findAll('.v-list-item');
 

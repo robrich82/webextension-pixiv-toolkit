@@ -1,41 +1,34 @@
 # Tests
 
-`pnpm test` runs Jest over every `*.spec.js` under `test/`, with coverage
-collected from `src/**/*.js` and `src/**/*.vue`. Configuration lives in
-`jest.config.js`, split into two Jest `projects` sharing a common `base`:
-`unit` (everything under
-`test/`, except `test/components/`, running in the `node` environment — see
-below for why) and `components` (`test/components/**/*.spec.js`, running under
-`jsdom`, covered in its own section further down). The `test` block of
-`.babelrc` compiles to CommonJS for the current Node.
+`pnpm test` runs Vitest over every `*.spec.js` under `test/`, with coverage
+collected from `src/**/*.{js,vue}`. `vitest.config.mjs` defines two projects:
+`unit` (everything under `test/` except `test/components/`, in the `node`
+environment, see below for why; one spec opts into jsdom, see "Downloads") and `components` (`test/components/**/*.spec.js`,
+under `jsdom`, covered in its own section further down). Vite transforms both
+specs and sources, so everything is ESM.
 
-The webpack aliases are mirrored into `moduleNameMapper` for both projects, so
-a spec can import source files by the same `@/` and `@@/` paths the source
-itself uses.
+`resolve.alias` mirrors the webpack aliases, so a spec can import source files
+by the same `@/` and `@@/` paths the source itself uses. It also stands in for
+webpack's `locales` external, and `define` sets `PRESET_BROWSER` to `chrome`.
+
+To run a subset, use `pnpm exec vitest run <spec>` or `--project components`.
+Coverage is always on, and a subset run fails the floors below, so add
+`--coverage.enabled=false`.
 
 ## The coverage floor
 
-`coverageThreshold` in `jest.config.js` fails the run — and so CI, which just
+`coverage.thresholds` in `vitest.config.mjs` fails the run — and so CI, which just
 calls `pnpm test` — when coverage drops below where it already is. It is a
 ratchet, not a target: the numbers are set a hair under the current ones, so
 nothing can quietly regress, and they get raised whenever a change clears them
 by a useful margin.
 
-There are four groups, because one global number would let a well-tested
-directory pay for an untested one:
-
-| Group | statements | branches | functions | lines |
-| --- | --- | --- | --- | --- |
-| `src/modules/Util/` | 95 | 86 | 100 | 99 |
-| `src/modules/Parser/` | 77 | 66 | 67 | 76 |
-| `src/options_page/components/options/` | 88 | 78 | 95 | 88 |
-| everything else | 7.1 | 6.5 | 7.0 | 7.0 |
-
-`Util`, `Parser` and the options components are the parts that are actually
-tested, so they are held to a real standard; the global row is the rest of
-`src`, which is mostly untested UI, services and download tasks. Note that
-Jest removes a path group's files from the global pool, so the global row is
-*not* the whole-repo number — that currently reads around 48% statements.
+The tested parts of `src` each get their own glob, because one global number
+would let a well-tested directory pay for an untested one; the config lists
+them. A glob pools its files into one number unless it sets `perFile: true`,
+and its files still count toward the global floor, so the global floor is the
+whole-repo number. A key that matches no file passes silently, so rename the
+key when you move or rename the file it names.
 
 A PR that adds a large untested file will trip the global floor. That is the
 mechanism working: either cover the file or, if the change genuinely cannot be
@@ -44,17 +37,17 @@ tested yet, lower the floor in the same PR and say why.
 ## The extension API double
 
 `src/modules/Extension/browser.js` hands back whichever `chrome`/`browser`
-global the extension is running against. Under Jest there is no such global, so
+global the extension is running against. Under test there is no such global, so
 anything touching `browser.storage`, `browser.runtime`, `browser.downloads` or
 `browser.tabs` was untestable.
 
-`test/doubles/browser.js` is an in-memory stand-in, and `moduleNameMapper`
-points `@/modules/Extension/browser` at it. A spec gets it just by importing the
-code under test — there is no per-spec `jest.mock` call:
+`test/doubles/browser.js` is an in-memory stand-in, and `resolve.alias` in
+`vitest.config.mjs` points `@/modules/Extension/browser` at it. A spec gets it
+just by importing the code under test — there is no per-spec `vi.mock` call:
 
 ```js
-const browser = require('./doubles/browser').default;
-const FileSystem = require('../src/options_page/modules/FileSystem').default;
+import browser from './doubles/browser';
+import FileSystem from '@/options_page/modules/FileSystem';
 
 test('downloads under the formatted name', async () => {
   await FileSystem.getDefault().saveFile({ url, filename: '12345_sunset.png' });
@@ -75,12 +68,13 @@ depends on both:
 - Every async call returns a promise **and** invokes an optional trailing
   callback. `SettingService` wraps callbacks in promises while `DownloadService`
   awaits the same kind of call directly.
-- `runtime.onConnect` is dispatched on a later tick, as the browser does, so a
-  port that posts immediately cannot out-run the listeners the other side
-  attaches after `connect()` returns. Specs that open a port need
-  `await browser._fake.flush()` before asserting.
+- `runtime.onConnect`, port messages and disconnects are dispatched on a later
+  tick, in order, as the browser does, so a port that posts immediately cannot
+  out-run the listeners the other side attaches in `onConnect`. Specs that use
+  a port need `await browser._fake.flush()` before asserting, or
+  `await vi.advanceTimersByTimeAsync(0)` under fake timers, where `flush()` hangs.
 
-Every API is a `jest.fn`, so calls can be asserted with the usual matchers, and
+Every API is a `vi.fn`, so calls can be asserted with the usual matchers, and
 the stored state — `storage.local.items`, `downloads.items`, `tabs.items`,
 `runtime.ports` — is readable directly.
 
@@ -162,9 +156,24 @@ gives jsdom the `structuredClone` that fake-indexeddb needs. `Db` and each repo
 are singletons: clear `Db.instance` and the repo's `instance` in `beforeEach`,
 and call `Db.getDb().database.delete()` in `afterEach`.
 
+## Downloads
+
+Two helpers stand in for the ends of the download pipeline:
+
+- `test/helpers/downloadFileBackground.js` plays the background's end of the
+  `DownloadFile` ports. Use it for specs about tasks and the manager.
+- `test/helpers/fileServer.js` replaces `fetch` under the real background
+  (`DownloadFileService` → `Download`). Use it for specs about the transfer
+  itself. Its responses are real `Response`s, and an abort rejects with an
+  AbortError, as the fetch spec says.
+
+The background reads each finished file with `FileReader`, which Node lacks, so
+`test/Downloader.spec.js` stays in the `unit` project but opts into jsdom with a
+`// @vitest-environment jsdom` docblock.
+
 ## DOM code, without jsdom
 
-Everything runs under the `node` test environment. `CopyStr`, the one module
+The `unit` project runs under the `node` test environment. `CopyStr`, the one module
 in `src/modules/Util` that reaches for the DOM, is covered with a small
 `document` double declared in its own spec, assigned to `globalThis` in
 `beforeEach` and deleted again afterwards.
@@ -172,7 +181,7 @@ in `src/modules/Util` that reaches for the DOM, is covered with a small
 jsdom was considered and skipped for it: `execCommand('copy')` is absent there,
 so a jsdom run would still be asserting against a stub, only one someone else
 wrote. Component specs are a different case — see "Component tests" below,
-which does use jsdom, deliberately, for the `components` Jest project.
+which does use jsdom, deliberately, for the `components` project.
 
 So the spec asserts the sequence rather than the result: that the copy node is
 still in the document when `execCommand` runs. That is a real regression this
@@ -183,17 +192,15 @@ codebase could suffer, and it needs no browser to catch.
 `test/components/*.spec.js` covers the `option-items` and
 `options_page/components/options` `.vue` components — the leaf option
 components with real logic, and the ones `docs/vue3-migration.md` migrates
-first. It's Jest's `components` project (see above): `testEnvironment:
-"jsdom"`, `.vue` files transformed by `@vue/vue3-jest`, and `@vue/test-utils@2`
-(the current major, Vue 3 only — as of the Vue 3 migration's Phase A, this
-repo builds against Vue 3, not Vue 2's `@vue/vue2-jest`/`@vue/test-utils@1`).
-The `components` project also carries a `transformIgnorePatterns` override and
-a `jsdomGlobals.js` setup file, both needed because Vuetify 3 ships ESM-only
-and references jsdom-absent globals (`CSS`, `ResizeObserver`) at import/mount
-time — see the comments in `jest.config.js` and `test/setup/jsdomGlobals.js`
-for why. The shared `moduleNameMapper` also stubs `.css`/`.scss` imports to
-`test/doubles/styleMock.js`, since Vuetify 3's compiled components each import
-their own co-located stylesheet, which babel-jest can't parse as JS.
+first. It's the `components` project (see above): the `jsdom` environment,
+`.vue` files compiled by `@vitejs/plugin-vue`, and `@vue/test-utils@2` (the
+Vue 3 major). Vuetify 3's components each import their own stylesheet, which
+Node can't load, so `server.deps.inline` has Vite transform Vuetify instead of
+handing it to Node. `test/setup/jsdomGlobals.js` supplies the globals Vuetify
+reads at import or mount time that jsdom lacks (`CSS`, `ResizeObserver`,
+`visualViewport`); its comments say where each is used. It also fails any
+test that raises a Vue warning, so fix the warning's cause rather than
+silencing it.
 
 ### Mounting: `test/helpers/mountOptionComponent.js`
 
@@ -221,7 +228,10 @@ supplies both:
   component registration, not a no-op — see the next paragraph for what that
   changed.
 
-`shallowMountOption` auto-stubs every Vuetify component. Since Phase B,
+`shallowMountOption` auto-stubs every Vuetify component except `v-text-field`
+and the `VInput`/`VField` it is built from. A stub renders its props as
+attributes, and Vue warns when one sets `prefix`, a read-only DOM property;
+`v-select` and `v-textarea` have that prop too. Since Phase B,
 Vuetify's real components are actually registered (`createAppVuetify()`), so
 this stubbing is what makes testing these components tractable at all — a
 real `v-select` needs a full DOM layout pass to open, and these specs only
@@ -240,12 +250,14 @@ one real `mountOption()` (also exported by `mountOptionComponent.js`) per
 established pattern — see `DownloadSaveMode.spec.js` for the shape. One
 caveat of `renderStubDefaultSlot`: it also renders a stubbed dialog/menu's
 body regardless of visibility, so a future "X is not visible" assertion needs
-a real mount too, not a shallow one.
+a real mount too, not a shallow one. That mount also needs `attachTo:
+document.body`: jsdom computes no styles for a detached element, so
+`isVisible()` is always true there (see `App.spec.js`).
 
 The extension API double (`test/doubles/browser.js`, see above) is reused
 as-is: a spec imports it directly and the component's own
-`@/modules/Extension/browser` import resolves to the same instance via
-`moduleNameMapper`.
+`@/modules/Extension/browser` import resolves to the same instance through
+the alias.
 
 ### Two gotchas specific to these components
 
@@ -292,7 +304,7 @@ same file is worth checking before anything else.
 ## End-to-end tests
 
 `pnpm run test:e2e` runs Playwright over `e2e/*.e2e.js` (not `.spec.js`, which
-Jest would claim). Each test launches Playwright's full Chromium with
+Vitest would claim). Each test launches Playwright's full Chromium with
 `dist/chrome` loaded, so run `pnpm run build` first; it tests whatever is in
 `dist/`, stale or not. The `channel: 'chromium'` in `e2e/fixtures.js` is
 load-bearing: without it Playwright runs its headless shell, which can't load
