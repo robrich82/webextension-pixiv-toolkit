@@ -73,6 +73,13 @@ describe('DownloadManager', () => {
     expect(titles()).toEqual(['Task 1', 'Task 2 renamed', 'Task 3']);
   });
 
+  test('a task that fails shows why once the update arrives', async () => {
+    await poll(task(1, { state: 2 }));
+    await poll(task(1, { state: -1, error: 'HTTP 404' }));
+
+    expect(wrapper.find('.download-task__state').text()).toBe('Failure: HTTP 404');
+  });
+
   test.each([
     [{ type: 'PIXIV_UGOIRA', convertType: 'gif' }, 'Pixiv Ugoira gif'],
     [{ type: 'PIXIV_UGOIRA' }, 'Pixiv Ugoira Custom'],

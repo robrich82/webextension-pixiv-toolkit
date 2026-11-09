@@ -30,6 +30,26 @@ describe('DownloadTask', () => {
     expect(wrapper.find('.download-task__state').text()).toBe(label);
   });
 
+  test('a failed task shows its reason after the state, in full on hover', () => {
+    const wrapper = mountOption(DownloadTask, { props: { data: task({ state: -1, error: 'HTTP 404' }) } });
+    const state = wrapper.find('.download-task__state');
+
+    expect(state.text()).toBe('Failure: HTTP 404');
+    expect(state.find('.download-task__error').exists()).toBe(true);
+    expect(state.attributes('title')).toBe('HTTP 404');
+  });
+
+  test.each([
+    ['a failed task with no reason', { state: -1, error: null }],
+    ['a task that is not failed, even with an error from a file it will retry', { state: 2, error: 'HTTP 500' }]
+  ])('%s shows only its state', (_, overrides) => {
+    const wrapper = mountOption(DownloadTask, { props: { data: task(overrides) } });
+    const state = wrapper.find('.download-task__state');
+
+    expect(state.find('.download-task__error').exists()).toBe(false);
+    expect(state.attributes('title')).toBeUndefined();
+  });
+
   test('shows download progress until processing starts', async () => {
     const wrapper = mountOption(DownloadTask, { props: { data: task({ progress: 0.5 }) } });
 

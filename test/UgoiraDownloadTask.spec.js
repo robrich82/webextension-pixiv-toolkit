@@ -273,6 +273,7 @@ test('a conversion that fails fails the task; the frames zip stays saved', async
   await vi.waitFor(() => expect(task.isFailure()).toBe(true));
 
   expect(task.lastError).toBe(error);
+  expect(task.toJson()).toMatchObject({ error: 'ffmpeg exited', convertType: expect.anything() });
   expect(fired).toEqual(['start', 'failure']);
   expect(ffmpegs[0].terminated).toBe(true);
   await vi.waitFor(() => expect(savedNames()).toEqual(['ugoira/128_Moving.zip']));

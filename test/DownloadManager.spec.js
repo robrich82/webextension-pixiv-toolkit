@@ -328,3 +328,25 @@ describe('a novel task', () => {
     expect(novelSaves).toBe(1);
   });
 });
+
+describe('a failed task reports why', () => {
+  test('its JSON carries the error message, and survives structured clone', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const [task] = await addTasks(1);
+    expect(manager.flushChangedTasks()[0].error).toBeNull();
+
+    background.request(page(1)).fail('HTTP 404');
+    await vi.waitFor(() => expect(task.isFailure()).toBe(true));
+    const [json] = manager.flushChangedTasks();
+
+    expect(json).toMatchObject({ state: FAILURE, error: 'HTTP 404' });
+    expect(structuredClone(json)).toEqual(json);
+  });
+
+  test('an error that is a plain string is sent as is', () => {
+    const task = createTask(1);
+    task.lastError = 'Could not save';
+
+    expect(task.toJson().error).toBe('Could not save');
+  });
+});
