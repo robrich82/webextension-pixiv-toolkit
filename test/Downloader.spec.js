@@ -475,6 +475,8 @@ test('a message on a port whose file already ended is ignored', async () => {
   backgroundPorts[0].postMessage({ event: 'abort' });
   await browser._fake.flush();
 
+  expect(named('start')).toHaveLength(1);
+  expect(downloader.successCount).toBe(1);
   expect(requestedUrls()).toEqual([file(1)]);
   expect(downloader.downloadFiles).toEqual([]);
   expect(named('finish')).toHaveLength(1);

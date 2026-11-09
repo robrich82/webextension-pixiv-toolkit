@@ -399,8 +399,9 @@ describe('retry and resume', () => {
     const onComplete = vi.fn();
     task.addListener('complete', onComplete);
 
-    await manager.pauseTask(task.id);
-    await manager.startTask(task.id);
+    // No await between them, so the resume lands before the abort reply.
+    manager.pauseTask(task.id);
+    manager.startTask(task.id);
     expect(task.isDownloading()).toBe(true);
 
     await vi.waitFor(() => expect(background.requests).toHaveLength(2));
@@ -433,6 +434,29 @@ describe('retry and resume', () => {
 
     expect(states(tasks)).toEqual([DOWNLOADING, DOWNLOADING, PENDING, COMPLETE]);
     expect(manager.lastError).toBeNull();
+    await browser._fake.flush();
+    expect(background.requests.map(request => request.url)).toEqual([page(1), page(2), page(3), page(4), page(1), page(2)]);
+  });
+
+  test('a page that completes before its abort comes back pauses the task, and resuming saves without fetching it again', async () => {
+    const [task] = await addTasks(1);
+    const onComplete = vi.fn();
+    task.addListener('complete', onComplete);
+
+    // The abort is on its way when the page completes; the fake background still answers it.
+    manager.pauseTask(task.id);
+    background.request(page(1)).complete();
+    await vi.waitFor(() => expect(task.downloader.successCount).toBe(1));
+    await browser._fake.flush();
+    expect(task.state).toBe(PAUSED);
+
+    await manager.startTask(task.id);
+    await vi.waitFor(() => expect(task.isComplete()).toBe(true));
+
+    expect(background.requests).toHaveLength(1);
+    expect(task.downloader.successCount).toBe(1);
+    expect(onComplete).toHaveBeenCalledTimes(1);
+    expect(browser.runtime.sendMessage.mock.calls.filter(([message]) => message.action === 'download:saveFile')).toHaveLength(1);
   });
 
   test('startAll with nothing to resume does nothing', async () => {

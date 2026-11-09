@@ -380,6 +380,9 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
     }
 
     if (this.isPending()) {
+      // Leave pending before any await, or a start() while the cached zip loads would convert it twice.
+      this.changeState(this.DOWNLOADING_STATE);
+      this.dispatch('start');
       this.zipRepo = ZipRepo.getDefault();
 
       /**
@@ -397,8 +400,6 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
         this.dispatch('progress', [this.progress]);
         this.onFinish();
       } else {
-        this.changeState(this.DOWNLOADING_STATE);
-        this.dispatch('start');
         this.downloader.download();
       }
     }

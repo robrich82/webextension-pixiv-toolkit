@@ -8,6 +8,7 @@ import RealJSZip from '../src/statics/lib/jszip/jszip.js';
 import browser from './doubles/browser';
 import { fakeDownloadFileBackground } from './helpers/downloadFileBackground';
 import UgoiraDownloadTask from '@/options_page/modules/DownloadTasks/Pixiv/UgoiraDownloadTask';
+import DownloadManager from '@/options_page/modules/DownloadManager';
 
 const resourceUrl = id => `https://i.pximg.net/img-zip-ugoira/img/${id}_ugoira1920x1080.zip`;
 const frames = [{ file: '000000.jpg', delay: 100 }, { file: '000001.jpg', delay: 250 }];
@@ -326,6 +327,47 @@ test('a second task for the same work converts the cached zip without downloadin
   expect(savedNames()).toEqual(['ugoira/130_Moving.zip', 'ugoira/130_Moving.gif', 'ugoira/130_Moving.apng']);
 });
 
+test('a second start() while the cached zip loads converts it once', async () => {
+  const first = createTask({ id: '133' });
+  first.start();
+  await completeDownload(first);
+  await vi.waitFor(() => expect(first.isComplete()).toBe(true));
+
+  const second = createTask({ id: '133' });
+  const fired = events(second);
+  second.start();
+  second.start();
+  await vi.waitFor(() => expect(second.isComplete()).toBe(true));
+  await new Promise(resolve => setTimeout(resolve, 20));
+
+  expect(fired).toEqual(['start', 'complete']);
+  expect(ffmpegs).toHaveLength(2);
+  expect(savedNames()).toEqual(['ugoira/133_Moving.zip', 'ugoira/133_Moving.gif', 'ugoira/133_Moving.gif']);
+});
+
+test('retrying a ugoira whose conversion failed, through the download manager, converts the cached zip once', async () => {
+  vi.spyOn(console, 'error').mockImplementation(() => {});
+  DownloadManager.defaultInstance = undefined;
+  const manager = DownloadManager.getDefault();
+  const task = createTask({ id: '140' });
+  FakeFFmpeg.execGate = Promise.reject(new Error('ffmpeg exited'));
+  FakeFFmpeg.execGate.catch(() => {});
+  await manager.addTask(task);
+  await completeDownload(task);
+  await vi.waitFor(() => expect(task.isFailure()).toBe(true));
+
+  await manager.startTask(task.id);
+  // Another task finishing restarts the queue while the cached zip loads.
+  manager.startTasks();
+  await vi.waitFor(() => expect(task.isComplete()).toBe(true));
+  await new Promise(resolve => setTimeout(resolve, 20));
+
+  expect(background.requests).toHaveLength(1);
+  expect(ffmpegs).toHaveLength(2);
+  expect(savedNames()).toEqual(['ugoira/140_Moving.zip', 'ugoira/140_Moving.gif']);
+  expect(manager.lastError).toBeNull();
+});
+
 test('pause aborts the download, and a restarted task fetches the zip again and finishes', async () => {
   const task = createTask({ id: '131' });
   const fired = events(task);
@@ -338,7 +380,7 @@ test('pause aborts the download, and a restarted task fetches the zip again and 
   expect(task.isPaused()).toBe(true);
   expect(background.aborted).toEqual([resourceUrl('131')]);
 
-  task.changeState(task.PENDING_STATE);
+  task.tryPending();
   task.start(false);
   await vi.waitFor(() => expect(background.requests).toHaveLength(2));
   await completeDownload(task);
