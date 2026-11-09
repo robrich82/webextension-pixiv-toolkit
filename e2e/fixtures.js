@@ -16,18 +16,21 @@ const PIXEL = Buffer.from(
  * `/ajax/...` path on www.pixiv.net to a fixture file; an unmapped `/ajax/`
  * path 404s, any other www.pixiv.net page is a blank document, and every
  * other http(s) request is aborted so a test can never reach the real site.
- * `pximg` does the same for i.pximg.net paths, which otherwise get a 1x1 PNG.
+ * `pximg` does the same for i.pximg.net paths, which otherwise get a 1x1 PNG;
+ * a value that isn't a fixture path is passed to `route.fulfill` as it is.
  *
  * @param {import('@playwright/test').BrowserContext} context
- * @param {{ ajax: Record<string, string>, pximg?: Record<string, string> }} routes
+ * @param {{ ajax: Record<string, string>, pximg?: Record<string, string|object> }} routes
  */
 async function mockPixiv(context, { ajax, pximg = {} }) {
   await context.route(/^https?:\/\//, route => {
     const url = new URL(route.request().url());
 
     if (url.hostname === 'i.pximg.net') {
-      if (pximg[url.pathname]) {
-        return route.fulfill({ path: path.join(FIXTURES, pximg[url.pathname]) });
+      const response = pximg[url.pathname];
+
+      if (response) {
+        return route.fulfill(typeof response === 'string' ? { path: path.join(FIXTURES, response) } : response);
       }
 
       return route.fulfill({ contentType: 'image/png', body: PIXEL });
@@ -97,6 +100,86 @@ async function waitForDownloads(serviceWorker, count) {
   return search();
 }
 
+/**
+ * Write settings the way the options page does. Pages opened afterwards read them.
+ * @param {import('@playwright/test').Worker} serviceWorker
+ * @param {object} settings
+ */
+async function seedSettings(serviceWorker, settings) {
+  await serviceWorker.evaluate(items => chrome.storage.local.set(items), settings);
+}
+
+/**
+ * Remember the filename each chrome.downloads.download asks for. Playwright
+ * saves files under its own ids, so a download item doesn't carry it. Lost if
+ * the service worker restarts, so call it just before the download.
+ * @param {import('@playwright/test').Worker} serviceWorker
+ */
+async function recordSaveNames(serviceWorker) {
+  await serviceWorker.evaluate(() => {
+    self.saveNames = {};
+    const download = chrome.downloads.download.bind(chrome.downloads);
+
+    chrome.downloads.download = (options, callback) => download(options, downloadId => {
+      self.saveNames[downloadId] = options.filename;
+      callback?.(downloadId);
+    });
+  });
+}
+
+/**
+ * The finished downloads with the filename each asked for (see recordSaveNames), oldest first.
+ * @param {import('@playwright/test').Worker} serviceWorker
+ * @param {number} count
+ */
+async function savedFiles(serviceWorker, count) {
+  const items = await waitForDownloads(serviceWorker, count);
+  const names = await serviceWorker.evaluate(() => self.saveNames);
+
+  return items
+    .sort((a, b) => a.id - b.id)
+    .map(item => ({ name: names[item.id], path: item.filename, mime: item.mime }));
+}
+
+/**
+ * Decode a saved image or video in a page and report what the browser read:
+ * dimensions, plus duration for a video. Rejects if it can't be decoded.
+ * @param {import('@playwright/test').BrowserContext} context
+ * @param {string} file
+ * @param {string} mime
+ */
+async function decodeMedia(context, file, mime) {
+  const page = await context.newPage();
+  await page.goto('about:blank');
+
+  try {
+    return await page.evaluate(async ({ base64, mime }) => {
+      const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+      const url = URL.createObjectURL(new Blob([bytes], { type: mime }));
+
+      if (mime.startsWith('image/')) {
+        const image = new Image();
+        image.src = url;
+        await image.decode();
+
+        return { width: image.naturalWidth, height: image.naturalHeight };
+      }
+
+      const video = document.createElement('video');
+      video.muted = true;
+      video.src = url;
+      await new Promise((resolve, reject) => {
+        video.onloadeddata = resolve;
+        video.onerror = () => reject(new Error(`Can't decode ${mime}: ${video.error?.message}`));
+      });
+
+      return { width: video.videoWidth, height: video.videoHeight, duration: video.duration };
+    }, { base64: fs.readFileSync(file).toString('base64'), mime });
+  } finally {
+    await page.close();
+  }
+}
+
 const isExtensionWorker = worker => worker.url().startsWith('chrome-extension://');
 
 const test = base.extend({
@@ -141,4 +224,7 @@ const test = base.extend({
   }
 });
 
-module.exports = { test, expect, mockPixiv, collectErrors, openPanel, waitForDownloads };
+module.exports = {
+  test, expect, mockPixiv, collectErrors, openPanel, waitForDownloads,
+  seedSettings, recordSaveNames, savedFiles, decodeMedia
+};
