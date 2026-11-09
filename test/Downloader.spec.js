@@ -293,13 +293,51 @@ test('downloading again before the abort comes back still downloads the file, in
   expect(named('pause')).toHaveLength(0);
 });
 
+test('with room for several files, all of them download at once', async () => {
+  createDownloader([1, 2, 3, 4], { processors: 3 });
+  const finished = nextEvent('finish');
+
+  downloader.download();
+  const started = await Promise.all([nthRequest(0), nthRequest(1), nthRequest(2)]);
+  await browser._fake.flush();
+
+  expect(requestedUrls()).toEqual([file(1), file(2), file(3)]);
+  expect(downloader.downloadFilePorts).toHaveLength(3);
+
+  // The fourth takes the first slot that frees up.
+  started[1].respond('two');
+  (await nthRequest(3)).respond('four');
+  started[0].respond('one');
+  started[2].respond('three');
+  await finished;
+
+  expect(named('item-finish').map(item => item.args.n).sort()).toEqual([1, 2, 3, 4]);
+  expect(named('finish')).toHaveLength(1);
+});
+
+test.each([0, -1, NaN, undefined, 'x'])('a processors setting of %s still downloads, one file at a time', async processors => {
+  createDownloader([1, 2], { processors });
+  const finished = nextEvent('finish');
+
+  downloader.download();
+  const first = await nthRequest(0);
+  await browser._fake.flush();
+  expect(requestedUrls()).toEqual([file(1)]);
+
+  first.respond('one');
+  (await nthRequest(1)).respond('two');
+  await finished;
+});
+
 test('with room for several files, one started while an abort is on its way still finishes once, after both', async () => {
-  createDownloader([1, 2], { processors: 3 });
+  createDownloader([1], { processors: 3 });
   downloader.download();
   const first = await nthRequest(0);
   first.respond('abcd', { stall: true });
-  await vi.waitFor(() => expect(lastProgress().progress).toBe(0.25), { interval: 1 });
+  await vi.waitFor(() => expect(lastProgress().progress).toBe(0.5), { interval: 1 });
 
+  // Queued after the first started, so it takes a free slot on the next download().
+  downloader.appendFile(file(2), { n: 2 });
   downloader.pause();
   downloader.download();
   const [second, restarted] = await Promise.all([nthRequest(1), nthRequest(2)]);
