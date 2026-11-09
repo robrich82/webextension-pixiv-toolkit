@@ -50,7 +50,7 @@
 
       <rename-dialog v-model:show="showRenameDialog"
         v-model="renameRule"
-        :title="tl('_rename_comic')"
+        :title="tl('_rename_fanbox_post')"
         :metas="renameMetas"
         :default-value="defaultRenameRule"
       ></rename-dialog>

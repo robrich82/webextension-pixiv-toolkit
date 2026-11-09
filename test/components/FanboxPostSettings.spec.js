@@ -86,7 +86,7 @@ describe('FanboxPostSettings', () => {
   });
 
   test.each([
-    [0, '_rename_comic.message'],
+    [0, '_rename_fanbox_post.message'],
     [1, '_rename_fanbox_post_image.message'],
   ])('clicking list item %i opens the "%s" rename dialog', async (index, title) => {
     const wrapper = mountOption(FanboxPostSettings, { browserItems });
