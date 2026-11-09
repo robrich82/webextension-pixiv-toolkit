@@ -19,7 +19,7 @@ class Downloader extends Event {
   downloadFiles = [];
 
   /**
-   * The files can't be downloaded.
+   * Files that could not be downloaded or saved, retried by the next `download()`.
    * @type {{file: string, seq: number|string, args: Object}[]}
    */
   failedDownloadFiles = [];
@@ -233,7 +233,7 @@ class Downloader extends Event {
 
         this.progresses[downloadFile.seq] = 1;
 
-        // The port counts as in flight until afterItemDownload and the item-finish handlers settle, so the run can't end around them.
+        // The port counts as in flight until afterItemDownload and the item-finish handlers settle.
         fetch(data)
           .then(response => response.blob())
           .then(blob => {

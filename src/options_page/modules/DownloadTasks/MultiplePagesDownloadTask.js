@@ -59,6 +59,8 @@ class MultipleDownloadTask extends AbstractDownloadTask {
     this.context = options.context;
     this.zip = new JSZip();
     this.zipMultipleImages = GlobalSettings().globalZipMultipleImages;
+    // Fixed per task: a retry that only re-saves the zip must not switch to saving pages one by one.
+    this.downloadSaveMode = GlobalSettings().downloadSaveMode;
     this.downloader = new Downloader({
       processors: GlobalSettings().downloadTasksWhenDownloadingImages
     });
@@ -132,7 +134,7 @@ class MultipleDownloadTask extends AbstractDownloadTask {
   }
 
   shouldZipFile() {
-    if (GlobalSettings().downloadSaveMode !== 0) {
+    if (this.downloadSaveMode !== 0) {
       return false;
     }
 
@@ -193,7 +195,7 @@ class MultipleDownloadTask extends AbstractDownloadTask {
   }
 
   dontCreateWorkFolder() {
-    if (GlobalSettings().downloadSaveMode !== 1) {
+    if (this.downloadSaveMode !== 1) {
       return false;
     }
 
@@ -210,13 +212,13 @@ class MultipleDownloadTask extends AbstractDownloadTask {
    * @fires MultipleDownloadTask#progress
    */
   async onItemFinish({ blob, args, mimeType }) {
-    let url = URL.createObjectURL(blob);
-    let downloadId;
     let pageNum = this.buildPageNum(args.index);
     let pageUrl = this.options.pages[args.index];
     let nameFormatter = NameFormattor.getFormatter({
       context: Object.assign({}, this.context, { pageNum })
     });
+    let url = URL.createObjectURL(blob);
+    let downloadId;
 
     try {
       if (this.isSingleArchivePage(mimeType, pageUrl)) {

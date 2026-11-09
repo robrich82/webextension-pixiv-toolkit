@@ -107,9 +107,8 @@ class AbstractDownloadTask extends Event {
   }
 
   /**
-   * Fail the task. The downloader's `failure` event lands here once every file has
-   * ended and some could not be downloaded or saved; a task also calls it when a
-   * save after the downloads (the zip, info.json, a conversion) fails. Files already saved stay.
+   * Fail the task: the downloader's `failure` event (a file could not be downloaded or
+   * saved), or a task whose final save or conversion failed. Files already saved stay.
    * @fires AbstractDownloadTask#failure
    */
   onFailure() {

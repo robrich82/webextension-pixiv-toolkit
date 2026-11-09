@@ -423,8 +423,10 @@ describe('a save that fails fails the task', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
-  test('the frames zip: nothing is converted, and a retry downloads it again', async () => {
-    background.failSaves(save => save.filename.endsWith('.zip'));
+  test('the frames zip: nothing is converted, and a retry downloads and saves it again', async () => {
+    const revoke = vi.spyOn(URL, 'revokeObjectURL');
+    let failing = true;
+    background.failSaves(save => failing && save.filename.endsWith('.zip'));
     const task = createTask({ id: '150' });
 
     task.start();
@@ -433,13 +435,16 @@ describe('a save that fails fails the task', () => {
 
     expect(task.lastError).toEqual(new Error('Could not save "ugoira/150_Moving.zip"'));
     expect(ffmpegs).toEqual([]);
+    expect(revoke).toHaveBeenCalledWith(background.saves[0].url);
 
-    background.failSaves(() => false);
-    const retry = createTask({ id: '150' });
-    retry.start();
-    await completeDownload(retry);
-    await vi.waitFor(() => expect(retry.isComplete()).toBe(true));
-    expect(background.requests).toHaveLength(2);
+    failing = false;
+    task.changeState(task.PENDING_STATE);
+    task.start();
+    await vi.waitFor(() => expect(background.requests).toHaveLength(2));
+    background.requests[1].complete(await framesZip(), 'application/zip');
+    await vi.waitFor(() => expect(task.isComplete()).toBe(true));
+
+    expect(savedNames()).toEqual(['ugoira/150_Moving.zip', 'ugoira/150_Moving.zip', 'ugoira/150_Moving.gif']);
   });
 
   test('info.json: nothing is converted, and a retry downloads again but saves the zip once', async () => {
@@ -466,6 +471,7 @@ describe('a save that fails fails the task', () => {
   });
 
   test('the converted animation', async () => {
+    const revoke = vi.spyOn(URL, 'revokeObjectURL');
     background.failSaves(save => save.filename.endsWith('.gif'));
     const task = createTask({ id: '152' });
 
@@ -475,5 +481,6 @@ describe('a save that fails fails the task', () => {
 
     expect(task.lastError).toEqual(new Error('Could not save "ugoira/152_Moving.gif"'));
     expect(ffmpegs[0].terminated).toBe(true);
+    expect(revoke).toHaveBeenCalledWith(background.saves.find(save => save.filename.endsWith('.gif')).url);
   });
 });

@@ -527,11 +527,13 @@ describe('a save that fails fails the task', () => {
   };
 
   test('a page saved on its own that the background could not save', async () => {
+    const revoke = vi.spyOn(URL, 'revokeObjectURL');
     background.failSaves(save => save.filename.endsWith('p2.png'));
     const task = await failedTask({ downloadSaveMode: 1 });
 
     expect(task.lastError).toEqual(new Error('Could not save "1/p2.png"'));
     expect(background.saves.map(save => save.filename)).toEqual(['1/p1.png', '1/p2.png']);
+    expect(revoke).toHaveBeenCalledWith(background.saves[1].url);
   });
 
   test('the zip the background could not save', async () => {
@@ -579,6 +581,8 @@ describe('a save that fails fails the task', () => {
     const task = await failedTask({});
 
     failing = false;
+    // The pages are only in the zip, so a change of save mode since mustn't skip it.
+    window.$app.settings.downloadSaveMode = 1;
     task.changeState(task.PENDING_STATE);
     task.start();
     await vi.waitFor(() => expect(task.isComplete()).toBe(true));

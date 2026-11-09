@@ -199,10 +199,10 @@ describe('revokeWhenSaved', () => {
   });
 });
 
-test('a background save answered with no download id rejects, naming the file', async () => {
+test.each([undefined, null])('a background save answered with %s rejects, naming the file', async answer => {
   // Application.onMessage answers a handler that threw with undefined.
   browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    sendResponse(undefined);
+    sendResponse(answer);
     return true;
   });
 

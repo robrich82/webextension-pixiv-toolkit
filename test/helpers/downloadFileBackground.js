@@ -2,8 +2,8 @@
  * Plays the background's side of `Downloader`'s `DownloadFile` ports, speaking
  * the protocol of `src/background/services/DownloadFileService.js`. Each request
  * waits until the spec answers it, so a spec decides when, and how, a file ends.
- * It also answers `download:saveFile`, see answerSaves(). It answers saves first,
- * so a spec whose own listener answers some saves must hand them over with leaveSaves().
+ * It also answers `download:saveFile` (see answerSaves()); a spec whose own
+ * listener answers some saves must exclude them with leaveSaves().
  */
 import browser from '../doubles/browser';
 

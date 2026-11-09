@@ -245,6 +245,7 @@ describe('a save that fails fails the task', () => {
   });
 
   test('a page saved on its own', async () => {
+    const revoke = vi.spyOn(URL, 'revokeObjectURL');
     settings({ globalZipMultipleImages: 0 });
     background.failSaves(save => save.filename.endsWith('p1.png'));
     const task = createTask();
@@ -254,5 +255,7 @@ describe('a save that fails fails the task', () => {
     await vi.waitFor(() => expect(task.isFailure()).toBe(true));
 
     expect(task.lastError).toEqual(new Error('Could not save "pixiv/77_Episode 1/p1.png"'));
+    const failed = background.saves.find(save => save.filename.endsWith('p1.png'));
+    expect(revoke).toHaveBeenCalledWith(failed.url);
   });
 });
