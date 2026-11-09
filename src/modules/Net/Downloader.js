@@ -117,7 +117,7 @@ class Downloader extends Event {
     this.failedDownloadFiles.push(downloadFile);
     this.progresses[downloadFile.seq] = 0;
 
-    console.error(`Could not download ${downloadFile.file}`, error);
+    console.error(`Could not download or save ${downloadFile.file}`, error);
 
     this.dispatch('item-error', [error]);
     this.dispatchProgress();

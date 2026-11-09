@@ -218,42 +218,44 @@ class MultipleDownloadTask extends AbstractDownloadTask {
       context: Object.assign({}, this.context, { pageNum })
     });
 
-    if (this.isSingleArchivePage(mimeType, pageUrl)) {
-      const filename = pathjoin(
-        GlobalSettings().downloadRelativeLocation,
-        this.formatPostName()
-      ) + `.${this.resolveExtension(mimeType, pageUrl)}`;
-
-      downloadId = this.lastDownloadId = await FileSystem.getDefault().saveFileInBackground({
-        url,
-        filename: fixFilename(filename)
-      });
-
-      this.singleArchivePageSaved = true;
-    } else if (this.shouldZipFile()) {
-      const file = nameFormatter.format(this.options.renameImageRule, `p${pageNum}`) + `.${this.resolveExtension(mimeType, pageUrl)}`;
-      this.zip.file(fixFilename(file), blob, { date: this.now });
-    } else {
-      let filename = GlobalSettings().downloadRelativeLocation;
-
-      if (this.type !== 'PIXIV_MANGA' && this.dontCreateWorkFolder()) {
-        filename = pathjoin(filename,
-          nameFormatter.format((GlobalSettings().combinWRRuleAndIRRuleWhenDontCreateWorkFolder === 0 ? '' : (this.options.renameRule + '_')) + this.options.renameImageRule, `${this.context.id}-p${pageNum}`)
+    try {
+      if (this.isSingleArchivePage(mimeType, pageUrl)) {
+        const filename = pathjoin(
+          GlobalSettings().downloadRelativeLocation,
+          this.formatPostName()
         ) + `.${this.resolveExtension(mimeType, pageUrl)}`;
+
+        downloadId = this.lastDownloadId = await FileSystem.getDefault().saveFileInBackground({
+          url,
+          filename: fixFilename(filename)
+        });
+
+        this.singleArchivePageSaved = true;
+      } else if (this.shouldZipFile()) {
+        const file = nameFormatter.format(this.options.renameImageRule, `p${pageNum}`) + `.${this.resolveExtension(mimeType, pageUrl)}`;
+        this.zip.file(fixFilename(file), blob, { date: this.now });
       } else {
-        filename = pathjoin(filename,
-          nameFormatter.format(this.options.renameRule, this.context.id),
-          nameFormatter.format(this.options.renameImageRule, `p${pageNum}`)
-        ) + `.${this.resolveExtension(mimeType, pageUrl)}`;
+        let filename = GlobalSettings().downloadRelativeLocation;
+
+        if (this.type !== 'PIXIV_MANGA' && this.dontCreateWorkFolder()) {
+          filename = pathjoin(filename,
+            nameFormatter.format((GlobalSettings().combinWRRuleAndIRRuleWhenDontCreateWorkFolder === 0 ? '' : (this.options.renameRule + '_')) + this.options.renameImageRule, `${this.context.id}-p${pageNum}`)
+          ) + `.${this.resolveExtension(mimeType, pageUrl)}`;
+        } else {
+          filename = pathjoin(filename,
+            nameFormatter.format(this.options.renameRule, this.context.id),
+            nameFormatter.format(this.options.renameImageRule, `p${pageNum}`)
+          ) + `.${this.resolveExtension(mimeType, pageUrl)}`;
+        }
+
+        downloadId = this.lastDownloadId = await FileSystem.getDefault().saveFileInBackground({
+          url,
+          filename: fixFilename(filename)
+        });
       }
-
-      downloadId = this.lastDownloadId = await FileSystem.getDefault().saveFileInBackground({
-        url,
-        filename: fixFilename(filename)
-      });
+    } finally {
+      FileSystem.getDefault().revokeWhenSaved(downloadId, url);
     }
-
-    FileSystem.getDefault().revokeWhenSaved(downloadId, url);
 
     this.dispatch('progress', [this.progress]);
   }

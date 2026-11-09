@@ -145,16 +145,19 @@ class EpisodeDownloadTask extends MultipleDownloadTask {
       this.zip.file(file, blob, { date: now });
     } else {
       let url = URL.createObjectURL(blob);
+      let downloadId;
 
-      this.lastDownloadId = await FileSystem.getDefault().saveFileInBackground({
-        url,
-        filename: pathjoin(GlobalSettings().downloadRelativeLocation,
-          nameFormatter.format(this.options.renameRule, this.context.id),
-          nameFormatter.format(this.options.renameImageRule, this.context.id + `_p${pageNum}`),
-        ) + `.${MimeType.getExtenstion(mimeType)}`
-      });
-
-      FileSystem.getDefault().revokeWhenSaved(this.lastDownloadId, url);
+      try {
+        downloadId = this.lastDownloadId = await FileSystem.getDefault().saveFileInBackground({
+          url,
+          filename: pathjoin(GlobalSettings().downloadRelativeLocation,
+            nameFormatter.format(this.options.renameRule, this.context.id),
+            nameFormatter.format(this.options.renameImageRule, this.context.id + `_p${pageNum}`),
+          ) + `.${MimeType.getExtenstion(mimeType)}`
+        });
+      } finally {
+        FileSystem.getDefault().revokeWhenSaved(downloadId, url);
+      }
     }
 
     this.dispatch('progress', [this.progress]);

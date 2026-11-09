@@ -5,7 +5,6 @@
  */
 import browser from './doubles/browser';
 import { fakeDownloadFileBackground } from './helpers/downloadFileBackground';
-import { answerSaves } from './helpers/saveFileBackground';
 import { decrypteImage } from '@/modules/Parser/PixivComic/ImageDecrypte';
 import EpisodeDownloadTask from '@/options_page/modules/DownloadTasks/PixivComic/EpisodeDownloadTask';
 
@@ -142,7 +141,7 @@ test('saves each page into a work folder when zipping is off', async () => {
 
 test('a page saved to a work folder keeps its blob url until its download finishes (#296)', async () => {
   settings({ globalZipMultipleImages: 0 });
-  const saves = answerSaves();
+  const saves = background.saves;
   vi.spyOn(URL, 'revokeObjectURL');
   const task = createTask({ totalPages: 1 });
 

@@ -90,6 +90,11 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
   zip;
 
   /**
+   * @type {boolean} The frames zip is saved
+   */
+  zipSaved = false;
+
+  /**
    *
    * @param {UgoiraDownloadTaskOptions} options
    */
@@ -158,7 +163,6 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
     let nameFormatter = NameFormatter.getFormatter({ context: this.context });
 
     this.zip = new JSZip();
-    // Downloader doesn't wait for this handler, so onFinish waits on the zip instead.
     this.zipLoaded = this.zip.loadAsync(blob);
     await this.zipLoaded;
 
@@ -166,18 +170,23 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
       this.zip.file('animation.json', this.makeAnimationJsonContent(this.options.packAnimationJsonType));
     }
 
-    let url = URL.createObjectURL(await this.zip.generateAsync({ type: 'blob' }));
-    let downloadId;
+    // A retry after info.json failed to save downloads the zip again, but mustn't save it twice.
+    if (!this.zipSaved) {
+      let url = URL.createObjectURL(await this.zip.generateAsync({ type: 'blob' }));
+      let downloadId;
 
-    try {
-      downloadId = this.lastDownloadId = await FileSystem.getDefault().saveFileInBackground({
-        url,
-        filename: pathjoin(GlobalSettings().downloadRelativeLocation, nameFormatter.format(
-          this.options.renameRule
-        )) + '.' + MimeType.getExtenstion(mimeType)
-      });
-    } finally {
-      FileSystem.getDefault().revokeWhenSaved(downloadId, url);
+      try {
+        downloadId = this.lastDownloadId = await FileSystem.getDefault().saveFileInBackground({
+          url,
+          filename: pathjoin(GlobalSettings().downloadRelativeLocation, nameFormatter.format(
+            this.options.renameRule
+          )) + '.' + MimeType.getExtenstion(mimeType)
+        });
+      } finally {
+        FileSystem.getDefault().revokeWhenSaved(downloadId, url);
+      }
+
+      this.zipSaved = true;
     }
 
     this.dispatch('progress', [this.progress]);

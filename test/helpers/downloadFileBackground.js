@@ -2,29 +2,39 @@
  * Plays the background's side of `Downloader`'s `DownloadFile` ports, speaking
  * the protocol of `src/background/services/DownloadFileService.js`. Each request
  * waits until the spec answers it, so a spec decides when, and how, a file ends.
- * It also answers `download:saveFile`, see answerSaves().
+ * It also answers `download:saveFile`, see answerSaves(). It answers saves first,
+ * so a spec whose own listener answers some saves must hand them over with leaveSaves().
  */
 import browser from '../doubles/browser';
 
 /**
- * Answers `download:saveFile` as the background does: with a download id, or with
- * nothing for a save it couldn't make. Set `fail` to pick which saves fail.
+ * Answers `download:saveFile` as the background does: it starts a download and
+ * answers with its id, or answers nothing for a save it couldn't make. Set `fail`
+ * to pick which saves fail. A download stays `in_progress` until the spec ends it
+ * with `browser._fake.finishDownload(id)`.
  */
 export function answerSaves() {
   const answerer = {
-    /** The args of every save asked for, in order. */
+    /** The args of every save asked for, in order, with the `downloadId` it got. */
     saves: [],
     /** @type {(save: { url: string, filename: string }) => boolean} */
     fail: () => false,
     /** Saves left for another listener to answer. */
     leave: () => false
   };
-  let nextDownloadId = 1;
-
   browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.to === 'ws' && message.action === 'download:saveFile' && !answerer.leave(message.args)) {
-      answerer.saves.push(message.args);
-      sendResponse(answerer.fail(message.args) ? undefined : nextDownloadId++);
+      const save = { ...message.args };
+      answerer.saves.push(save);
+
+      if (answerer.fail(message.args)) {
+        sendResponse(undefined);
+      } else {
+        browser.downloads.download(message.args).then(downloadId => {
+          save.downloadId = downloadId;
+          sendResponse(downloadId);
+        });
+      }
 
       return true;
     }

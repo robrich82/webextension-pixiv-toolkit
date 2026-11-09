@@ -145,11 +145,10 @@ beforeEach(() => {
     blobs.set(url, blob);
     return url;
   });
-  browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  // Records each save; fakeDownloadFileBackground answers it.
+  browser.runtime.onMessage.addListener(message => {
     if (message.to === 'ws' && message.action === 'download:saveFile') {
       saved.push({ url: message.args.url, filename: message.args.filename, blob: blobs.get(message.args.url) });
-      browser.downloads.download(message.args).then(sendResponse);
-      return true;
     }
   });
 });
@@ -443,9 +442,10 @@ describe('a save that fails fails the task', () => {
     expect(background.requests).toHaveLength(2);
   });
 
-  test('info.json', async () => {
+  test('info.json: nothing is converted, and a retry downloads again but saves the zip once', async () => {
     window.$app.settings.enableDownloadMetadata = true;
-    background.failSaves(save => save.filename === 'info.json');
+    let failing = true;
+    background.failSaves(save => failing && save.filename === 'info.json');
     const task = createTask({ id: '151' });
 
     task.start();
@@ -453,6 +453,16 @@ describe('a save that fails fails the task', () => {
     await vi.waitFor(() => expect(task.isFailure()).toBe(true));
 
     expect(task.lastError).toEqual(new Error('Could not save "info.json"'));
+    expect(ffmpegs).toEqual([]);
+
+    failing = false;
+    task.changeState(task.PENDING_STATE);
+    task.start();
+    await vi.waitFor(() => expect(background.requests).toHaveLength(2));
+    background.requests[1].complete(await framesZip(), 'application/zip');
+    await vi.waitFor(() => expect(task.isComplete()).toBe(true));
+
+    expect(savedNames()).toEqual(['ugoira/151_Moving.zip', 'info.json', 'info.json', 'ugoira/151_Moving.gif']);
   });
 
   test('the converted animation', async () => {

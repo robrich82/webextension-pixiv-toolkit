@@ -18,14 +18,10 @@
  * 3. Some zip attachment responses come back with no Content-Type header at
  *    all, so `mimeType` is null. `isSingleArchivePage` used to call
  *    `MimeType.getExtenstion(null)` unguarded, throwing before any save was
- *    attempted - the task still raced to "complete" (see `onFinish`'s
- *    `singleArchivePageSaved` check running on the downloader's `finish`
- *    event, dispatched synchronously right after `item-finish` without
- *    waiting on this async handler), so nothing was ever saved and the UI
- *    reported success anyway. See `resolveExtension`.
+ *    attempted, so nothing was saved. See `resolveExtension`.
  */
 import browser from './doubles/browser';
-import { answerSaves } from './helpers/saveFileBackground';
+import { answerSaves } from './helpers/downloadFileBackground';
 import MultipleDownloadTask from '../src/options_page/modules/DownloadTasks/MultiplePagesDownloadTask';
 
 const buildContext = () => ({
@@ -65,7 +61,7 @@ const buildTask = (pages, settingsOverrides = {}) => {
 let saves;
 
 beforeEach(() => {
-  saves = answerSaves();
+  saves = answerSaves().saves;
   globalThis.JSZip = class FakeJSZip {
     file = vi.fn();
 
