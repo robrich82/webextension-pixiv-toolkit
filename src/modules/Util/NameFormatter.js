@@ -142,7 +142,8 @@ class NameFormatter {
    */
   format(rule, fallbackName = '') {
     if (!rule) {
-      return fallbackName ? (this.sanitizeSegment(fallbackName) || `file_${Date.now()}`) : '';
+      // A Pixiv Comic episode id is a number.
+      return fallbackName ? (this.sanitizeSegment(String(fallbackName)) || `file_${Date.now()}`) : '';
     }
 
     /**

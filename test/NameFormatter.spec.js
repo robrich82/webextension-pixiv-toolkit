@@ -152,6 +152,10 @@ describe('fallback', () => {
     expect(format('', {}, '1_Title\u{1F600}...')).toBe('1_Title');
   });
 
+  test('accepts a numeric fallback, as a Pixiv Comic episode id is', () => {
+    expect(format('', {}, 12345)).toBe('12345');
+  });
+
   test('truncates the fallback to 200 characters', () => {
     expect(format('', {}, 'x'.repeat(250))).toBe('x'.repeat(200));
   });
