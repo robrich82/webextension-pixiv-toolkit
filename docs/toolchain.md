@@ -61,6 +61,15 @@ which is exactly the case the rule above asks a human to gate deliberately.
 Renovate is kept out of it: `renovate.json` disables `engines` updates, so its
 major bump of an exact pin fails install until someone raises the ceiling.
 
+**`engines.npm` is `please-use-pnpm`**, a range no npm satisfies, so with
+`engine-strict=true` in `.npmrc` npm refuses the install before it extracts or
+runs anything. npm checks engines only after resolving the tree, so another
+resolve error can come first: today `ERESOLVE` on `@vue/vue3-jest`'s Babel 7
+peer, which `--force` skips. `--force` doesn't skip the engines check.
+`scripts/only-pnpm.js` can't stop npm: npm runs the root `preinstall` after
+every dependency's install script, the scripts `allowBuilds` exists to gate.
+It still refuses yarn and bun. pnpm ignores `engines.npm`.
+
 ## Lockfile
 
 `package-lock.json` and `yarn.lock` used to both be listed in `.gitignore`, so

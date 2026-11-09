@@ -6,7 +6,7 @@ Pixiv Toolkit is a Manifest V3 browser extension (Chrome and Firefox) that downl
 
 ## Commands
 
-pnpm only (the `preinstall` hook enforces it). Node is pinned in `mise.toml` and pnpm in `packageManager`, which mise reads; CI uses the same pins.
+pnpm only (`engines.npm` refuses npm, and the `preinstall` hook refuses yarn and bun). Node is pinned in `mise.toml` and pnpm in `packageManager`, which mise reads; CI uses the same pins.
 
 ```bash
 pnpm install
