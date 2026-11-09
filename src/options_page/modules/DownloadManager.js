@@ -173,29 +173,16 @@ class DownloadManager extends Event {
   }
 
   /**
-   * Start all paused downloads
+   * Resume every paused task and retry every failed one, as many at once as the limit allows.
    */
   startAll() {
-    let tasks = Array.from(this.tasks);
-    let index = 0;
-    let downloadTask;
-
-    while (downloadTask = tasks[index][1]) {
-      try {
-        downloadTask.tryPending();
-
-        /**
-         * If there's still can start download, then start current one.
-         */
-        if (!this.reachDownloadingTasksLimit()) {
-          downloadTask.start();
-        }
-      } catch (error) {
-        this.setLastError(error);
+    for (const task of this.tasks.values()) {
+      if (task.isPaused() || task.isFailure()) {
+        task.tryPending();
       }
-
-      index++;
     }
+
+    this.startTasks();
   }
 
   /**

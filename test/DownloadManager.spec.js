@@ -350,3 +350,96 @@ describe('a failed task reports why', () => {
     expect(task.toJson().error).toBe('Could not save');
   });
 });
+
+describe('retry and resume', () => {
+  const PAUSED = 3;
+
+  test('starting a failed task retries it, and it completes', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const [task] = await addTasks(1);
+    background.request(page(1)).fail('HTTP 500');
+    await vi.waitFor(() => expect(task.isFailure()).toBe(true));
+
+    await manager.startTask(task.id);
+    expect(task.isDownloading()).toBe(true);
+    await vi.waitFor(() => expect(background.requests).toHaveLength(2));
+    background.request(page(1)).complete();
+    await vi.waitFor(() => expect(task.isComplete()).toBe(true));
+
+    expect(manager.lastError).toBeNull();
+    expect(browser.runtime.sendMessage).toHaveBeenCalledWith(expect.objectContaining({
+      action: 'download:saveFile',
+      args: expect.objectContaining({ filename: '1.zip' })
+    }));
+  });
+
+  test('starting a paused task resumes it from the page it was on', async () => {
+    const task = createTask(1, 2);
+    await manager.addTask(task);
+    await browser._fake.flush();
+    background.request(page(1, 0)).complete();
+    await vi.waitFor(() => expect(background.request(page(1, 1))).toBeDefined());
+
+    await manager.pauseTask(task.id);
+    await browser._fake.flush();
+    expect(task.state).toBe(PAUSED);
+
+    await manager.startTask(task.id);
+    expect(task.isDownloading()).toBe(true);
+    await vi.waitFor(() => expect(background.requests).toHaveLength(3));
+    expect(background.requests.map(request => request.url)).toEqual([page(1, 0), page(1, 1), page(1, 1)]);
+
+    background.request(page(1, 1)).complete();
+    await vi.waitFor(() => expect(task.isComplete()).toBe(true));
+    expect(manager.lastError).toBeNull();
+  });
+
+  test('pausing and resuming before the abort comes back restarts the page and completes once', async () => {
+    const [task] = await addTasks(1);
+    const onComplete = vi.fn();
+    task.addListener('complete', onComplete);
+
+    await manager.pauseTask(task.id);
+    await manager.startTask(task.id);
+    expect(task.isDownloading()).toBe(true);
+
+    await vi.waitFor(() => expect(background.requests).toHaveLength(2));
+    background.request(page(1)).complete();
+    await vi.waitFor(() => expect(task.isComplete()).toBe(true));
+    await browser._fake.flush();
+
+    expect(background.aborted).toEqual([page(1)]);
+    expect(onComplete).toHaveBeenCalledTimes(1);
+    expect(manager.lastError).toBeNull();
+  });
+
+  test('startAll resumes paused and failed tasks up to the limit, and leaves the rest alone', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    manager.setMaxDownloadingTasks(3);
+    const tasks = await addTasks(1, 2, 3, 4);
+    background.request(page(1)).fail('HTTP 500');
+    await vi.waitFor(() => expect(tasks[0].isFailure()).toBe(true));
+    await browser._fake.flush();
+    // Task 4 took the failed task's slot.
+    expect(states(tasks)).toEqual([FAILURE, DOWNLOADING, DOWNLOADING, DOWNLOADING]);
+    await manager.pauseTask(tasks[1].id);
+    await manager.pauseTask(tasks[2].id);
+    await browser._fake.flush();
+    background.request(page(4)).complete();
+    await vi.waitFor(() => expect(tasks[3].isComplete()).toBe(true));
+    manager.setMaxDownloadingTasks(2);
+
+    expect(() => manager.startAll()).not.toThrow();
+
+    expect(states(tasks)).toEqual([DOWNLOADING, DOWNLOADING, PENDING, COMPLETE]);
+    expect(manager.lastError).toBeNull();
+  });
+
+  test('startAll with nothing to resume does nothing', async () => {
+    const tasks = await addTasks(1);
+
+    expect(() => manager.startAll()).not.toThrow();
+    expect(states(tasks)).toEqual([DOWNLOADING]);
+    expect(manager.lastError).toBeNull();
+  });
+});

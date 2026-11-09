@@ -161,6 +161,11 @@ class Downloader extends Event {
 
   downloadNext() {
     if (this.paused) {
+      // The last file in flight has ended, whether its abort came back or it finished first.
+      if (this.downloadFilePorts.length === 0) {
+        this.dispatch('pause');
+      }
+
       return;
     }
 
@@ -198,6 +203,11 @@ class Downloader extends Event {
     });
 
     downloadFilePort.onMessage.addListener(message => {
+      // One end per file: an abort answered after the file completed must not queue it again.
+      if (this.endedFilePorts.has(downloadFilePort)) {
+        return;
+      }
+
       if (message.event !== 'progress') {
         // The file has ended (complete, error or abort), so the port has nothing left to carry.
         this.endedFilePorts.add(downloadFilePort);
@@ -248,15 +258,10 @@ class Downloader extends Event {
         this.removeDownloadFromCollection(downloadFilePort);
         this.progresses[downloadFile.seq] = 0;
 
-        // Put the file back in the queue.
+        // Put the file back in the queue. If download() was called again before
+        // this abort came back, it restarts now.
         this.downloadFiles.unshift(downloadFile);
-
-        if (!this.paused) {
-          // download() was called again before this abort came back.
-          this.downloadNext();
-        } else if (this.downloadFilePorts.length === 0) {
-          this.dispatch('pause');
-        }
+        this.downloadNext();
       }
     });
 
