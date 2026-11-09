@@ -4,18 +4,23 @@
  * and reads the canvas back. jsdom has no canvas or image decoding, so both are
  * stubbed; ImageDecrypte itself is covered in ImageDecrypte.spec.js.
  */
-import { decrypteImage } from '../src/modules/Parser/PixivComic/ImageDecrypte';
+import { decrypteImage, ImageDecrypte } from '../src/modules/Parser/PixivComic/ImageDecrypte';
+import { decrypteKey } from '../src/modules/Parser/PixivComic/config';
 
-const page = { width: 4, height: 2, gridsize: 2, key: 'aaaaaaaaaaaaaaaa' };
+const page = { width: 8, height: 4, gridsize: 2, key: 'aaaaaaaaaaaaaaaa' };
+const original = Uint8ClampedArray.from({ length: page.width * page.height * 4 }, (_, i) => i % 251);
 
 let imageLoads;
+let revokedBeforeLoad;
 let encoded;
 let context;
 
 class FakeImage {
   set src(url) {
-    this.url = url;
-    setTimeout(() => (imageLoads ? this.onload() : this.onerror()));
+    setTimeout(() => {
+      revokedBeforeLoad = URL.revokeObjectURL.mock.calls.length > 0;
+      imageLoads ? this.onload() : this.onerror();
+    });
   }
 }
 
@@ -25,12 +30,14 @@ class FakeImageData {
   }
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   imageLoads = true;
   encoded = new Blob(['decrypted'], { type: 'image/png' });
+  // What the api serves: the page with its columns shuffled.
+  const scrambled = await ImageDecrypte(original, 4, page.width, page.height, page.gridsize, page.gridsize, decrypteKey, page.key, false);
   context = {
     drawImage: vi.fn(),
-    getImageData: vi.fn(() => ({ data: new Uint8ClampedArray(page.width * page.height * 4) })),
+    getImageData: vi.fn(() => ({ data: scrambled })),
     putImageData: vi.fn()
   };
   vi.stubGlobal('Image', FakeImage);
@@ -44,15 +51,15 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
-  document.body.replaceChildren();
 });
 
-test('paints the page, puts back the unscrambled pixels and resolves the canvas as a blob', async () => {
+test('puts back the unscrambled pixels and resolves the canvas as a blob', async () => {
   await expect(decrypteImage(page, new Blob(['scrambled']), 'blob')).resolves.toBe(encoded);
 
-  expect(context.drawImage).toHaveBeenCalledTimes(1);
   const [imageData] = context.putImageData.mock.calls[0];
-  expect([imageData.width, imageData.height]).toEqual([4, 2]);
+  expect([imageData.width, imageData.height]).toEqual([8, 4]);
+  expect(Array.from(imageData.data)).toEqual(Array.from(original));
+  expect(revokedBeforeLoad).toBe(false);
   expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:encrypted');
 });
 
@@ -81,4 +88,12 @@ test('rejects when painting the image throws', async () => {
   });
 
   await expect(decrypteImage(page, new Blob(['scrambled']), 'blob')).rejects.toThrow('tainted canvas');
+});
+
+test('pages decrypting at once each get their own canvas', async () => {
+  await Promise.all([decrypteImage(page, new Blob(['a']), 'blob'), decrypteImage(page, new Blob(['b']), 'blob')]);
+
+  const canvases = HTMLCanvasElement.prototype.getContext.mock.contexts;
+  expect(canvases).toHaveLength(2);
+  expect(canvases[0]).not.toBe(canvases[1]);
 });

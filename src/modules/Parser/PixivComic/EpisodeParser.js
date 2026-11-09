@@ -164,6 +164,7 @@ class EpisodeParser {
               download.addListener('onfinish', data => {
                 decrypteImage(page, data).then(resolve, reject);
               });
+              download.addListener('onerror', reject);
 
               download.download();
             });

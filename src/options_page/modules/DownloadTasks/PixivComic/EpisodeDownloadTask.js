@@ -54,6 +54,8 @@ class EpisodeDownloadTask extends MultipleDownloadTask {
       // A rejection here fails the file, through Downloader.
       afterItemDownload: async ({ itemFinishData, downloadFile }) => {
         itemFinishData.blob = await decrypteImage(this.options.pages[downloadFile.args.index], itemFinishData.blob, 'blob');
+        // The canvas re-encodes the page, so name it by what it is now.
+        itemFinishData.mimeType = itemFinishData.blob.type;
       }
     });
     this.downloader.addListener('start', this.onStart, this);

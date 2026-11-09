@@ -134,6 +134,25 @@ describe('App page lifecycle', () => {
       .toEqual(['a-resolved.jpg', 'b-resolved.jpg']);
   });
 
+  test('a page whose preview fails stays blank, and the pages after it still resolve', async () => {
+    const error = new Error("Couldn't load the encrypted image");
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const wrapper = await mountWithPage({
+      pages: ['a', 'b', 'c'],
+      pageResolver: async page => {
+        if (page === 'b') {
+          throw error;
+        }
+
+        return `${page}-resolved.jpg`;
+      }
+    });
+
+    expect(wrapper.findComponent({ name: 'page-selector' }).vm.pages.map(p => p.page))
+      .toEqual(['a-resolved.jpg', '', 'c-resolved.jpg']);
+    expect(console.error).toHaveBeenCalledWith('Could not load the preview of page 2', error);
+  });
+
   test("a previous page's resolver stops once the page changes", async () => {
     let resolveOld;
     const wrapper = await mountWithPage({

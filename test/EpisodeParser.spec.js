@@ -1,5 +1,9 @@
 import EpisodeParser from '../src/modules/Parser/PixivComic/EpisodeParser';
+import { decrypteImage } from '../src/modules/Parser/PixivComic/ImageDecrypte';
 import { installFetch } from './doubles/fetch';
+
+// A canvas job node can't run; decrypteImage.spec.js covers it.
+vi.mock('../src/modules/Parser/PixivComic/ImageDecrypte', () => ({ decrypteImage: vi.fn() }));
 
 import episode from './fixtures/pixivComic/episode.json';
 
@@ -117,5 +121,46 @@ describe('a response missing a field we depend on', () => {
     installFetch({ [contextUrl('70000001')]: new Error('network down') });
 
     await expect(parser.parserContext()).rejects.toThrow('network down');
+  });
+});
+
+describe('the preview resolver', () => {
+  const [page] = episode.data.reading_episode.pages;
+
+  const resolverFor = async pageBody => {
+    const { context } = await parse('70000001', clone(episode));
+    const fetchFake = installFetch({ [page.url]: pageBody });
+
+    return { pageResolver: context.pageResolver, fetchFake };
+  };
+
+  beforeEach(() => {
+    vi.mocked(decrypteImage).mockReset();
+  });
+
+  test('fetches the page with its gridshuffle key and resolves the decrypted image', async () => {
+    vi.mocked(decrypteImage).mockResolvedValue('blob:decrypted');
+    const { pageResolver, fetchFake } = await resolverFor('scrambled');
+
+    await expect(pageResolver(page)).resolves.toBe('blob:decrypted');
+
+    expect(fetchFake.mock.calls[0][1].headers['X-Cobalt-Thumber-Parameter-Gridshuffle-Key']).toBe(page.key);
+    const [decryptedPage, blob] = vi.mocked(decrypteImage).mock.calls[0];
+    expect(decryptedPage).toBe(page);
+    expect(await blob.text()).toBe('scrambled');
+  });
+
+  test('rejects when the page cannot be decrypted', async () => {
+    vi.mocked(decrypteImage).mockRejectedValue(new Error("Couldn't load the encrypted image"));
+    const { pageResolver } = await resolverFor('scrambled');
+
+    await expect(pageResolver(page)).rejects.toThrow("Couldn't load the encrypted image");
+  });
+
+  test('rejects when the page cannot be fetched', async () => {
+    const { pageResolver } = await resolverFor(new Error('network down'));
+
+    await expect(pageResolver(page)).rejects.toThrow('network down');
+    expect(decrypteImage).not.toHaveBeenCalled();
   });
 });

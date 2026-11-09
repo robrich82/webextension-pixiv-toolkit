@@ -9,34 +9,25 @@ import { decrypteKey } from './config';
 
 export const decrypteImage = async (page, encryptedImageBlob, returnType = 'url') => {
   return new Promise((resolve, reject) => {
-    const id = '#__PTK__pixiv-comic-episode-image-decrypte-canvas';
-
+    // One canvas per call: a shared one gets resized by a concurrent call mid-decrypt.
     /**
      * @type {HTMLCanvasElement}
      */
-    let canvas = document.querySelector(id);
-
-    if (!canvas) {
-      canvas = document.createElement('canvas');
-      canvas.setAttribute('id', id.substring(1));
-      document.body.appendChild(canvas);
-    }
-
+    const canvas = document.createElement('canvas');
     const c2d = canvas.getContext('2d');
     canvas.width = page.width;
     canvas.height = page.height;
 
     const imageUrl = URL.createObjectURL(encryptedImageBlob);
     const image = new Image(canvas.width, canvas.height);
-    image.onload = () => {
+    image.onload = async () => {
       URL.revokeObjectURL(imageUrl);
-      Promise.resolve().then(() => {
+      try {
         c2d.drawImage(image, 0, 0);
         const imageData = c2d.getImageData(0, 0, canvas.width, canvas.height);
-        return ImageDecrypte(
+        const decryptedImageData = await ImageDecrypte(
           imageData.data, 4, page.width, page.height, page.gridsize, page.gridsize, decrypteKey, page.key, true
         );
-      }).then(decryptedImageData => {
         const realImageData = new ImageData(decryptedImageData, page.width, page.height);
         c2d.putImageData(realImageData, 0, 0);
         canvas.toBlob((blob) => {
@@ -51,7 +42,9 @@ export const decrypteImage = async (page, encryptedImageBlob, returnType = 'url'
           const url = URL.createObjectURL(blob);
           resolve(url);
         });
-      }).catch(reject);
+      } catch (error) {
+        reject(error);
+      }
     };
     image.onerror = () => {
       URL.revokeObjectURL(imageUrl);

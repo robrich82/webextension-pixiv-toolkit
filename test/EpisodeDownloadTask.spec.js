@@ -76,9 +76,10 @@ beforeEach(() => {
 afterEach(() => {
   delete window.$app;
   delete globalThis.JSZip;
+  vi.restoreAllMocks();
 });
 
-test('fetches each page with its gridshuffle key, decrypts it, and zips it under the episode name', async () => {
+test('fetches each page with its gridshuffle key, decrypts it, and zips it, named for its decrypted type', async () => {
   const task = createTask();
   const completed = vi.fn();
   task.addListener('complete', completed);
@@ -94,7 +95,7 @@ test('fetches each page with its gridshuffle key, decrypts it, and zips it under
   ]);
   expect(vi.mocked(decrypteImage).mock.calls.map(([page, , returnType]) => [page.key, returnType]))
     .toEqual([['key-0', 'blob'], ['key-1', 'blob']]);
-  expect(zipped.map(entry => entry.name)).toEqual(['p1.jpg', 'p2.jpg']);
+  expect(zipped.map(entry => entry.name)).toEqual(['p1.png', 'p2.png']);
   expect(await zipped[0].blob.text()).toBe('decrypted encrypted 0');
   expect(savedFilenames()).toEqual(['pixiv/77_Episode 1.zip']);
   expect(completed).toHaveBeenCalledTimes(1);
@@ -109,13 +110,13 @@ test('downloads only the selected pages, numbered by their place in the episode'
   await vi.waitFor(() => expect(task.isComplete()).toBe(true));
 
   expect(background.requests.map(request => request.url)).toEqual([pageUrl(2), pageUrl(10)]);
-  expect(zipped.map(entry => entry.name)).toEqual(['p03.jpg', 'p11.jpg']);
+  expect(zipped.map(entry => entry.name)).toEqual(['p03.png', 'p11.png']);
 });
 
 test.each([
-  [{ pageNumberStartWithOne: 0, pageNumberLength: 0 }, ['p0.jpg', 'p1.jpg']],
-  [{ pageNumberStartWithOne: 1, pageNumberLength: 3 }, ['p001.jpg', 'p002.jpg']],
-  [{ pageNumberStartWithOne: 0, pageNumberLength: -1 }, ['p0.jpg', 'p1.jpg']]
+  [{ pageNumberStartWithOne: 0, pageNumberLength: 0 }, ['p0.png', 'p1.png']],
+  [{ pageNumberStartWithOne: 1, pageNumberLength: 3 }, ['p001.png', 'p002.png']],
+  [{ pageNumberStartWithOne: 0, pageNumberLength: -1 }, ['p0.png', 'p1.png']]
 ])('page numbers follow %o', async (options, names) => {
   const task = createTask(options);
 
@@ -134,7 +135,7 @@ test('saves each page into a work folder when zipping is off', async () => {
   await completePages(0, 1);
   await vi.waitFor(() => expect(savedFilenames()).toHaveLength(2));
 
-  expect(savedFilenames()).toEqual(['pixiv/77_Episode 1/p1.jpg', 'pixiv/77_Episode 1/p2.jpg']);
+  expect(savedFilenames()).toEqual(['pixiv/77_Episode 1/p1.png', 'pixiv/77_Episode 1/p2.png']);
   expect(zipped).toEqual([]);
 });
 
@@ -165,7 +166,7 @@ test('a page that fails to decrypt fails the task instead of hanging it', async 
   await vi.waitFor(() => expect(task.isFailure()).toBe(true));
 
   expect(task.lastError).toEqual(new Error("Couldn't load the encrypted image"));
-  expect(zipped.map(entry => entry.name)).toEqual(['p2.jpg']);
+  expect(zipped.map(entry => entry.name)).toEqual(['p2.png']);
   expect(savedFilenames()).toEqual([]);
 });
 
@@ -186,7 +187,7 @@ test('pause aborts the page in flight, and start(true) downloads the episode aga
   await completePages(0, 1);
   await vi.waitFor(() => expect(task.isComplete()).toBe(true));
 
-  expect(zipped.map(entry => entry.name)).toEqual(['p1.jpg', 'p2.jpg']);
+  expect(zipped.map(entry => entry.name)).toEqual(['p1.png', 'p2.png']);
 });
 
 test('stop aborts the page in flight', async () => {
