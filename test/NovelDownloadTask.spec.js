@@ -116,9 +116,9 @@ test('saves the novel as text, one part per paragraph block, under the rename ru
   expect(saved[0].blob.type).toBe('text/plain');
   expect(fired).toEqual([['start', task.DOWNLOADING_STATE], ['complete', task.COMPLETE_STATE]]);
   expect(task.toJson()).toMatchObject({ type: 'PIXIV_NOVEL', state: task.COMPLETE_STATE, progress: 1, downloadId: 1 });
-  // Firefox fails a download whose blob url goes before it is read (#296).
   expect(URL.revokeObjectURL).not.toHaveBeenCalledWith(saved[0].url);
   browser._fake.finishDownload(1);
+  await browser._fake.flush();
   expect(URL.revokeObjectURL).toHaveBeenCalledWith(saved[0].url);
 });
 

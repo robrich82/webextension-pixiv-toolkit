@@ -153,6 +153,7 @@ test('a page saved to a work folder keeps its blob url until its download finish
 
   expect(URL.revokeObjectURL).not.toHaveBeenCalledWith(saves[0].url);
   browser._fake.finishDownload(saves[0].downloadId);
+  await browser._fake.flush();
   expect(URL.revokeObjectURL).toHaveBeenCalledWith(saves[0].url);
 });
 

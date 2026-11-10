@@ -272,6 +272,11 @@ function createBrowserFake() {
   const runtimeOnConnect = event();
   const downloadsOnDeterminingFilename = event();
   const downloadsOnChanged = event();
+  const downloadsOnErased = event();
+
+  /** Matches on the query's fields by equality; enough for `{ id }` and `{ state }`. */
+  const findDownloads = query => Array.from(browser.downloads.items.values())
+    .filter(item => Object.entries(query).every(([key, value]) => item[key] === value));
 
   const defaults = () => ({
     /** Handed back by `i18n.getUILanguage()`. */
@@ -372,6 +377,7 @@ function createBrowserFake() {
 
       onDeterminingFilename: downloadsOnDeterminingFilename,
       onChanged: downloadsOnChanged,
+      onErased: downloadsOnErased,
 
       download: api(options => {
         const id = state.nextDownloadId++;
@@ -381,10 +387,15 @@ function createBrowserFake() {
         return id;
       }),
 
-      /** Matches on the query's fields by equality; enough for `{ id }` and `{ state }`. */
-      search: api(query => Array.from(browser.downloads.items.values())
-        .filter(item => Object.entries(query).every(([key, value]) => item[key] === value))
-        .map(clone)),
+      search: api(query => findDownloads(query).map(clone)),
+
+      /** Forgets the matching downloads, firing `onErased` for each. */
+      erase: api(query => findDownloads(query).map(({ id }) => {
+        browser.downloads.items.delete(id);
+        downloadsOnErased.emit(id);
+
+        return id;
+      })),
 
       show: api(() => undefined),
       setShelfEnabled: syncApi(() => undefined)
@@ -602,16 +613,47 @@ function createBrowserFake() {
     },
 
     /**
-     * End a download the way the browser would, firing `downloads.onChanged`.
+     * Change a download's fields the way the browser would, firing
+     * `downloads.onChanged` with a `{ previous, current }` delta per field.
+     * @param {number} id
+     * @param {object} fields
+     */
+    changeDownload(id, fields) {
+      const item = browser.downloads.items.get(id);
+      const delta = { id };
+
+      Object.entries(fields).forEach(([key, current]) => {
+        delta[key] = { previous: item[key], current };
+        item[key] = current;
+      });
+
+      downloadsOnChanged.emit(delta);
+    },
+
+    /**
+     * End a download, firing `downloads.onChanged`.
      * @param {number} id
      * @param {'complete'|'interrupted'} [state]
      */
     finishDownload(id, state = 'complete') {
-      const item = browser.downloads.items.get(id);
-      const previous = item.state;
+      browser._fake.changeDownload(id, { state });
+    },
 
-      item.state = state;
-      downloadsOnChanged.emit({ id, state: { previous, current: state } });
+    /**
+     * Pause a download as Firefox does: it cancels it, so the download reports
+     * `interrupted` with `paused` set. Chrome keeps it `in_progress`.
+     * @param {number} id
+     */
+    pauseDownload(id) {
+      browser._fake.changeDownload(id, { state: 'interrupted', paused: true });
+    },
+
+    /**
+     * Resume a paused download, firing `downloads.onChanged`.
+     * @param {number} id
+     */
+    resumeDownload(id) {
+      browser._fake.changeDownload(id, { state: 'in_progress', paused: false });
     },
 
     /** The most recently requested download, for the common one-call case. */

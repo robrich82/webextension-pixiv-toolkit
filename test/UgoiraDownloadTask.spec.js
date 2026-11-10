@@ -189,7 +189,7 @@ test('saves the frames zip, then converts the frames and saves the animation', a
 
 test('keeps the zip and animation blob urls until their downloads finish (#296)', async () => {
   vi.spyOn(URL, 'revokeObjectURL');
-  const task = createTask({ id: '296' });
+  const task = createTask();
 
   task.start();
   await completeDownload(task);
@@ -199,6 +199,7 @@ test('keeps the zip and animation blob urls until their downloads finish (#296)'
   expect(URL.revokeObjectURL).not.toHaveBeenCalled();
   browser._fake.finishDownload(1);
   browser._fake.finishDownload(2, 'interrupted');
+  await browser._fake.flush();
   expect(URL.revokeObjectURL.mock.calls).toEqual([[saved[0].url], [saved[1].url]]);
 });
 

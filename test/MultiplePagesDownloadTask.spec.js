@@ -74,6 +74,7 @@ beforeEach(() => {
 afterEach(() => {
   delete window.$app;
   delete globalThis.JSZip;
+  vi.restoreAllMocks();
 });
 
 test('a single page that is already a zip is saved directly under the post name, without wrapping or a work folder', async () => {
@@ -148,18 +149,22 @@ test('a single image page (not an archive) still gets zipped as before', async (
   expect(task.isComplete()).toBe(true);
 });
 
-test('a page saved to a folder keeps its blob url until its download finishes (#296)', async () => {
+test.each([
+  ['a page saved to a folder', 'https://example.fanbox.cc/images/1.png', 'image/png', { downloadSaveMode: 1 }],
+  ['a single zip page', 'https://example.fanbox.cc/files/archive.zip', 'application/zip', {}]
+])('%s keeps its blob url until its download finishes (#296)', async (_, page, mimeType, settings) => {
   const saves = answerSaves();
   vi.spyOn(URL, 'revokeObjectURL');
-  const task = buildTask(['https://example.fanbox.cc/images/1.png'], { downloadSaveMode: 1 });
+  const task = buildTask([page], settings);
 
-  await task.onItemFinish({ blob: new Blob(['a']), args: { index: 0 }, mimeType: 'image/png' });
+  await task.onItemFinish({ blob: new Blob(['a']), args: { index: 0 }, mimeType });
   await browser._fake.flush();
 
+  expect(saves).toHaveLength(1);
   expect(URL.revokeObjectURL).not.toHaveBeenCalledWith(saves[0].url);
   browser._fake.finishDownload(saves[0].downloadId);
+  await browser._fake.flush();
   expect(URL.revokeObjectURL).toHaveBeenCalledWith(saves[0].url);
-  vi.restoreAllMocks();
 });
 
 test('formatPostName drops the {pageNum} segment rather than leaving it unresolved', () => {
