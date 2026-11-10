@@ -18,6 +18,8 @@ import DownloadTaskNotifier from '@/options_page/modules/DownloadTaskNotifier';
 import IllustResource from '@/modules/PageResource/Pixiv/IllustResource';
 import Db from '@/modules/Db/Db';
 import HistoryRepo from '@/modules/Db/Repository/HistoryRepo';
+import BackgroundApplication from '@/background/Application';
+import HistoryService from '@/background/services/HistoryService';
 
 let app;
 let background;
@@ -120,6 +122,76 @@ describe('download:addDownload', () => {
       errorName: 'DownloadTaskExistsError'
     });
     expect(manager().getTask('pixiv_illust:1')).toBe(running);
+  });
+});
+
+describe('download history', () => {
+  const work = 'https://i.pximg.net/img/1_p0.png';
+  const historyItem = () => Db.getDb().historyRepo().getItem({ uid: 'pixiv_illust:1' });
+
+  beforeEach(() => {
+    // The background's HistoryService answers history:itemDownload, as it does in the extension.
+    BackgroundApplication.instance = undefined;
+    HistoryService.instance = undefined;
+    const backgroundApp = BackgroundApplication.createApp();
+    browser.runtime.onMessage.addListener((message, sender, sendResponse) => backgroundApp.onMessage(message, sender, sendResponse));
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  test('is recorded when the task completes, not when it is queued', async () => {
+    const before = Math.floor(Date.now() / 1000);
+    await send('download:addDownload', addDownloadArgs(1));
+    await browser._fake.flush();
+    expect(await send('download:checkIfDownloaded', { uid: 'pixiv_illust:1' })).toBe(0);
+
+    background.request(work).complete();
+    await vi.waitFor(() => expect(manager().getTask('pixiv_illust:1').isComplete()).toBe(true));
+    await vi.waitFor(async () => expect(await historyItem()).toBeDefined());
+
+    expect(await historyItem()).toMatchObject({
+      uid: 'pixiv_illust:1',
+      title: 'Work 1',
+      url: 'https://www.pixiv.net/artworks/1'
+    });
+    expect(await send('download:checkIfDownloaded', { uid: 'pixiv_illust:1' })).toBeGreaterThanOrEqual(before);
+  });
+
+  test('a task that fails leaves no download history', async () => {
+    await send('download:addDownload', addDownloadArgs(1));
+    await browser._fake.flush();
+
+    background.request(work).fail('HTTP 404');
+    await vi.waitFor(() => expect(manager().getTask('pixiv_illust:1').isFailure()).toBe(true));
+    await browser._fake.flush();
+
+    expect(await historyItem()).toBeUndefined();
+    expect(browser.runtime.sendMessage).not.toHaveBeenCalledWith(expect.objectContaining({ action: 'history:itemDownload' }));
+  });
+
+  test('a task deleted before it completes leaves no download history', async () => {
+    await send('download:addDownload', addDownloadArgs(1));
+    await browser._fake.flush();
+
+    // The manager page calls the service directly.
+    await app.getService('download').deleteDownload('pixiv_illust:1');
+    await browser._fake.flush();
+
+    expect(await historyItem()).toBeUndefined();
+  });
+
+  test('a redownload records the work again once it completes', async () => {
+    await send('download:addDownload', addDownloadArgs(1));
+    await browser._fake.flush();
+    background.request(work).complete();
+    await vi.waitFor(async () => expect(await historyItem()).toBeDefined());
+
+    await send('download:addDownload', addDownloadArgs(1, { redownload: true }));
+    await browser._fake.flush();
+    background.request(work).complete();
+    await vi.waitFor(() => expect(manager().getTask('pixiv_illust:1').isComplete()).toBe(true));
+    await browser._fake.flush();
+
+    expect(browser.runtime.sendMessage.mock.calls.filter(([message]) => message.action === 'history:itemDownload')).toHaveLength(2);
   });
 });
 

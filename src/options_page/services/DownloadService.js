@@ -96,6 +96,8 @@ class DownloadService extends AbstractService {
 
     let downloadTask = await downloadAdapter.createDownloadTask(pageResource, options);
 
+    this.recordHistoryOnComplete(downloadTask, pageResource);
+
     try {
       if (options.redownload) {
         const oldDownloadTask = this.downloadManager.getTask(downloadTask.id);
@@ -122,6 +124,32 @@ class DownloadService extends AbstractService {
         errorName: error.name
       };
     }
+  }
+
+  /**
+   * Mark the work as downloaded once its task completes. A task that fails, is
+   * deleted or never runs leaves no download history.
+   * @param {AbstractDownloadTask} downloadTask
+   * @param {AbstractResource} pageResource
+   */
+  recordHistoryOnComplete(downloadTask, pageResource) {
+    const item = {
+      uid: pageResource.getUid(),
+      title: pageResource.getTitle(),
+      userName: pageResource.getUserName(),
+      cover: pageResource.getCover(),
+      url: pageResource.getUrl(),
+      type: pageResource.getType(),
+      r: pageResource.getR(),
+    };
+
+    downloadTask.addListener('complete', () => {
+      browser.runtime.sendMessage({
+        to: 'ws',
+        action: 'history:itemDownload',
+        args: { ...item, downloaded_at: Math.floor(Date.now() / 1000) }
+      }).catch(error => console.error(`Could not record download history for ${item.uid}`, error));
+    });
   }
 
   async startDownload(id) {
