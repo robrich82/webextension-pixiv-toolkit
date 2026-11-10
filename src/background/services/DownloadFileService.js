@@ -19,7 +19,8 @@ class DownloadFileService extends AbstractPortService {
   static instance;
 
   /**
-   * @return {Map<any, Download>}
+   * The download running for each port, until it ends or the port closes.
+   * @type {Map<any, Download>}
    */
   portDownloadMap = new Map();
 
@@ -31,16 +32,37 @@ class DownloadFileService extends AbstractPortService {
     return DownloadFileService.instance;
   }
 
+  /**
+   * Post to the port while its download runs. Once the port has closed, posting would throw.
+   */
   postMessage(port, event, data) {
+    if (!this.portDownloadMap.has(port)) {
+      return;
+    }
+
     port.postMessage({
       event,
       data
     });
   }
 
+  /**
+   * Post the download's last message and forget it.
+   */
+  endDownload(port, event, data) {
+    this.postMessage(port, event, data);
+    this.portDownloadMap.delete(port);
+  }
+
+  /**
+   * The download manager page closed, or dropped the file: stop fetching it.
+   */
   onDisconnect(port) {
-    if (this.portDownloadMap.has(port)) {
+    const download = this.portDownloadMap.get(port);
+
+    if (download) {
       this.portDownloadMap.delete(port);
+      download.abort();
     }
   }
 
@@ -56,18 +78,17 @@ class DownloadFileService extends AbstractPortService {
         this.postMessage(port, 'progress', { progress });
       });
       download.addListener('onerror', error => {
-        this.postMessage(port, 'error', { error: error.message });
+        this.endDownload(port, 'error', { error: error.message });
       });
       download.addListener('onfinish', (data, mimeType) => {
         const reader = new FileReader();
         reader.onload = () => {
-          const b64 = reader.result;
-          this.postMessage(port, 'complete', { data: b64, mimeType });
+          this.endDownload(port, 'complete', { data: reader.result, mimeType });
         };
         reader.readAsDataURL(data);
       });
       download.addListener('onabort', () => {
-        this.postMessage(port, 'abort');
+        this.endDownload(port, 'abort');
       });
 
       download.download();
