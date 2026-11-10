@@ -334,4 +334,29 @@ Two limits worth knowing before adding a test:
   `chrome.downloads.download` in the service worker to record the requested
   names, and `savedFiles()` pairs them with the files on disk.
   `decodeMedia()` loads a saved image or video in a page to prove it decodes.
-- Firefox is not covered: Playwright cannot load an extension into Firefox.
+- Firefox is not covered here: Playwright cannot load an extension into
+  Firefox. See the next section.
+
+### Firefox
+
+`pnpm run test:e2e:firefox` runs `e2e-firefox/*.test.mjs` with `node --test`
+against `dist/firefox`, so run `pnpm run build:firefox` first. It needs
+Firefox 148 or later and `openssl` 1.1.1 or later on the PATH. Firefox is
+looked up at its default install location on Windows and macOS and on the PATH
+on Linux; `FIREFOX=<path>` overrides. A snap Firefox can't see the temp
+profile, so use the deb or a tarball. Set `HEADED=1` to watch, or
+`E2E_DEBUG=1` to log the launch steps and Firefox's stderr.
+
+- `firefox.mjs` `launch()` starts Firefox on a throwaway profile, installs the
+  build as a temporary add-on over WebDriver BiDi (`bidi.mjs`, no geckodriver
+  or web-ext) and drives it. A test that times out mid-launch still has its
+  Firefox closed, by `closeAll()`.
+- `fakePixiv.mjs` is an HTTPS proxy that Firefox sends every request through.
+  It answers `www.pixiv.net` and `i.pximg.net` like `mockPixiv()`, with a
+  throwaway self-signed certificate that `acceptInsecureCerts` lets Firefox
+  accept, and refuses every other host. A proxy, because the download manager
+  page fetches the images, not the tab BiDi navigates.
+- Firefox saves to a temp folder under the requested names, subfolders
+  included, so a test checks real filenames and bytes. The Firefox harness's
+  `savedFiles()` fails if a file lands anywhere else, a download is
+  interrupted, or an extra download follows within a second.
