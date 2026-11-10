@@ -167,6 +167,8 @@ class AbstractDownloadTask extends Event {
       state: this.state,
       progress: this.progress,
       downloadId: this.lastDownloadId,
+      // An Error doesn't survive the trip to the page, so send its message.
+      error: this.lastError ? (this.lastError.message || String(this.lastError)) : null,
     };
   }
 }

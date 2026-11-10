@@ -10,7 +10,9 @@
         <v-progress-linear v-else v-model="processProgress" height="5"></v-progress-linear>
       </div>
       <div class="download-task__section">
-        <div class="download-task__state">{{ readableState(data.state) }}</div>
+        <div class="download-task__state" :title="failureReason || undefined">
+          {{ readableState(data.state) }}<span v-if="failureReason" class="download-task__error">: {{ failureReason }}</span>
+        </div>
         <div class="download-task__actions">
           <slot name="actions"></slot>
         </div>
@@ -70,6 +72,10 @@ export default {
       } else {
         return this.data.processProgress * 100;
       }
+    },
+
+    failureReason() {
+      return this.data.state === -1 && this.data.error ? this.data.error : '';
     }
   },
 
@@ -99,3 +105,17 @@ export default {
   }
 }
 </script>
+
+<style lang="scss">
+// One line, so the card keeps the fixed height the download manager's scroller expects.
+.download-task__state {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.download-task__error {
+  color: #ff5252;
+}
+</style>
