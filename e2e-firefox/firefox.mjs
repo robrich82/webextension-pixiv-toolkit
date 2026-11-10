@@ -61,6 +61,11 @@ async function poll(fn, message, limit = 20000) {
 
   for (;;) {
     const value = await fn().catch(error => {
+      // Firefox has gone (closed, or crashed): nothing to wait for.
+      if (/BiDi connection (is )?closed/.test(error.message)) {
+        throw error;
+      }
+
       lastError = error;
     });
 
@@ -244,7 +249,9 @@ class FirefoxProcess {
 
   /** Kill Firefox and, on Windows, the browser the launcher process started. */
   kill() {
-    console.error(`Firefox didn't quit when asked; killing it (pid ${this.child.pid})`);
+    if (process.env.E2E_DEBUG || this.bidi) {
+      console.error(`Killing Firefox (pid ${this.child.pid})${this.bidi ? ': it did not quit when asked' : ''}`);
+    }
 
     if (process.platform === 'win32') {
       try {
@@ -257,18 +264,20 @@ class FirefoxProcess {
     }
   }
 
-  async close() {
-    if (this.closed) {
-      return;
-    }
-
+  /** Safe to call more than once: every caller waits for the same teardown. */
+  close() {
     this.closed = true;
 
-    // Ask Firefox to quit, and kill it if it hasn't within 10s.
+    return this.closing ??= this.quit();
+  }
+
+  async quit() {
+    // Ask Firefox to quit, and kill it if it hasn't within 10s. Without a
+    // session there's nothing to ask, so kill it straight away.
     await this.bidi?.send('browser.close', {}, 10000).catch(() => {});
     this.bidi?.socket.close();
 
-    if (!this.failure && !await this.exitedWithin(10000)) {
+    if (!this.failure && !await this.exitedWithin(this.bidi ? 10000 : 0)) {
       this.kill();
       await this.exitedWithin(10000);
     }
@@ -324,6 +333,11 @@ export async function launch(routes) {
       'app.normandy.enabled': false
     }, process => {
       resources.process = process;
+
+      // closeAll() got here first, before there was a process to close.
+      if (resources.closing) {
+        process.close();
+      }
     });
 
     const { bidi } = browserProcess;

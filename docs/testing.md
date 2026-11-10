@@ -359,4 +359,4 @@ profile, so use the deb or a tarball. Set `HEADED=1` to watch, or
 - Firefox saves to a temp folder under the requested names, subfolders
   included, so a test checks real filenames and bytes. The Firefox harness's
   `savedFiles()` fails if a file lands anywhere else, a download is
-  interrupted, or more files than expected turn up.
+  interrupted, or an extra download follows within a second.
