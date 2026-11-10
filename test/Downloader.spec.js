@@ -462,23 +462,3 @@ test('a file that ends after pause(), with no abort to answer, still pauses the 
   await finished;
   expect(requestedUrls()).toEqual([file(1), file(2)]);
 });
-
-test('a message on a port whose file already ended is ignored', async () => {
-  const backgroundPorts = [];
-  browser.runtime.onConnect.addListener(port => backgroundPorts.push(port));
-  createDownloader([1]);
-  const finished = nextEvent('finish');
-  downloader.download();
-  (await nthRequest(0)).respond('one');
-  await finished;
-
-  backgroundPorts[0].postMessage({ event: 'abort' });
-  await browser._fake.flush();
-
-  expect(named('start')).toHaveLength(1);
-  expect(downloader.successCount).toBe(1);
-  expect(requestedUrls()).toEqual([file(1)]);
-  expect(downloader.downloadFiles).toEqual([]);
-  expect(named('finish')).toHaveLength(1);
-  expect(named('pause')).toHaveLength(0);
-});

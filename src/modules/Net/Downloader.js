@@ -203,11 +203,6 @@ class Downloader extends Event {
     });
 
     downloadFilePort.onMessage.addListener(message => {
-      // One end per file: an abort answered after the file completed must not queue it again.
-      if (this.endedFilePorts.has(downloadFilePort)) {
-        return;
-      }
-
       if (message.event !== 'progress') {
         // The file has ended (complete, error or abort), so the port has nothing left to carry.
         this.endedFilePorts.add(downloadFilePort);
