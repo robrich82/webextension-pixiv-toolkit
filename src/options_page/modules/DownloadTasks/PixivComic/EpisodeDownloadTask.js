@@ -171,14 +171,15 @@ class EpisodeDownloadTask extends MultipleDownloadTask {
     if (this.shouldZipFile()) {
       const nameFormatter = NameFormattor.getFormatter({ context: Object.assign({}, this.context) });
       const url = URL.createObjectURL(await this.zip.generateAsync({ type: 'blob' }));
+      let downloadId;
 
       try {
-        this.lastDownloadId = await FileSystem.getDefault().saveFileInBackground({
+        downloadId = this.lastDownloadId = await FileSystem.getDefault().saveFileInBackground({
           url,
           filename: pathjoin(GlobalSettings().downloadRelativeLocation, nameFormatter.format(this.options.renameRule, this.context.id)) + '.zip'
         });
       } finally {
-        URL.revokeObjectURL(url);
+        FileSystem.getDefault().revokeWhenSaved(downloadId, url);
       }
     }
   }

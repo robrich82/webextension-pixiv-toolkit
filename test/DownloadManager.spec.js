@@ -125,10 +125,15 @@ test('a task downloads every page, one at a time, before saving its zip', async 
   }));
   // The background's id for the zip's download.
   expect(task.toJson().downloadId).toBe(1);
-  expect(revoke).toHaveBeenCalledWith(background.saves[0].url);
+  const [zip] = background.saves;
+  await browser._fake.flush();
+  expect(revoke).not.toHaveBeenCalledWith(zip.url);
+  browser._fake.finishDownload(zip.downloadId);
+  await browser._fake.flush();
+  expect(revoke).toHaveBeenCalledWith(zip.url);
 });
 
-test('info.json saved beside the pages has its url revoked once saved', async () => {
+test('info.json saved beside the pages keeps its url until its download finishes', async () => {
   Object.assign(window.$app.settings, { downloadSaveMode: 1, enableDownloadMetadata: true });
   const revoke = vi.spyOn(URL, 'revokeObjectURL');
   const task = createTask(1, 1, { Task: IllustDownloadTask });
@@ -138,6 +143,10 @@ test('info.json saved beside the pages has its url revoked once saved', async ()
   await vi.waitFor(() => expect(task.isComplete()).toBe(true));
 
   const info = background.saves.find(save => save.filename === 'info.json');
+  await browser._fake.flush();
+  expect(revoke).not.toHaveBeenCalledWith(info.url);
+  browser._fake.finishDownload(info.downloadId);
+  await browser._fake.flush();
   expect(revoke).toHaveBeenCalledWith(info.url);
 });
 

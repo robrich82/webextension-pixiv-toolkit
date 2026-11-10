@@ -99,8 +99,13 @@ test('fetches each page with its gridshuffle key, decrypts it, and zips it, name
   expect(zipped.map(entry => entry.name)).toEqual(['p1.png', 'p2.png']);
   expect(await zipped[0].blob.text()).toBe('decrypted encrypted 0');
   expect(savedFilenames()).toEqual(['pixiv/77_Episode 1.zip']);
-  expect(revoke).toHaveBeenCalledWith(background.saves[0].url);
   expect(completed).toHaveBeenCalledTimes(1);
+  const [zip] = background.saves;
+  await browser._fake.flush();
+  expect(revoke).not.toHaveBeenCalledWith(zip.url);
+  browser._fake.finishDownload(zip.downloadId);
+  await browser._fake.flush();
+  expect(revoke).toHaveBeenCalledWith(zip.url);
   expect(task.toJson()).toMatchObject({ type: 'PIXIV_COMIC_EPISODE', state: task.COMPLETE_STATE, progress: 1 });
 });
 

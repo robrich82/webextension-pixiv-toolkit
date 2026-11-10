@@ -197,10 +197,12 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
     if (GlobalSettings().enableDownloadMetadata && this.options.context) {
       const infoUrl = URL.createObjectURL(new Blob([JSON.stringify(this.options.context)], { type: 'application/json' }));
 
+      let infoDownloadId;
+
       try {
-        await FileSystem.getDefault().saveFileInBackground({ url: infoUrl, filename: 'info.json' });
+        infoDownloadId = await FileSystem.getDefault().saveFileInBackground({ url: infoUrl, filename: 'info.json' });
       } finally {
-        URL.revokeObjectURL(infoUrl);
+        FileSystem.getDefault().revokeWhenSaved(infoDownloadId, infoUrl);
       }
     }
 

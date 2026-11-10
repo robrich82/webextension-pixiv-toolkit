@@ -236,7 +236,12 @@ test('saves the work information beside the zip when metadata is on', async () =
 
   const info = saved.find(file => file.filename === 'info.json');
   expect(JSON.parse(await info.blob.text())).toMatchObject({ id: '125', title: 'Moving' });
-  expect(revoke).toHaveBeenCalledWith(background.saves.find(save => save.filename === 'info.json').url);
+  const infoSave = background.saves.find(save => save.filename === 'info.json');
+  await browser._fake.flush();
+  expect(revoke).not.toHaveBeenCalledWith(infoSave.url);
+  browser._fake.finishDownload(infoSave.downloadId);
+  await browser._fake.flush();
+  expect(revoke).toHaveBeenCalledWith(infoSave.url);
 });
 
 test('a custom command runs line by line, and its last output names the file', async () => {
