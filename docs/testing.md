@@ -165,12 +165,14 @@ and call `Db.getDb().database.delete()` in `afterEach`.
 Two helpers stand in for the ends of the download pipeline:
 
 - `test/helpers/downloadFileBackground.js` plays the background's end of the
-  `DownloadFile` ports. Use it for specs about tasks and the manager. Its
-  `answerSaves()` (also exported on its own) answers the manager's
-  `download:saveFile` with a real download in the fake, left `in_progress`
-  until `finishDownload()`, or with nothing for a save picked by `failSaves()`.
-  A blob url is revoked after a `downloads.search`, so flush before asserting
-  on it.
+  `DownloadFile` ports. Use it for specs about tasks and the manager. It also
+  answers the manager's `download:saveFile` (`answerSaves()`, exported on its
+  own too) with a real download in the fake, left `in_progress` until
+  `finishDownload()`, or with nothing for a save picked by `failSaves()`. A
+  spec with its own `download:saveFile` listener, the real background app
+  included, must hand those saves over with `leaveSaves()`, or two answers
+  race. A blob url is revoked after a `downloads.search`, so flush before
+  asserting on it.
 - `test/helpers/fileServer.js` replaces `fetch` under the real background
   (`DownloadFileService` → `Download`). Use it for specs about the transfer
   itself. Its responses are real `Response`s, and an abort rejects with an

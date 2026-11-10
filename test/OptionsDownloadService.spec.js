@@ -135,6 +135,8 @@ describe('download history', () => {
     HistoryService.instance = undefined;
     const backgroundApp = BackgroundApplication.createApp();
     browser.runtime.onMessage.addListener((message, sender, sendResponse) => backgroundApp.onMessage(message, sender, sendResponse));
+    // The real background saves the files, so the fake mustn't answer them too.
+    background.leaveSaves(() => true);
     vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
