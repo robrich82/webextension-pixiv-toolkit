@@ -212,6 +212,7 @@ class MultipleDownloadTask extends AbstractDownloadTask {
    */
   async onItemFinish({ blob, args, mimeType }) {
     let url = URL.createObjectURL(blob);
+    let downloadId;
     let pageNum = this.buildPageNum(args.index);
     let pageUrl = this.options.pages[args.index];
     let nameFormatter = NameFormattor.getFormatter({
@@ -224,7 +225,7 @@ class MultipleDownloadTask extends AbstractDownloadTask {
         this.formatPostName()
       ) + `.${this.resolveExtension(mimeType, pageUrl)}`;
 
-      this.lastDownloadId = await browser.runtime.sendMessage({
+      downloadId = this.lastDownloadId = await browser.runtime.sendMessage({
         to: 'ws',
         action: 'download:saveFile',
         args: {
@@ -251,7 +252,7 @@ class MultipleDownloadTask extends AbstractDownloadTask {
         ) + `.${this.resolveExtension(mimeType, pageUrl)}`;
       }
 
-      this.lastDownloadId = await browser.runtime.sendMessage({
+      downloadId = this.lastDownloadId = await browser.runtime.sendMessage({
         to: 'ws',
         action: 'download:saveFile',
         args: {
@@ -261,7 +262,7 @@ class MultipleDownloadTask extends AbstractDownloadTask {
       });
     }
 
-    URL.revokeObjectURL(url);
+    FileSystem.getDefault().revokeWhenSaved(downloadId, url);
 
     this.dispatch('progress', [this.progress]);
   }

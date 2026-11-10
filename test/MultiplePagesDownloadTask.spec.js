@@ -25,6 +25,7 @@
  *    reported success anyway. See `resolveExtension`.
  */
 import browser from './doubles/browser';
+import { answerSaves } from './helpers/saveFileBackground';
 import MultipleDownloadTask from '../src/options_page/modules/DownloadTasks/MultiplePagesDownloadTask';
 
 const buildContext = () => ({
@@ -145,6 +146,20 @@ test('a single image page (not an archive) still gets zipped as before', async (
   expect(saveFileCalls).toHaveLength(1);
   expect(saveFileCalls[0][0].args.filename).toBe('12148167_いろいろなえっち絵.zip');
   expect(task.isComplete()).toBe(true);
+});
+
+test('a page saved to a folder keeps its blob url until its download finishes (#296)', async () => {
+  const saves = answerSaves();
+  vi.spyOn(URL, 'revokeObjectURL');
+  const task = buildTask(['https://example.fanbox.cc/images/1.png'], { downloadSaveMode: 1 });
+
+  await task.onItemFinish({ blob: new Blob(['a']), args: { index: 0 }, mimeType: 'image/png' });
+  await browser._fake.flush();
+
+  expect(URL.revokeObjectURL).not.toHaveBeenCalledWith(saves[0].url);
+  browser._fake.finishDownload(saves[0].downloadId);
+  expect(URL.revokeObjectURL).toHaveBeenCalledWith(saves[0].url);
+  vi.restoreAllMocks();
 });
 
 test('formatPostName drops the {pageNum} segment rather than leaving it unresolved', () => {

@@ -82,7 +82,8 @@ the stored state — `storage.local.items`, `downloads.items`, `tabs.items`,
 
 Test-only controls live under `browser._fake`, away from the real API surface:
 `reset()`, `flush()`, `addTab()`, `setCurrentTab()`, `setUILanguage()`,
-`setManifest()`, `setLastError()`, `determineFilename()` and `lastDownload()`.
+`setManifest()`, `setLastError()`, `determineFilename()`, `lastDownload()`
+and `finishDownload()`, which ends a download and fires `downloads.onChanged`.
 `state` is the fake's own internal store (manifest, granted permissions, tab
 and window counters); a few specs reach into it directly — e.g.
 `browser._fake.state.grantedPermissions = {...}` — where no dedicated setter
@@ -158,10 +159,14 @@ and call `Db.getDb().database.delete()` in `afterEach`.
 
 ## Downloads
 
-Two helpers stand in for the ends of the download pipeline:
+Three helpers stand in for the ends of the download pipeline:
 
 - `test/helpers/downloadFileBackground.js` plays the background's end of the
   `DownloadFile` ports. Use it for specs about tasks and the manager.
+- `test/helpers/saveFileBackground.js` answers the manager's
+  `download:saveFile` with a real download in the fake, left `in_progress`
+  until `finishDownload()`. Use it to check that a blob url outlives its
+  download.
 - `test/helpers/fileServer.js` replaces `fetch` under the real background
   (`DownloadFileService` → `Download`). Use it for specs about the transfer
   itself. Its responses are real `Response`s, and an abort rejects with an

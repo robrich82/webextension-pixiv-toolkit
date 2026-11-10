@@ -271,6 +271,7 @@ function createBrowserFake() {
   const runtimeOnMessage = event();
   const runtimeOnConnect = event();
   const downloadsOnDeterminingFilename = event();
+  const downloadsOnChanged = event();
 
   const defaults = () => ({
     /** Handed back by `i18n.getUILanguage()`. */
@@ -370,7 +371,7 @@ function createBrowserFake() {
       items: new Map(),
 
       onDeterminingFilename: downloadsOnDeterminingFilename,
-      onChanged: event(),
+      onChanged: downloadsOnChanged,
 
       download: api(options => {
         const id = state.nextDownloadId++;
@@ -379,6 +380,11 @@ function createBrowserFake() {
 
         return id;
       }),
+
+      /** Matches on the query's fields by equality; enough for `{ id }` and `{ state }`. */
+      search: api(query => Array.from(browser.downloads.items.values())
+        .filter(item => Object.entries(query).every(([key, value]) => item[key] === value))
+        .map(clone)),
 
       show: api(() => undefined),
       setShelfEnabled: syncApi(() => undefined)
@@ -593,6 +599,19 @@ function createBrowserFake() {
       downloadsOnDeterminingFilename.emit(downloadItem, value => { suggestion = value; });
 
       return suggestion;
+    },
+
+    /**
+     * End a download the way the browser would, firing `downloads.onChanged`.
+     * @param {number} id
+     * @param {'complete'|'interrupted'} [state]
+     */
+    finishDownload(id, state = 'complete') {
+      const item = browser.downloads.items.get(id);
+      const previous = item.state;
+
+      item.state = state;
+      downloadsOnChanged.emit({ id, state: { previous, current: state } });
     },
 
     /** The most recently requested download, for the common one-call case. */

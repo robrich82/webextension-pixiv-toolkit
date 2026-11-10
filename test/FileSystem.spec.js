@@ -59,3 +59,68 @@ test('hands a background save to the worker over runtime messaging', async () =>
     args: { url: 'https://example.test/a.png', filename: 'a.png' }
   });
 });
+
+describe('revokeWhenSaved', () => {
+  const url = 'blob:moz-extension://manager/1';
+
+  beforeEach(() => {
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const startDownload = () => browser.downloads.download({ url, filename: 'a.png' });
+
+  test('keeps the url until the download completes, then revokes it', async () => {
+    const downloadId = await startDownload();
+
+    const revoked = fileSystem().revokeWhenSaved(downloadId, url);
+    await browser._fake.flush();
+
+    expect(URL.revokeObjectURL).not.toHaveBeenCalled();
+    browser._fake.finishDownload(downloadId);
+    await revoked;
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith(url);
+    expect(browser.downloads.onChanged.hasListeners()).toBe(false);
+  });
+
+  test('revokes the url when the download is interrupted', async () => {
+    const downloadId = await startDownload();
+
+    const revoked = fileSystem().revokeWhenSaved(downloadId, url);
+    browser._fake.finishDownload(downloadId, 'interrupted');
+    await revoked;
+
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith(url);
+  });
+
+  test('ignores the other downloads', async () => {
+    const downloadId = await startDownload();
+    const other = await startDownload();
+
+    fileSystem().revokeWhenSaved(downloadId, url);
+    browser._fake.finishDownload(other);
+    await browser._fake.flush();
+
+    expect(URL.revokeObjectURL).not.toHaveBeenCalled();
+  });
+
+  test('revokes at once when the download finished before it was asked', async () => {
+    const downloadId = await startDownload();
+    browser._fake.finishDownload(downloadId);
+
+    await fileSystem().revokeWhenSaved(downloadId, url);
+
+    expect(URL.revokeObjectURL).toHaveBeenCalledTimes(1);
+    expect(browser.downloads.onChanged.hasListeners()).toBe(false);
+  });
+
+  test('revokes at once when the save made no download', async () => {
+    await fileSystem().revokeWhenSaved(undefined, url);
+
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith(url);
+    expect(browser.downloads.search).not.toHaveBeenCalled();
+  });
+});

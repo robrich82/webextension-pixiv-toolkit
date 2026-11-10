@@ -102,9 +102,10 @@ class NovelDownloadTask extends AbstractDownloadTask {
   async saveBook(blob, extension) {
     let url = URL.createObjectURL(blob);
     let nameFormatter = NameFormatter.getFormatter({ context: this.context });
+    let downloadId;
 
     try {
-      this.lastDownloadId = await FileSystem.getDefault().saveFileInBackground({
+      downloadId = this.lastDownloadId = await FileSystem.getDefault().saveFileInBackground({
         url,
         filename: pathjoin(GlobalSettings().downloadRelativeLocation, nameFormatter.format(
           this.options.renameRule,
@@ -112,7 +113,7 @@ class NovelDownloadTask extends AbstractDownloadTask {
         )) + '.' + extension
       });
     } finally {
-      URL.revokeObjectURL(url);
+      FileSystem.getDefault().revokeWhenSaved(downloadId, url);
     }
 
     // The background answers a failed save with no download id rather than an error.
