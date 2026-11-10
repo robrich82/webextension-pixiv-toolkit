@@ -15,7 +15,8 @@
     "build:firefox": "cross-env NODE_ENV=production PLATFORM_ENV=firefox webpack --config webpack.config.js --env platform=firefox",
     "release:firefox": "node scripts/release-firefox.js",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:e2e:firefox": "node --test --test-reporter=spec \"e2e-firefox/*.test.mjs\""
   },
   "dependencies": {
     "@ffmpeg/core": "^0.12.10",
