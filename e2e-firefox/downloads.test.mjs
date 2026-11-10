@@ -1,24 +1,27 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { afterEach, test } from 'node:test';
+import { PIXEL } from './fakePixiv.mjs';
 import { closeAll, launch } from './firefox.mjs';
 
 // End-to-end downloads on Firefox, which Playwright can't load an extension
 // into. See docs/testing.md.
 
-const PIXEL = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
 // Each page's bytes end with its own marker, so a file can be matched to the page it came from.
-const pageBody = p => Buffer.concat([Buffer.from(PIXEL, 'base64'), Buffer.from(`page ${p}`)]);
+const pageBody = p => Buffer.concat([PIXEL, Buffer.from(`page ${p}`)]);
 const marker = bytes => bytes.subarray(-6).toString();
 
 const TIMEOUT = 90000;
 let firefox;
 
 afterEach(async () => {
-  await firefox?.close();
-  firefox = undefined;
-  // A launch the test timed out on never handed back a Firefox to close.
-  await closeAll();
+  try {
+    await firefox?.close();
+  } finally {
+    firefox = undefined;
+    // A launch the test timed out on never handed back a Firefox to close.
+    await closeAll();
+  }
 });
 
 /** Fail on any uncaught error in a tab, the download manager included. */
@@ -26,7 +29,7 @@ function assertNoErrors() {
   assert.deepEqual(firefox.errors, []);
 }
 
-test('an illust is fetched by the download manager and saved in a zip', { timeout: TIMEOUT }, async () => {
+test('an illust is downloaded and saved in a zip', { timeout: TIMEOUT }, async () => {
   const original = '/img-original/img/2024/03/07/10/20/30/10000001_p0.jpg';
   firefox = await launch({
     ajax: {

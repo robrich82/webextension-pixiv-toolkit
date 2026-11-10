@@ -8,7 +8,7 @@ import tls from 'node:tls';
 const FIXTURES = path.join(import.meta.dirname, '..', 'test', 'fixtures');
 const HOSTS = ['www.pixiv.net', 'i.pximg.net'];
 // 1x1 transparent PNG, served for every unmapped i.pximg.net request.
-const PIXEL = Buffer.from(
+export const PIXEL = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
   'base64'
 );
@@ -22,21 +22,23 @@ function makeCertificate() {
   const key = path.join(dir, 'key.pem');
   const cert = path.join(dir, 'cert.pem');
 
-  execFileSync('openssl', [
-    'req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '1',
-    '-subj', '/CN=pixiv e2e', '-addext', `subjectAltName=${HOSTS.map(host => `DNS:${host}`).join(',')}`,
-    '-keyout', key, '-out', cert
-  ], { stdio: 'ignore' });
+  try {
+    // stderr is kept so a missing or too-old openssl (`-addext` needs 1.1.1) says why.
+    execFileSync('openssl', [
+      'req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '1',
+      '-subj', '/CN=pixiv e2e', '-addext', `subjectAltName=${HOSTS.map(host => `DNS:${host}`).join(',')}`,
+      '-keyout', key, '-out', cert
+    ], { stdio: ['ignore', 'ignore', 'pipe'] });
 
-  const pair = { key: fs.readFileSync(key), cert: fs.readFileSync(cert) };
-  fs.rmSync(dir, { recursive: true, force: true });
-
-  return pair;
+    return { key: fs.readFileSync(key), cert: fs.readFileSync(cert) };
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 }
 
 /**
- * An HTTPS proxy standing in for pixiv, with the same rules as e2e/fixtures.js
- * mockPixiv(). Firefox sends every request through it: www.pixiv.net and
+ * An HTTPS proxy standing in for pixiv, routed like e2e/fixtures.js mockPixiv()
+ * plus inline `pximg` bodies. Firefox sends every request through it: www.pixiv.net and
  * i.pximg.net are answered from test/fixtures, and any other host is refused,
  * so a run never reaches the network.
  *
@@ -46,6 +48,8 @@ export async function startFakePixiv({ ajax, pximg = {} }) {
   const { key, cert } = makeCertificate();
   const requests = [];
   const refused = [];
+  // CONNECT sockets leave the proxy's own connection tracking, so close() ends them here.
+  const tunnels = new Set();
 
   const respond = (res, status, contentType, body) => {
     res.writeHead(status, { 'content-type': contentType, 'content-length': body.length });
@@ -84,8 +88,11 @@ export async function startFakePixiv({ ajax, pximg = {} }) {
     respond(res, 403, 'text/plain', Buffer.from('refused'));
   });
 
-  proxy.on('connect', (req, socket) => {
+  proxy.on('connect', (req, socket, head) => {
     const host = req.url.split(':')[0];
+
+    tunnels.add(socket);
+    socket.once('close', () => tunnels.delete(socket));
 
     // A tunnel resets when Firefox hangs up or exits; that isn't a failure.
     socket.on('error', () => socket.destroy());
@@ -97,6 +104,9 @@ export async function startFakePixiv({ ajax, pximg = {} }) {
     }
 
     socket.write('HTTP/1.1 200 Connection Established\r\n\r\n');
+    if (head.length) {
+      socket.unshift(head);
+    }
     const tunnel = new tls.TLSSocket(socket, { isServer: true, key, cert, ALPNProtocols: ['http/1.1'] });
     tunnel.on('error', () => tunnel.destroy());
     site.emit('connection', tunnel);
@@ -109,8 +119,8 @@ export async function startFakePixiv({ ajax, pximg = {} }) {
     requests,
     refused,
     close: () => new Promise(resolve => {
+      tunnels.forEach(socket => socket.destroy());
       proxy.closeAllConnections();
-      site.closeAllConnections();
       proxy.close(() => resolve());
     })
   };

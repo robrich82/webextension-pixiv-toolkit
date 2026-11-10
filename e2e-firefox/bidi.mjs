@@ -3,6 +3,7 @@
  * --remote-debugging-port, so no geckodriver is needed.
  * https://w3c.github.io/webdriver-bidi/
  */
+
 /** How long one command may take before it's failed, so a stalled Firefox can't hang a test. */
 const COMMAND_TIMEOUT = 30000;
 
@@ -20,14 +21,16 @@ export class Bidi {
 
     try {
       await new Promise((resolve, reject) => {
-        const timer = setTimeout(() => reject(new Error(`BiDi on port ${port} never opened`)), 10000);
+        // Not up yet: the caller retries these.
+        const notUp = message => Object.assign(new Error(message), { retryable: true });
+        const timer = setTimeout(() => reject(notUp(`BiDi on port ${port} never opened`)), 10000);
         bidi.socket.addEventListener('open', () => {
           clearTimeout(timer);
           resolve();
         }, { once: true });
         bidi.socket.addEventListener('error', () => {
           clearTimeout(timer);
-          reject(new Error(`No BiDi endpoint on port ${port}`));
+          reject(notUp(`No BiDi endpoint on port ${port}`));
         }, { once: true });
       });
       bidi.socket.addEventListener('message', event => bidi.receive(JSON.parse(event.data)));
@@ -94,21 +97,25 @@ export class Bidi {
   }
 
   /**
-   * Collect uncaught errors from every tab, extension pages included.
-   * @returns {Promise<string[]>} Filled in as errors happen
+   * Collect log entries from every tab, extension pages included. The
+   * background page and workers don't log here.
+   * @returns {Promise<{ errors: string[], consoleErrors: string[] }>} Filled in as entries arrive:
+   *   uncaught errors, and `console.error` calls
    */
-  async collectErrors() {
-    const errors = [];
-    const listeners = this.listeners.get('log.entryAdded') ?? [];
+  async collectLogs() {
+    const logs = { errors: [], consoleErrors: [] };
 
-    this.listeners.set('log.entryAdded', [...listeners, entry => {
-      if (entry.type === 'javascript' && entry.level === 'error') {
-        errors.push(`${entry.source?.context}: ${entry.text}`);
+    this.listeners.set('log.entryAdded', [entry => {
+      if (entry.level !== 'error') {
+        return;
       }
+
+      const list = entry.type === 'javascript' ? logs.errors : logs.consoleErrors;
+      list.push(`${entry.source?.context}: ${entry.text}`);
     }]);
     await this.send('session.subscribe', { events: ['log.entryAdded'] });
 
-    return errors;
+    return logs;
   }
 
   /**
@@ -123,32 +130,25 @@ export class Bidi {
   }
 
   /**
-   * Run `fn` in the page and return its JSON-serialisable result.
+   * Run `fn` in the page and return its result, which must be JSON-serialisable
+   * and nest at most 4 deep; `undefined` comes back as `null`.
    * @param {string} context
    * @param {Function} fn
    * @param {...any} args JSON-serialisable
    */
   async evaluate(context, fn, ...args) {
-    const { result, exceptionDetails } = await this.send('script.evaluate', {
+    const response = await this.send('script.evaluate', {
       expression: `(${fn})(...${JSON.stringify(args)})`,
       target: { context },
       awaitPromise: true,
-      resultOwnership: 'none',
       serializationOptions: { maxObjectDepth: 4 }
-    }).then(response => response.type === 'exception'
-      ? { exceptionDetails: response.exceptionDetails }
-      : { result: response.result });
+    });
 
-    if (exceptionDetails) {
-      throw new Error(`In the page: ${exceptionDetails.text}`);
+    if (response.type === 'exception') {
+      throw new Error(`In the page: ${response.exceptionDetails.text}`);
     }
 
-    return deserialize(result);
-  }
-
-  async close() {
-    await this.send('session.end').catch(() => {});
-    this.socket.close();
+    return deserialize(response.result);
   }
 }
 

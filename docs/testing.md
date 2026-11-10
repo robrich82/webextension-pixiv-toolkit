@@ -341,22 +341,22 @@ Two limits worth knowing before adding a test:
 
 `pnpm run test:e2e:firefox` runs `e2e-firefox/*.test.mjs` with `node --test`
 against `dist/firefox`, so run `pnpm run build:firefox` first. It needs
-`openssl` on the PATH, and Firefox on the PATH or at its default install
-location (`FIREFOX=<path>` overrides). Set `HEADED=1` to watch.
+Firefox 148 or later and `openssl` 1.1.1 or later on the PATH. Firefox is
+looked up at its default install location on Windows and macOS and on the PATH
+on Linux; `FIREFOX=<path>` overrides. A snap Firefox can't see the temp
+profile, so use the deb or a tarball. Set `HEADED=1` to watch, or
+`E2E_DEBUG=1` to log the launch steps and Firefox's stderr.
 
 - `firefox.mjs` `launch()` starts Firefox on a throwaway profile, installs the
-  build as a temporary add-on with BiDi's `webExtension.install`, and drives
-  it over WebDriver BiDi (`bidi.mjs`, no geckodriver). It doesn't use web-ext:
-  web-ext's launcher leaves Firefox running when it gives up connecting, and
-  that keeps `node --test` from exiting. `MOZ_REMOTE_ALLOW_SYSTEM_ACCESS` is set
-  so BiDi can look up the extension's `moz-extension://` host and evaluate in
-  extension pages.
+  build as a temporary add-on over WebDriver BiDi (`bidi.mjs`, no geckodriver
+  or web-ext) and drives it. A test that times out mid-launch still has its
+  Firefox closed, by `closeAll()`.
 - `fakePixiv.mjs` is an HTTPS proxy that Firefox sends every request through.
-  It answers `www.pixiv.net` and `i.pximg.net` with the same rules as
-  `mockPixiv()`, using a throwaway self-signed certificate (BiDi's
-  `acceptInsecureCerts` covers the extension's requests too), and refuses
-  every other host. A proxy, because the download manager page fetches the
-  images, not the tab BiDi navigates.
+  It answers `www.pixiv.net` and `i.pximg.net` like `mockPixiv()`, with a
+  throwaway self-signed certificate that `acceptInsecureCerts` lets Firefox
+  accept, and refuses every other host. A proxy, because the download manager
+  page fetches the images, not the tab BiDi navigates.
 - Firefox saves to a temp folder under the requested names, subfolders
-  included, so a test checks real filenames and bytes. `savedFiles()` fails
-  if a file lands anywhere else.
+  included, so a test checks real filenames and bytes. The Firefox harness's
+  `savedFiles()` fails if a file lands anywhere else, a download is
+  interrupted, or more files than expected turn up.

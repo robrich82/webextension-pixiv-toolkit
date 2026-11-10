@@ -66,6 +66,7 @@ jobs:
         run: pnpm run build
 
       - name: Build extension for Firefox
+        id: build-firefox
         run: pnpm run build:firefox
 
       - name: Upload Chrome build
@@ -90,9 +91,10 @@ jobs:
       - name: Run E2E tests
         run: pnpm run test:e2e
 
-      # Uses the runner image's Firefox and openssl; `firefox --version` fails
-      # fast if the image drops it. See docs/testing.md.
+      # Uses the runner image's Firefox and openssl (see docs/testing.md). Runs
+      # even when the Chromium E2E fails, so a failure shows which browsers it hits.
       - name: Run Firefox E2E tests
+        if: ${{ !cancelled() && steps.build-firefox.outcome == 'success' }}
         timeout-minutes: 10
         run: |
           firefox --version
