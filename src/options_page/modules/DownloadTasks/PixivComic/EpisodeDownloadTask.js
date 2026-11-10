@@ -154,7 +154,7 @@ class EpisodeDownloadTask extends MultipleDownloadTask {
         ) + `.${MimeType.getExtenstion(mimeType)}`
       });
 
-      URL.revokeObjectURL(url);
+      FileSystem.getDefault().revokeWhenSaved(this.lastDownloadId, url);
     }
 
     this.dispatch('progress', [this.progress]);

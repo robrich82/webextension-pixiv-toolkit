@@ -58,7 +58,8 @@ test('downloads under the formatted name', async () => {
 
 What it covers: `storage.local` with working `onChanged` events, `runtime`
 messaging (`sendMessage`/`onMessage`) and ports (`connect`/`onConnect`),
-`downloads` including `onDeterminingFilename`, `tabs`, `i18n`, `action`,
+`downloads` including `onDeterminingFilename`, `onChanged`, `onErased`,
+`search` and `erase`, `tabs`, `i18n`, `action`,
 `permissions`, `notifications` and `windows.update`. `webRequest` is absent
 because nothing in `src` uses it any more.
 
@@ -82,7 +83,10 @@ the stored state — `storage.local.items`, `downloads.items`, `tabs.items`,
 
 Test-only controls live under `browser._fake`, away from the real API surface:
 `reset()`, `flush()`, `addTab()`, `setCurrentTab()`, `setUILanguage()`,
-`setManifest()`, `setLastError()`, `determineFilename()` and `lastDownload()`.
+`setManifest()`, `setLastError()`, `determineFilename()`, `lastDownload()`,
+and `changeDownload()`, which sets a download's fields and fires
+`downloads.onChanged`. `finishDownload()`, `pauseDownload()` (the Firefox
+shape: `interrupted` and `paused`) and `resumeDownload()` are built on it.
 `state` is the fake's own internal store (manifest, granted permissions, tab
 and window counters); a few specs reach into it directly — e.g.
 `browser._fake.state.grantedPermissions = {...}` — where no dedicated setter
@@ -158,10 +162,15 @@ and call `Db.getDb().database.delete()` in `afterEach`.
 
 ## Downloads
 
-Two helpers stand in for the ends of the download pipeline:
+Three helpers stand in for the ends of the download pipeline:
 
 - `test/helpers/downloadFileBackground.js` plays the background's end of the
   `DownloadFile` ports. Use it for specs about tasks and the manager.
+- `test/helpers/saveFileBackground.js` answers the manager's
+  `download:saveFile` with a real download in the fake, left `in_progress`
+  until `finishDownload()`. A blob url is revoked after a `downloads.search`,
+  so flush before asserting on it. Use it to check that a blob url outlives its
+  download.
 - `test/helpers/fileServer.js` replaces `fetch` under the real background
   (`DownloadFileService` → `Download`). Use it for specs about the transfer
   itself. Its responses are real `Response`s, and an abort rejects with an

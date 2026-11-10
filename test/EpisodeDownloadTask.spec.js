@@ -5,6 +5,7 @@
  */
 import browser from './doubles/browser';
 import { fakeDownloadFileBackground } from './helpers/downloadFileBackground';
+import { answerSaves } from './helpers/saveFileBackground';
 import { decrypteImage } from '@/modules/Parser/PixivComic/ImageDecrypte';
 import EpisodeDownloadTask from '@/options_page/modules/DownloadTasks/PixivComic/EpisodeDownloadTask';
 
@@ -137,6 +138,23 @@ test('saves each page into a work folder when zipping is off', async () => {
 
   expect(savedFilenames()).toEqual(['pixiv/77_Episode 1/p1.png', 'pixiv/77_Episode 1/p2.png']);
   expect(zipped).toEqual([]);
+});
+
+test('a page saved to a work folder keeps its blob url until its download finishes (#296)', async () => {
+  settings({ globalZipMultipleImages: 0 });
+  const saves = answerSaves();
+  vi.spyOn(URL, 'revokeObjectURL');
+  const task = createTask({ totalPages: 1 });
+
+  task.start();
+  await completePages(0);
+  await vi.waitFor(() => expect(saves).toHaveLength(1));
+  await browser._fake.flush();
+
+  expect(URL.revokeObjectURL).not.toHaveBeenCalledWith(saves[0].url);
+  browser._fake.finishDownload(saves[0].downloadId);
+  await browser._fake.flush();
+  expect(URL.revokeObjectURL).toHaveBeenCalledWith(saves[0].url);
 });
 
 test('a page that fails to download fails the task, and nothing is saved', async () => {

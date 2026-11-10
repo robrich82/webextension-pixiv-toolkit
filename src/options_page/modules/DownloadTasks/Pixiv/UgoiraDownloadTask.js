@@ -180,7 +180,7 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
       }
     })
 
-    URL.revokeObjectURL(url);
+    FileSystem.getDefault().revokeWhenSaved(this.lastDownloadId, url);
 
     this.dispatch('progress', [this.progress]);
 
@@ -337,7 +337,7 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
         }
       });
 
-      URL.revokeObjectURL(animationFileUrl);
+      FileSystem.getDefault().revokeWhenSaved(this.lastDownloadId, animationFileUrl);
     });
   }
 

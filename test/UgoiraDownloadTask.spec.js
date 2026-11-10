@@ -146,8 +146,8 @@ beforeEach(() => {
   });
   browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.to === 'ws' && message.action === 'download:saveFile') {
-      saved.push({ filename: message.args.filename, blob: blobs.get(message.args.url) });
-      sendResponse(saved.length);
+      saved.push({ url: message.args.url, filename: message.args.filename, blob: blobs.get(message.args.url) });
+      browser.downloads.download(message.args).then(sendResponse);
       return true;
     }
   });
@@ -185,6 +185,22 @@ test('saves the frames zip, then converts the frames and saves the animation', a
   expect(ffmpeg.terminated).toBe(true);
   expect(task.ffmpeg).toBeNull();
   expect(fired).toEqual(['start', 'complete']);
+});
+
+test('keeps the zip and animation blob urls until their downloads finish (#296)', async () => {
+  vi.spyOn(URL, 'revokeObjectURL');
+  const task = createTask();
+
+  task.start();
+  await completeDownload(task);
+  await vi.waitFor(() => expect(task.isComplete()).toBe(true));
+  await browser._fake.flush();
+
+  expect(URL.revokeObjectURL).not.toHaveBeenCalled();
+  browser._fake.finishDownload(1);
+  browser._fake.finishDownload(2, 'interrupted');
+  await browser._fake.flush();
+  expect(URL.revokeObjectURL.mock.calls).toEqual([[saved[0].url], [saved[1].url]]);
 });
 
 test.each([
