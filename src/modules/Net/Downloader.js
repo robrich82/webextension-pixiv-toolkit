@@ -59,7 +59,8 @@ class Downloader extends Event {
     afterItemDownload = undefined
   }) {
     super();
-    this.processors = processors;
+    // Below 1 (or not a number), nothing would ever start.
+    this.processors = Math.max(1, Math.floor(Number(processors)) || 1);
     this.requestOptions = requestOptions;
     this.beforeItemDownload = beforeItemDownload;
     this.afterItemDownload = afterItemDownload;
@@ -164,7 +165,7 @@ class Downloader extends Event {
     }
 
     if (this.downloadFiles.length > 0) {
-      if (this.downloadFilePorts.length < this.processors) {
+      while (this.downloadFiles.length > 0 && this.downloadFilePorts.length < this.processors) {
         this.downloadFile(this.downloadFiles.shift());
       }
     } else if (this.downloadFilePorts.length === 0) {
