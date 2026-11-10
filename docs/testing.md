@@ -320,7 +320,9 @@ and its `extensionId`, for opening extension pages.
 Two limits worth knowing before adding a test:
 
 - Downloads made through `chrome.downloads` fire no Playwright `download`
-  event and are saved under Playwright's artifact ids, so a test can check
-  a download's state, mime and size but not the filename on disk. Filename
-  formatting is covered by the `NameFormatter` unit tests instead.
+  event and are saved under Playwright's artifact ids, so the filename on
+  disk is not the one the extension asked for. `recordSaveNames()` wraps
+  `chrome.downloads.download` in the service worker to record the requested
+  names, and `savedFiles()` pairs them with the files on disk.
+  `decodeMedia()` loads a saved image or video in a page to prove it decodes.
 - Firefox is not covered: Playwright cannot load an extension into Firefox.
