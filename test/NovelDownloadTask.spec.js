@@ -135,6 +135,15 @@ test('falls back to id_title when the rename rule is empty', async () => {
   expect(saved.map(file => file.filename)).toEqual(['novels/555_A Novel.txt']);
 });
 
+test('sanitises the id_title fallback, so a "/" in the title is not a folder', async () => {
+  const task = createTask({ renameRule: '' });
+  task.context.title = task.title = 'A/B: C?';
+
+  await task.start();
+
+  expect(saved.map(file => file.filename)).toEqual(['novels/555_A_B_ C_.txt']);
+});
+
 test('saves an epub with the cover, the description and the sections', async () => {
   const task = createTask({ bookType: 'epub', includeDescription: true });
   const fired = events(task);

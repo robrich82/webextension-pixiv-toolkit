@@ -125,14 +125,25 @@ class NameFormatter {
   }
 
   /**
+   * Make one path segment safe to save: illegal characters replaced, and cut
+   * to 200 characters, the lowest filename limit across Windows, Linux and macOS.
+   * @param {string} name
+   * @returns {string}
+   */
+  sanitizeSegment(name) {
+    return this.filterIllegalChars(name).substr(0, 200);
+  }
+
+  /**
    * Format name from rule
    * @param {string} rule
-   * @param {string} fallbackName
+   * @param {string} fallbackName A single name, sanitised like a segment: a `/` in it doesn't make a folder.
    * @returns {string}
    */
   format(rule, fallbackName = '') {
     if (!rule) {
-      return fallbackName;
+      // A Pixiv Comic episode id is a number.
+      return fallbackName ? (this.sanitizeSegment(String(fallbackName)) || `file_${Date.now()}`) : '';
     }
 
     /**
@@ -173,15 +184,9 @@ class NameFormatter {
         });
       }
 
-      let filteredName = this.filterIllegalChars(name);
+      let filteredName = this.sanitizeSegment(name);
 
-      /**
-       * Windows filename length limitation is 200
-       * Linux filename length limitation is 256
-       * Unix filename length is same as Linux
-       * So we pick 200 as the filename length limitation
-       */
-      subNames.push(filteredName.length > 0 ? filteredName.substr(0, 200) : 'undefined');
+      subNames.push(filteredName.length > 0 ? filteredName : 'undefined');
     });
 
     let name = subNames.filter(subName => subName.length > 0).join('/');
