@@ -206,7 +206,7 @@ importers:
         version: 3.0.5(vue@3.5.45)
       vuetify:
         specifier: ^4.3.0
-        version: 4.3.2(vue-i18n@11.4.18(vue@3.5.45))(vue@3.5.45)
+        version: 4.3.3(vue-i18n@11.4.18(vue@3.5.45))(vue@3.5.45)
     devDependencies:
       '@babel/core':
         specifier: ^8.0.0
@@ -3638,8 +3638,8 @@ packages:
       typescript:
         optional: true
 
-  vuetify@4.3.2:
-    resolution: {integrity: sha512-1xCK5H5zbzrzAZxl4xtkS3w+xU/u4Zmi00iuWj+q7UGKdKtJpk3z3yyef7QteZee+1xJe029PAR9vt1Clkdlwg==}
+  vuetify@4.3.3:
+    resolution: {integrity: sha512-hpT9bZP5pXcK4MnqHldY/FtmNgi7Ewjizbl4LY6hcYgLiwxaLwiD2wo/SFBPM89s9gyZry0/ywc6mMDnDohscw==}
     peerDependencies:
       typescript: '>=4.7'
       vite-plugin-vuetify: '>=2.1.0'
@@ -6986,7 +6986,7 @@ snapshots:
       '@vue/server-renderer': 3.5.45
       '@vue/shared': 3.5.45
 
-  vuetify@4.3.2(vue-i18n@11.4.18(vue@3.5.45))(vue@3.5.45):
+  vuetify@4.3.3(vue-i18n@11.4.18(vue@3.5.45))(vue@3.5.45):
     dependencies:
       '@vuetify/v0': 1.2.3(vue-i18n@11.4.18(vue@3.5.45))(vue@3.5.45)
       vue: 3.5.45
