@@ -431,3 +431,34 @@ describe('port lifecycle', () => {
     expect(first.aborted).toBe(false);
   });
 });
+
+test('a file that ends after pause(), with no abort to answer, still pauses the run, once', async () => {
+  let decrypted;
+  // Holds only the first file.
+  createDownloader([1, 2], {
+    afterItemDownload: ({ downloadFile }) => downloadFile.args.n === 1 && new Promise(resolve => { decrypted = resolve; })
+  });
+  downloader.download();
+  (await nthRequest(0)).respond('one');
+  await vi.waitFor(() => expect(decrypted).toBeDefined(), { interval: 1 });
+
+  // The file's port has already ended, so there is nothing to abort.
+  downloader.pause();
+  await browser._fake.flush();
+  expect(named('pause')).toHaveLength(0);
+
+  const paused = nextEvent('pause');
+  decrypted();
+  await paused;
+  await browser._fake.flush();
+
+  expect(named('pause')).toHaveLength(1);
+  expect(named('item-finish').map(item => item.args)).toEqual([{ n: 1 }]);
+  expect(requestedUrls()).toEqual([file(1)]);
+
+  const finished = nextEvent('finish');
+  downloader.download();
+  (await nthRequest(1)).respond('two');
+  await finished;
+  expect(requestedUrls()).toEqual([file(1), file(2)]);
+});

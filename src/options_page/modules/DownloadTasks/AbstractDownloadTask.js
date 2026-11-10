@@ -117,7 +117,8 @@ class AbstractDownloadTask extends Event {
   }
 
   /**
-   * @throws {RuntimeError}
+   * Queue a paused, failed or complete task to start again.
+   * @throws {RuntimeError} The task is downloading or processing.
    */
   tryPending() {
     if (this.isPending()) {
@@ -126,6 +127,7 @@ class AbstractDownloadTask extends Event {
 
     if (this.isPaused() || this.isFailure() || this.isComplete()) {
       this.changeState(this.PENDING_STATE);
+      return;
     }
 
     throw new RuntimeError(`Task can't be pending`);

@@ -199,7 +199,7 @@ test('pause aborts the page in flight, and start(true) downloads the episode aga
   expect(task.isPaused()).toBe(true);
   expect(background.aborted).toEqual([pageUrl(0)]);
 
-  task.changeState(task.PENDING_STATE);
+  task.tryPending();
   task.start(true);
   await vi.waitFor(() => expect(background.requests).toHaveLength(2));
   await completePages(0, 1);

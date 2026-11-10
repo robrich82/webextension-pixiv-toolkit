@@ -161,6 +161,11 @@ class Downloader extends Event {
 
   downloadNext() {
     if (this.paused) {
+      // The last file in flight has ended, whether its abort came back or it finished first.
+      if (this.downloadFilePorts.length === 0) {
+        this.dispatch('pause');
+      }
+
       return;
     }
 
@@ -248,15 +253,10 @@ class Downloader extends Event {
         this.removeDownloadFromCollection(downloadFilePort);
         this.progresses[downloadFile.seq] = 0;
 
-        // Put the file back in the queue.
+        // Put the file back in the queue. If download() was called again before
+        // this abort came back, it restarts now.
         this.downloadFiles.unshift(downloadFile);
-
-        if (!this.paused) {
-          // download() was called again before this abort came back.
-          this.downloadNext();
-        } else if (this.downloadFilePorts.length === 0) {
-          this.dispatch('pause');
-        }
+        this.downloadNext();
       }
     });
 
