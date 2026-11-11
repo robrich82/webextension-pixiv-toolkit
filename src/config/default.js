@@ -205,7 +205,7 @@ export default Object.assign({}, {
      * @since 6.0.0
      */
     illustRenameRule: '{id}_{title}',
-    mangaRenameRule: '{id}_{title}}',
+    mangaRenameRule: '{id}_{title}',
     ugoiraRenameRule: '{id}_{title}',
     novelRenameRule: '{id}_{title}',
     pixivComicEpisodeRenameRule: '{id}_{title}/{numberingTitle}_{workTitle}',
