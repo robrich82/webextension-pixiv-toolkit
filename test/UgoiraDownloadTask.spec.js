@@ -7,7 +7,7 @@
 import RealJSZip from '../src/statics/lib/jszip/jszip.js';
 import browser from './doubles/browser';
 import { fakeDownloadFileBackground } from './helpers/downloadFileBackground';
-import UgoiraDownloadTask from '@/options_page/modules/DownloadTasks/Pixiv/UgoiraDownloadTask';
+import UgoiraDownloadTask, { ZipRepo } from '@/options_page/modules/DownloadTasks/Pixiv/UgoiraDownloadTask';
 import DownloadManager from '@/options_page/modules/DownloadManager';
 
 const resourceUrl = id => `https://i.pximg.net/img-zip-ugoira/img/${id}_ugoira1920x1080.zip`;
@@ -349,6 +349,44 @@ test('a second start() while the cached zip loads converts it once', async () =>
   expect(fired).toEqual(['start', 'complete']);
   expect(ffmpegs).toHaveLength(2);
   expect(savedNames()).toEqual(['ugoira/133_Moving.zip', 'ugoira/133_Moving.gif', 'ugoira/133_Moving.gif']);
+});
+
+// #311: the task used to stay downloading for good, as the rejection went unhandled.
+describe('a cached zip that will not load', () => {
+  const notAZip = new Blob(['not a zip']);
+  const cacheGarbage = id => ZipRepo.getDefault().storeZip(`pixiv:${id}`, notAZip);
+
+  test('is dropped, and the work is downloaded and converted instead', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    cacheGarbage('160');
+    const task = createTask({ id: '160' });
+
+    await task.start();
+    await completeDownload(task);
+    await vi.waitFor(() => expect(task.isComplete()).toBe(true));
+
+    expect(background.requests).toHaveLength(1);
+    expect(savedNames()).toEqual(['ugoira/160_Moving.zip', 'ugoira/160_Moving.gif']);
+    // The download replaced the bad entry, so the next conversion uses it.
+    expect(ZipRepo.getDefault().getZip('pixiv:160')).toBeDefined();
+    expect(ZipRepo.getDefault().getZip('pixiv:160')).not.toBe(notAZip);
+    expect(console.error).toHaveBeenCalledWith('Could not load the cached zip of pixiv:160', expect.any(Error));
+  });
+
+  test('downloads nothing if the task was paused while it loaded', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    cacheGarbage('161');
+    const task = createTask({ id: '161' });
+
+    const starting = task.start();
+    task.pause();
+    await starting;
+    await browser._fake.flush();
+
+    expect(task.isPaused()).toBe(true);
+    expect(background.requests).toEqual([]);
+    expect(ZipRepo.getDefault().getZip('pixiv:161')).toBeUndefined();
+  });
 });
 
 test('retrying a ugoira whose conversion failed, through the download manager, converts the cached zip once', async () => {

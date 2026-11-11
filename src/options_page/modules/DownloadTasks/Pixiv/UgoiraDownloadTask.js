@@ -34,6 +34,10 @@ class ZipRepo {
       return zip;
     }
   }
+
+  removeZip(uid) {
+    this.container.delete(uid);
+  }
 }
 
 /**
@@ -402,10 +406,24 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
       const data = this.zipRepo.getZip(this.uid);
 
       if (data) {
+        try {
+          this.zip = new JSZip();
+          this.zipLoaded = this.zip.loadAsync(data);
+          await this.zipLoaded;
+        } catch (error) {
+          // A cached zip that won't load is dropped, and the work downloaded again.
+          console.error(`Could not load the cached zip of ${this.uid}`, error);
+          this.zipRepo.removeZip(this.uid);
+
+          if (this.isDownloading()) {
+            this.downloader.reset();
+            this.downloader.download();
+          }
+
+          return;
+        }
+
         this.data = data;
-        this.zip = new JSZip();
-        this.zipLoaded = this.zip.loadAsync(this.data);
-        await this.zipLoaded;
         this.progress = 1;
         this.dispatch('progress', [this.progress]);
         this.onFinish();
@@ -456,4 +474,5 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
   }
 }
 
+export { ZipRepo };
 export default UgoiraDownloadTask;
