@@ -249,7 +249,8 @@ test('saves the work information beside the zip when metadata is on', async () =
 describe('frame timing (#322)', () => {
   test.each([
     ['equal delays', [100, 100, 150], '1000/50'],
-    ['delays with no common step above 1ms', [33, 34, 33], '1000/1'],
+    ['delays with no common step of 10ms or more', [33, 34, 33], '1000/10'],
+    ['delays whose common step is not a multiple of 10ms', [15, 45, 30], '1000/15'],
     ['one frame', [70], '1000/70'],
     ['a frame with no usable delay', [0, 60, 90, undefined], '1000/30']
   ])('frameRate: %s', (_, delays, rate) => {

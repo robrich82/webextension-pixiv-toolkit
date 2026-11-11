@@ -307,17 +307,21 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
    * every delay is a multiple of. Without it the concat demuxer reads the JPEG frames at the image
    * demuxer's default 25 fps and rounds every delay to 40ms (#322). An output at a constant frame
    * rate repeats frames on this tick, so it is no finer than the delays need.
+   *
+   * The tick is at least 10ms, the finest step GIF stores, so frames then start on the nearest
+   * 10ms. x264 picks the H.264 level from this rate: delays like 33/34ms would otherwise ask for
+   * 1000 fps, and a level hardware decoders refuse.
    * @param {{ delay: number }[]} frames
    * @returns {string|undefined} undefined when no delay is a positive whole number of ms
    */
   static frameRate(frames) {
     const gcd = (a, b) => (b ? gcd(b, a % b) : a);
-    const tick = frames
+    const step = frames
       .map(frame => frame.delay)
       .filter(delay => Number.isInteger(delay) && delay > 0)
       .reduce(gcd, 0);
 
-    return tick ? `1000/${tick}` : undefined;
+    return step ? `1000/${Math.max(step, 10)}` : undefined;
   }
 
   /**

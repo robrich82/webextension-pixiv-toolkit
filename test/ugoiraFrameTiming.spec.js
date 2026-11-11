@@ -16,6 +16,8 @@ const FORMATS = {
 };
 const UNEVEN = [30, 70, 100, 50, 130, 60];
 const EVEN = [70, 70, 70, 70];
+// No common step of 10ms or more, so the tick is floored at 10ms.
+const NEAR = [33, 34, 33, 33, 34, 33];
 
 /** A command split the way the task splits it, with -safe 0 added the way the task adds it. */
 const command = format => {
@@ -30,7 +32,8 @@ const input = delays => UgoiraDownloadTask.concatList(
 
 const conversions = [
   ...Object.keys(FORMATS).map(format => ({ name: `${format} uneven`, input: input(UNEVEN), args: command(format) })),
-  ...Object.keys(FORMATS).map(format => ({ name: `${format} even`, input: input(EVEN), args: command(format) }))
+  ...Object.keys(FORMATS).map(format => ({ name: `${format} even`, input: input(EVEN), args: command(format) })),
+  ...['gif', 'mp4'].map(format => ({ name: `${format} near`, input: input(NEAR), args: command(format) }))
 ];
 
 /** @type {Record<string, { code: number, starts: number[], total: number }>} */
@@ -40,7 +43,8 @@ beforeAll(() => {
   // One process for every conversion: loading the 32MB core is the slow part.
   const stdout = execFileSync(process.execPath, [path.join(__dirname, 'helpers', 'ffmpegCore.cjs')], {
     input: JSON.stringify({ frames: UNEVEN.length, conversions }),
-    maxBuffer: 1 << 24
+    maxBuffer: 1 << 24,
+    timeout: 110000
   });
   const list = JSON.parse(stdout);
 
@@ -59,4 +63,8 @@ test.each([
 
 test.each(['gif', 'webm', 'mp4'])('%s with equal delays shows every frame, the last too, for its delay', format => {
   expect(results[`${format} even`]).toEqual({ code: 0, starts: [0, 70, 140, 210], total: 280 });
+});
+
+test.each(['gif', 'mp4'])('%s starts each frame on the nearest 10ms when the delays share no 10ms step', format => {
+  expect(results[`${format} near`]).toMatchObject({ code: 0, starts: [0, 30, 70, 100, 130, 170] });
 });
