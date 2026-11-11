@@ -321,10 +321,12 @@ Vitest would claim). Each test launches Playwright's full Chromium with
 load-bearing: without it Playwright runs its headless shell, which can't load
 extensions, and branded Chrome ignores `--load-extension`.
 
-Pixiv is never contacted. `mockPixiv()` in `e2e/fixtures.js` serves mapped
-`/ajax/...` paths from `test/fixtures` and 404s the rest, returns a blank
-document for every other `www.pixiv.net` page and a 1x1 PNG for unmapped
-`i.pximg.net` paths, and aborts all other http(s) requests. The fixtures also
+Pixiv is never contacted. `mockPixiv()` in `e2e/fixtures.js` answers
+`www.pixiv.net` and `i.pximg.net` from the route table in
+`e2e/fakePixivRoutes.js`, which the Firefox suite shares, and aborts all other
+http(s) requests. The table serves mapped `/ajax/...` paths from
+`test/fixtures` and 404s the rest, returns a blank document for every other
+`www.pixiv.net` page and a 1x1 PNG for unmapped `i.pximg.net` paths. The fixtures also
 expose the extension's `serviceWorker`, for reading `chrome.downloads` state,
 and its `extensionId`, for opening extension pages.
 
@@ -354,7 +356,7 @@ profile, so use the deb or a tarball. Set `HEADED=1` to watch, or
   or web-ext) and drives it. A test that times out mid-launch still has its
   Firefox closed, by `closeAll()`.
 - `fakePixiv.mjs` is an HTTPS proxy that Firefox sends every request through.
-  It answers `www.pixiv.net` and `i.pximg.net` like `mockPixiv()`, with a
+  It answers `www.pixiv.net` and `i.pximg.net` from `e2e/fakePixivRoutes.js`, with a
   throwaway self-signed certificate that `acceptInsecureCerts` lets Firefox
   accept, and refuses every other host. A proxy, because the download manager
   page fetches the images, not the tab BiDi navigates.
