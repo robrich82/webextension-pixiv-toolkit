@@ -125,6 +125,44 @@ describe('DownloadOptions', () => {
     expect(browser.storage.local.items.maxProcessDownloadTasks).toBe(1);
   });
 
+  // #301: the options page can read storage before Application.onInstalled writes the defaults.
+  test.each([
+    ['missing', undefined],
+    ['null', null],
+    ['NaN', NaN]
+  ])('shows the default maxProcessDownloadTasks and writes nothing when the stored value is %s', async (_, stored) => {
+    const wrapper = shallowMountOption(DownloadOptions, {
+      browserItems: { ...browserItems, maxProcessDownloadTasks: stored }
+    });
+    await wrapper.vm.$nextTick();
+    await browser._fake.flush();
+
+    expect(wrapper.vm.maxProcessDownloadTasks).toBe(3);
+    expect(browser.storage.local.items).not.toHaveProperty('maxProcessDownloadTasks');
+  });
+
+  test('does not persist maxProcessDownloadTasks while the field is empty', async () => {
+    const wrapper = shallowMountOption(DownloadOptions, { browserItems });
+    await wrapper.vm.$nextTick();
+
+    wrapper.vm.maxProcessDownloadTasks = '';
+    await wrapper.vm.$nextTick();
+    await browser._fake.flush();
+
+    expect(browser.storage.local.items).not.toHaveProperty('maxProcessDownloadTasks');
+  });
+
+  test('persists a stored maxProcessDownloadTasks the user changes', async () => {
+    const wrapper = shallowMountOption(DownloadOptions, { browserItems });
+    await wrapper.vm.$nextTick();
+
+    wrapper.vm.maxProcessDownloadTasks = '5';
+    await wrapper.vm.$nextTick();
+    await browser._fake.flush();
+
+    expect(browser.storage.local.items.maxProcessDownloadTasks).toBe(5);
+  });
+
   describe('onDownloadRelativeLocationFieldBlurHandler', () => {
     test('persists a valid relative location and remembers it as the fallback', async () => {
       const wrapper = shallowMountOption(DownloadOptions, {

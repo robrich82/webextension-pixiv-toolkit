@@ -90,6 +90,7 @@
 import GrantPermissionsBtn from "@@/components/options/GrantPermissionsBtn";
 import DownloadsShelfOption from "@@/components/options/DownloadsShelfOption";
 import browser from '@/modules/Extension/browser';
+import defaultSettings from '@/config/default';
 
 export default {
   components: {
@@ -149,6 +150,11 @@ export default {
     maxProcessDownloadTasks(val, oldVal) {
       val = parseInt(val);
 
+      // An emptied field, or a page that read storage before the install defaults landed.
+      if (Number.isNaN(val)) {
+        return;
+      }
+
       if (val < 1) {
         this.maxProcessDownloadTasks = val = 1;
       }
@@ -180,7 +186,11 @@ export default {
     this.enableDownloadMetadata = !!this.browserItems.enableDownloadMetadata;
     this.downloadSaveAs = !!this.browserItems.downloadSaveAs;
     this.downloadTasksWhenDownloadingImages = this.browserItems.downloadTasksWhenDownloadingImages;
-    this.maxProcessDownloadTasks = this.browserItems.maxProcessDownloadTasks;
+    // Missing before the install defaults land; null (Chrome) or NaN (Firefox) if a NaN was saved.
+    const maxProcessDownloadTasks = parseInt(this.browserItems.maxProcessDownloadTasks);
+    this.maxProcessDownloadTasks = Number.isNaN(maxProcessDownloadTasks) ?
+      defaultSettings.maxProcessDownloadTasks :
+      maxProcessDownloadTasks;
     this.multipleDownloadsGapTime = parseInt(this.browserItems.multipleDownloadsGapTime) || 150;
   },
 
