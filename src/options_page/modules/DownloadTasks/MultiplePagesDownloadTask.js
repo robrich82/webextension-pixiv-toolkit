@@ -43,6 +43,11 @@ class MultipleDownloadTask extends AbstractDownloadTask {
   downloader;
 
   /**
+   * @type {boolean} Every page is in, and info.json and the zip are being saved.
+   */
+  savingRest = false;
+
+  /**
    *
    * @param {MultipleDownloadTaskOptions} options
    */
@@ -296,6 +301,8 @@ class MultipleDownloadTask extends AbstractDownloadTask {
    * @fires MultipleDownloadTask#failure
    */
   async onFinish() {
+    this.savingRest = true;
+
     try {
       await this.saveRest();
     } catch (error) {
@@ -303,6 +310,8 @@ class MultipleDownloadTask extends AbstractDownloadTask {
       this.lastError = error;
       this.onFailure();
       return;
+    } finally {
+      this.savingRest = false;
     }
 
     this.changeState(this.COMPLETE_STATE);
@@ -384,9 +393,15 @@ class MultipleDownloadTask extends AbstractDownloadTask {
   }
 
   /**
+   * Pause a pending or downloading task. Once every page is in, the rest is saved whatever
+   * happens: a resume would find nothing left to download and save the zip a second time.
    * @override
    */
   pause() {
+    if (!(this.isPending() || this.isDownloading()) || this.savingRest) {
+      return;
+    }
+
     this.changeState(this.PAUSED_STATE);
     this.downloader.pause();
   }

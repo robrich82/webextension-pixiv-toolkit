@@ -185,6 +185,49 @@ test('a page still saving when the task pauses is kept, and the task resumes fro
   expect(background.saves.map(save => save.filename)).toEqual(['1/p2.png']);
 });
 
+// #306: a pause while the zip saves used to leave a resume that saved it again.
+test('pausing while the zip saves is ignored: the task completes, and the zip is saved once', async () => {
+  let releaseSave;
+  background.leaveSaves(save => save.filename === '1.zip');
+  browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.action === 'download:saveFile' && message.args.filename === '1.zip') {
+      releaseSave = () => sendResponse(7);
+      return true;
+    }
+  });
+  const task = createTask(1, 2);
+  await manager.addTask(task);
+  for (const p of [0, 1]) {
+    await vi.waitFor(() => expect(background.request(page(1, p))).toBeDefined());
+    background.request(page(1, p)).complete();
+  }
+  await vi.waitFor(() => expect(releaseSave).toBeDefined());
+
+  await manager.pauseTask(task.id);
+  expect(task.isDownloading()).toBe(true);
+  await manager.startTask(task.id);
+  releaseSave();
+  await vi.waitFor(() => expect(task.isComplete()).toBe(true));
+  await browser._fake.flush();
+
+  const zipSaves = browser.runtime.sendMessage.mock.calls
+    .filter(([message]) => message.action === 'download:saveFile' && message.args.filename === '1.zip');
+  expect(zipSaves).toHaveLength(1);
+  expect(background.aborted).toEqual([]);
+});
+
+test.each([
+  ['complete', 4],
+  ['failed', -1]
+])('pausing a %s task leaves its state alone', async (_, state) => {
+  const task = createTask(1);
+  task.changeState(state);
+
+  task.pause();
+
+  expect(task.state).toBe(state);
+});
+
 test('a task whose page fails ends in failure, saves nothing, and frees its slot', async () => {
   manager.setMaxDownloadingTasks(1);
   vi.spyOn(console, 'error').mockImplementation(() => {});
