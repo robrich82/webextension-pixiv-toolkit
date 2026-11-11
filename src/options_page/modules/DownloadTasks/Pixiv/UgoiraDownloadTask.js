@@ -237,7 +237,6 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
 
       await this.zipLoaded;
 
-      let framesContent = '';
       let loadedFiles = [];
 
       /**
@@ -250,18 +249,12 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
         let filename = '0'.repeat(6 - indexStr.length) + i + '.jpg';
         await this.ffmpeg.writeFile(filename, data);
         loadedFiles.push(filename);
-
-        /**
-         * Build frames information
-         */
-        framesContent += `file '${frame.file}'` + "\r\n";
-        framesContent += `duration ${frame.delay / 1000}` + "\r\n";
       }
 
       /**
        * Add frames to ffmpeg file system
        */
-      await this.ffmpeg.writeFile('input.txt', framesContent);
+      await this.ffmpeg.writeFile('input.txt', UgoiraDownloadTask.concatList(this.options.frames));
       loadedFiles.push('input.txt');
 
       /**
@@ -281,6 +274,8 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
           ffmpegCommands.push(line.trim().split(' '));
         });
       }
+
+      ffmpegCommands.forEach(UgoiraDownloadTask.allowConcatOptions);
 
       const lastCommand = ffmpegCommands[ffmpegCommands.length - 1];
       const outputFilename = lastCommand[lastCommand.length - 1];
@@ -304,6 +299,54 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
     } finally {
       this.ffmpeg.terminate();
       this.ffmpeg = null;
+    }
+  }
+
+  /**
+   * The frame rate input.txt gives each frame, as `1000/<ms>`: one tick is the largest step that
+   * every delay is a multiple of. Without it the concat demuxer reads the JPEG frames at the image
+   * demuxer's default 25 fps and rounds every delay to 40ms (#322). An output at a constant frame
+   * rate repeats frames on this tick, so it is no finer than the delays need.
+   * @param {{ delay: number }[]} frames
+   * @returns {string|undefined} undefined when no delay is a positive whole number of ms
+   */
+  static frameRate(frames) {
+    const gcd = (a, b) => (b ? gcd(b, a % b) : a);
+    const tick = frames
+      .map(frame => frame.delay)
+      .filter(delay => Number.isInteger(delay) && delay > 0)
+      .reduce(gcd, 0);
+
+    return tick ? `1000/${tick}` : undefined;
+  }
+
+  /**
+   * input.txt: the concat demuxer's list of frames, each with its frame rate and delay.
+   * @param {{ file: string, delay: number }[]} frames
+   * @returns {string}
+   */
+  static concatList(frames) {
+    const frameRate = UgoiraDownloadTask.frameRate(frames);
+
+    return frames.map(frame =>
+      `file '${frame.file}'\r\n` +
+      (frameRate ? `option framerate ${frameRate}\r\n` : '') +
+      `duration ${frame.delay / 1000}\r\n`
+    ).join('');
+  }
+
+  /**
+   * input.txt's `option` lines need the concat demuxer's unsafe mode, so put `-safe 0` before
+   * `-i input.txt` in each command that reads it, custom ones included. input.txt only names the
+   * frame files written here.
+   * @param {string[]} args A command's arguments, changed in place
+   */
+  static allowConcatOptions(args) {
+    const input = args.findIndex((arg, i) => arg === '-i' && args[i + 1] === 'input.txt');
+    const before = args.slice(0, input);
+
+    if (input > -1 && before.includes('concat') && !before.includes('-safe')) {
+      args.splice(input, 0, '-safe', '0');
     }
   }
 

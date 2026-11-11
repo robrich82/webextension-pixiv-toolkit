@@ -12,7 +12,7 @@ You just need to set arguments of ffmpeg command, like this `-f concat -i input.
 
 There are some usually convert commend settings:
 * Convert to gif: `-f concat -i input.txt -plays 0 out.gif`
-* Convert to mp4: `-f concat -i input.txt -safe 0 -c:v libx264 -pix_fmt yuv420p -vf pad=ceil(iw/2)*2:ceil(ih/2)*2 -movflags +faststart output.mp4`
+* Convert to mp4: `-f concat -i input.txt -safe 0 -c:v libx264 -pix_fmt yuv420p -vf pad=ceil(iw/2)*2:ceil(ih/2)*2 -fps_mode vfr -movflags +faststart output.mp4`
 * Convert to apng: `-f concat -i input.txt -plays 0 output.apng`
 * Convert to webm: `-f concat -i input.txt -safe 0 output.webm`
 
@@ -30,6 +30,6 @@ There are some usually convert commend settings:
 这里有些常用转换设置：
 
 * 转换为gif：`-f concat -i input.txt -plays 0 out.gif`
-* 转换为mp4：`-f concat -i input.txt -safe 0 -c:v libx264 -pix_fmt yuv420p -vf pad=ceil(iw/2)*2:ceil(ih/2)*2 -movflags +faststart output.mp4`
+* 转换为mp4：`-f concat -i input.txt -safe 0 -c:v libx264 -pix_fmt yuv420p -vf pad=ceil(iw/2)*2:ceil(ih/2)*2 -fps_mode vfr -movflags +faststart output.mp4`
 * 转换为apng：`-f concat -i input.txt -plays 0 output.apng`
 * 转换为webm: `-f concat -i input.txt -safe 0 output.webm`

@@ -177,10 +177,12 @@ test('saves the frames zip, then converts the frames and saves the animation', a
 
   const [ffmpeg] = ffmpegs;
   expect(new TextDecoder().decode(ffmpeg.files.get('000001.jpg'))).toBe('frame 1');
+  // 100ms and 250ms are both whole 50ms ticks, so neither is rounded (#322).
   expect(ffmpeg.files.get('input.txt')).toBe(
-    "file '000000.jpg'\r\nduration 0.1\r\nfile '000001.jpg'\r\nduration 0.25\r\n"
+    "file '000000.jpg'\r\noption framerate 1000/50\r\nduration 0.1\r\n" +
+    "file '000001.jpg'\r\noption framerate 1000/50\r\nduration 0.25\r\n"
   );
-  expect(ffmpeg.commands).toEqual([['-f', 'concat', '-i', 'input.txt', '-plays', '0', 'out.gif']]);
+  expect(ffmpeg.commands).toEqual([['-f', 'concat', '-safe', '0', '-i', 'input.txt', '-plays', '0', 'out.gif']]);
   expect(ffmpeg.deleted).toEqual(['000000.jpg', '000001.jpg', 'input.txt', 'out.gif']);
   expect(ffmpeg.terminated).toBe(true);
   expect(task.ffmpeg).toBeNull();
@@ -244,6 +246,50 @@ test('saves the work information beside the zip when metadata is on', async () =
   expect(revoke).toHaveBeenCalledWith(infoSave.url);
 });
 
+describe('frame timing (#322)', () => {
+  test.each([
+    ['equal delays', [100, 100, 150], '1000/50'],
+    ['delays with no common step above 1ms', [33, 34, 33], '1000/1'],
+    ['one frame', [70], '1000/70'],
+    ['a frame with no usable delay', [0, 60, 90, undefined], '1000/30']
+  ])('frameRate: %s', (_, delays, rate) => {
+    expect(UgoiraDownloadTask.frameRate(delays.map(delay => ({ delay })))).toBe(rate);
+  });
+
+  test('frameRate is undefined when no delay is a positive whole number of ms', () => {
+    expect(UgoiraDownloadTask.frameRate([{ delay: 0 }, { delay: 12.5 }])).toBeUndefined();
+  });
+
+  test.each([
+    ['adds -safe 0 before -i', '-f concat -i input.txt out.gif', '-f concat -safe 0 -i input.txt out.gif'],
+    ['keeps a -safe the command already has', '-f concat -safe 0 -i input.txt out.gif', '-f concat -safe 0 -i input.txt out.gif'],
+    ['adds one when the command has -safe only after -i, where it is an output option',
+      '-f concat -i input.txt -safe 0 out.webm', '-f concat -safe 0 -i input.txt -safe 0 out.webm'],
+    ['leaves a command that does not read input.txt', '-i step.mkv out.webm', '-i step.mkv out.webm'],
+    ['leaves a command that reads input.txt without the concat demuxer', '-i input.txt out.gif', '-i input.txt out.gif']
+  ])('allowConcatOptions %s', (_, command, expected) => {
+    const args = command.split(' ');
+
+    UgoiraDownloadTask.allowConcatOptions(args);
+
+    expect(args.join(' ')).toBe(expected);
+  });
+
+  test('frames without a usable delay leave input.txt as it was', async () => {
+    const task = createTask({
+      id: '170',
+      frames: [{ file: '000000.jpg', delay: 0 }, { file: '000001.jpg', delay: 0 }]
+    });
+
+    task.start();
+    await completeDownload(task);
+    await vi.waitFor(() => expect(task.isComplete()).toBe(true));
+
+    expect(ffmpegs[0].files.get('input.txt'))
+      .toBe("file '000000.jpg'\r\nduration 0\r\nfile '000001.jpg'\r\nduration 0\r\n");
+  });
+});
+
 test('a custom command runs line by line, and its last output names the file', async () => {
   const task = createTask({
     id: '126',
@@ -255,8 +301,9 @@ test('a custom command runs line by line, and its last output names the file', a
   await completeDownload(task);
   await vi.waitFor(() => expect(task.isComplete()).toBe(true));
 
+  // Only the line reading input.txt needs -safe 0 for its `option` lines.
   expect(ffmpegs[0].commands).toEqual([
-    ['-f', 'concat', '-i', 'input.txt', 'step.mkv'],
+    ['-f', 'concat', '-safe', '0', '-i', 'input.txt', 'step.mkv'],
     ['-i', 'step.mkv', 'output.webm']
   ]);
   expect(savedNames()).toEqual(['ugoira/126_Moving.zip', 'ugoira/126_Moving.webm']);
@@ -329,7 +376,7 @@ test('a second task for the same work converts the cached zip without downloadin
 
   expect(background.requests).toHaveLength(1);
   expect(second.progress).toBe(1);
-  expect(ffmpegs[1].commands).toEqual([['-f', 'concat', '-i', 'input.txt', 'output.apng']]);
+  expect(ffmpegs[1].commands).toEqual([['-f', 'concat', '-safe', '0', '-i', 'input.txt', 'output.apng']]);
   expect(savedNames()).toEqual(['ugoira/130_Moving.zip', 'ugoira/130_Moving.gif', 'ugoira/130_Moving.apng']);
 });
 
