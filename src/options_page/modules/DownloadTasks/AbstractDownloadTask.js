@@ -117,15 +117,17 @@ class AbstractDownloadTask extends Event {
   }
 
   /**
-   * Queue a paused, failed or complete task to start again.
-   * @throws {RuntimeError} The task is downloading or processing.
+   * Queue a paused or failed task to start again. A complete task can't be: it has nothing
+   * left to download, and starting it would only save its files again. Downloading the
+   * work again goes through `addDownload` with `redownload`, which replaces the task.
+   * @throws {RuntimeError} The task is downloading, processing or complete.
    */
   tryPending() {
     if (this.isPending()) {
       return;
     }
 
-    if (this.isPaused() || this.isFailure() || this.isComplete()) {
+    if (this.isPaused() || this.isFailure()) {
       this.changeState(this.PENDING_STATE);
       return;
     }
