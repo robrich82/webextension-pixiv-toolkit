@@ -94,11 +94,13 @@ class IllustAdapter {
    * @returns {UgoiraDownloadTask}
    */
   createUgoiraDownloadTask(resource, options) {
+    // MP4 is re-encoded to H.264 (frames copied as is make MJPEG, which browsers don't play),
+    // and yuv420p needs even dimensions, hence the pad.
     const fixedFFmpegCliArgs = {
       ugoiraFFmpegGIFCliArgs: '-f concat -i input.txt -plays 0 out.gif',
       ugoiraFFmpegAPNGCliArgs: '-f concat -i input.txt -plays 0 output.apng',
       ugoiraFFmpegWEBMCliArgs: '-f concat -i input.txt -safe 0 output.webm',
-      ugoiraFFmpegMP4CliArgs: '-f concat -i input.txt -safe 0 -c copy output.mp4'
+      ugoiraFFmpegMP4CliArgs: '-f concat -i input.txt -safe 0 -c:v libx264 -pix_fmt yuv420p -vf pad=ceil(iw/2)*2:ceil(ih/2)*2 -movflags +faststart output.mp4'
     };
 
     let ffmpegCommandArgs = this.settings.ugoiraCustomFFmpegCommand;

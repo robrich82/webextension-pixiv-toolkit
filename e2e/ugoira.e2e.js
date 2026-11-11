@@ -40,20 +40,14 @@ const formats = [
   { label: 'DL GIF', mime: 'image/gif' },
   { label: 'DL APNG', mime: 'image/apng' },
   { label: 'DL WEBM', mime: 'video/webm' },
-  // `-c copy` stores the JPEG frames as an MJPEG stream, which browsers don't play.
-  { label: 'DL MP4', mime: 'video/mp4', decodes: false }
+  { label: 'DL MP4', mime: 'video/mp4' }
 ];
 
-for (const { label, mime, decodes = true } of formats) {
+for (const { label, mime } of formats) {
   test(`${label} saves the frames zip and the converted animation`, async ({ context, serviceWorker }) => {
     const errors = collectErrors(context);
 
     const animation = await convert(context, serviceWorker, label, mime);
-
-    if (!decodes) {
-      expect(errors).toEqual([]);
-      return;
-    }
 
     const decoded = await decodeMedia(context, animation.filename, mime);
     expect(decoded).toMatchObject(FRAME_SIZE);
