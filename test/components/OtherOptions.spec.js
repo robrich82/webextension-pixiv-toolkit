@@ -12,7 +12,9 @@ const originalFileReader = global.FileReader;
 describe('OtherOptions', () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.useRealTimers();
     delete URL.createObjectURL;
+    delete URL.revokeObjectURL;
     delete window.alert;
     global.FileReader = originalFileReader;
     Object.assign(defaultSettings, defaultSettingsSnapshot);
@@ -48,6 +50,7 @@ describe('OtherOptions', () => {
 
   test('exportSettings() downloads every current setting by default', () => {
     URL.createObjectURL = vi.fn(() => 'blob:fake');
+    URL.revokeObjectURL = vi.fn();
     const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
 
     const wrapper = shallowMountOption(OtherOptions, {
@@ -60,8 +63,23 @@ describe('OtherOptions', () => {
     expect(clickSpy).toHaveBeenCalled();
   });
 
+  test('exportSettings() revokes the blob url after the click, not during it', () => {
+    vi.useFakeTimers();
+    URL.createObjectURL = vi.fn(() => 'blob:fake');
+    URL.revokeObjectURL = vi.fn();
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    const wrapper = shallowMountOption(OtherOptions, { browserItems: { language: 'en' } });
+
+    wrapper.vm.exportSettings();
+    expect(URL.revokeObjectURL).not.toHaveBeenCalled();
+
+    vi.runAllTimers();
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:fake');
+  });
+
   test('exportSettings() writes the current settings as they are', () => {
     URL.createObjectURL = vi.fn();
+    URL.revokeObjectURL = vi.fn();
     const captured = [];
     vi.spyOn(global, 'Blob').mockImplementation(function (parts) {
       captured.push(JSON.parse(parts[0]));

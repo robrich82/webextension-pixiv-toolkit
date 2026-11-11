@@ -269,12 +269,15 @@ export default {
         let items = await Db.getDb().historyRepo().exportItems();
         let blob = new Blob([JSON.stringify(items)], { type: 'application/json' });
         let a = document.createElement('a');
+        const url = URL.createObjectURL(blob);
 
-        a.href = URL.createObjectURL(blob);
+        a.href = url;
         a.download = 'pixiv_toolkit_history-' + Date.now() + '.json';
         document.body.appendChild(a);
         a.click();
         a.remove();
+        // Deferred: revoking straight after the click can cancel the download.
+        setTimeout(() => URL.revokeObjectURL(url));
       } catch (error) {
         console.error('Unable to export history', error);
         alert(this.tl('_unknown_error'));
