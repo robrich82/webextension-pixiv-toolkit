@@ -18,14 +18,10 @@
  * 3. Some zip attachment responses come back with no Content-Type header at
  *    all, so `mimeType` is null. `isSingleArchivePage` used to call
  *    `MimeType.getExtenstion(null)` unguarded, throwing before any save was
- *    attempted - the task still raced to "complete" (see `onFinish`'s
- *    `singleArchivePageSaved` check running on the downloader's `finish`
- *    event, dispatched synchronously right after `item-finish` without
- *    waiting on this async handler), so nothing was ever saved and the UI
- *    reported success anyway. See `resolveExtension`.
+ *    attempted, so nothing was saved. See `resolveExtension`.
  */
 import browser from './doubles/browser';
-import { answerSaves } from './helpers/saveFileBackground';
+import { answerSaves } from './helpers/downloadFileBackground';
 import MultipleDownloadTask from '../src/options_page/modules/DownloadTasks/MultiplePagesDownloadTask';
 
 const buildContext = () => ({
@@ -61,7 +57,11 @@ const buildTask = (pages, settingsOverrides = {}) => {
   });
 };
 
+/** The background's answer to every save, see answerSaves(). */
+let saves;
+
 beforeEach(() => {
+  saves = answerSaves().saves;
   globalThis.JSZip = class FakeJSZip {
     file = vi.fn();
 
@@ -153,7 +153,6 @@ test.each([
   ['a page saved to a folder', 'https://example.fanbox.cc/images/1.png', 'image/png', { downloadSaveMode: 1 }],
   ['a single zip page', 'https://example.fanbox.cc/files/archive.zip', 'application/zip', {}]
 ])('%s keeps its blob url until its download finishes (#296)', async (_, page, mimeType, settings) => {
-  const saves = answerSaves();
   vi.spyOn(URL, 'revokeObjectURL');
   const task = buildTask([page], settings);
 

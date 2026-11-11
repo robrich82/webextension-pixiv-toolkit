@@ -5,7 +5,6 @@ import FileSystem from "../FileSystem";
 import NameFormattor from "@/modules/Util/NameFormatter";
 import MimeType from "@/modules/Util/MimeType";
 import pathjoin from "@/modules/Util/pathjoin";
-import browser from "@/modules/Extension/browser";
 import { fixFilename } from "@/modules/Util";
 
 /**
@@ -60,6 +59,8 @@ class MultipleDownloadTask extends AbstractDownloadTask {
     this.context = options.context;
     this.zip = new JSZip();
     this.zipMultipleImages = GlobalSettings().globalZipMultipleImages;
+    // Fixed per task: a retry that only re-saves the zip must not switch to saving pages one by one.
+    this.downloadSaveMode = GlobalSettings().downloadSaveMode;
     this.downloader = new Downloader({
       processors: GlobalSettings().downloadTasksWhenDownloadingImages
     });
@@ -133,7 +134,7 @@ class MultipleDownloadTask extends AbstractDownloadTask {
   }
 
   shouldZipFile() {
-    if (GlobalSettings().downloadSaveMode !== 0) {
+    if (this.downloadSaveMode !== 0) {
       return false;
     }
 
@@ -194,7 +195,7 @@ class MultipleDownloadTask extends AbstractDownloadTask {
   }
 
   dontCreateWorkFolder() {
-    if (GlobalSettings().downloadSaveMode !== 1) {
+    if (this.downloadSaveMode !== 1) {
       return false;
     }
 
@@ -211,58 +212,52 @@ class MultipleDownloadTask extends AbstractDownloadTask {
    * @fires MultipleDownloadTask#progress
    */
   async onItemFinish({ blob, args, mimeType }) {
-    let url = URL.createObjectURL(blob);
-    let downloadId;
     let pageNum = this.buildPageNum(args.index);
     let pageUrl = this.options.pages[args.index];
     let nameFormatter = NameFormattor.getFormatter({
       context: Object.assign({}, this.context, { pageNum })
     });
+    let url = URL.createObjectURL(blob);
+    let downloadId;
 
-    if (this.isSingleArchivePage(mimeType, pageUrl)) {
-      const filename = pathjoin(
-        GlobalSettings().downloadRelativeLocation,
-        this.formatPostName()
-      ) + `.${this.resolveExtension(mimeType, pageUrl)}`;
+    try {
+      if (this.isSingleArchivePage(mimeType, pageUrl)) {
+        const filename = pathjoin(
+          GlobalSettings().downloadRelativeLocation,
+          this.formatPostName()
+        ) + `.${this.resolveExtension(mimeType, pageUrl)}`;
 
-      downloadId = this.lastDownloadId = await browser.runtime.sendMessage({
-        to: 'ws',
-        action: 'download:saveFile',
-        args: {
+        downloadId = this.lastDownloadId = await FileSystem.getDefault().saveFileInBackground({
           url,
           filename: fixFilename(filename)
-        }
-      });
+        });
 
-      this.singleArchivePageSaved = true;
-    } else if (this.shouldZipFile()) {
-      const file = nameFormatter.format(this.options.renameImageRule, `p${pageNum}`) + `.${this.resolveExtension(mimeType, pageUrl)}`;
-      this.zip.file(fixFilename(file), blob, { date: this.now });
-    } else {
-      let filename = GlobalSettings().downloadRelativeLocation;
-
-      if (this.type !== 'PIXIV_MANGA' && this.dontCreateWorkFolder()) {
-        filename = pathjoin(filename,
-          nameFormatter.format((GlobalSettings().combinWRRuleAndIRRuleWhenDontCreateWorkFolder === 0 ? '' : (this.options.renameRule + '_')) + this.options.renameImageRule, `${this.context.id}-p${pageNum}`)
-        ) + `.${this.resolveExtension(mimeType, pageUrl)}`;
+        this.singleArchivePageSaved = true;
+      } else if (this.shouldZipFile()) {
+        const file = nameFormatter.format(this.options.renameImageRule, `p${pageNum}`) + `.${this.resolveExtension(mimeType, pageUrl)}`;
+        this.zip.file(fixFilename(file), blob, { date: this.now });
       } else {
-        filename = pathjoin(filename,
-          nameFormatter.format(this.options.renameRule, this.context.id),
-          nameFormatter.format(this.options.renameImageRule, `p${pageNum}`)
-        ) + `.${this.resolveExtension(mimeType, pageUrl)}`;
-      }
+        let filename = GlobalSettings().downloadRelativeLocation;
 
-      downloadId = this.lastDownloadId = await browser.runtime.sendMessage({
-        to: 'ws',
-        action: 'download:saveFile',
-        args: {
+        if (this.type !== 'PIXIV_MANGA' && this.dontCreateWorkFolder()) {
+          filename = pathjoin(filename,
+            nameFormatter.format((GlobalSettings().combinWRRuleAndIRRuleWhenDontCreateWorkFolder === 0 ? '' : (this.options.renameRule + '_')) + this.options.renameImageRule, `${this.context.id}-p${pageNum}`)
+          ) + `.${this.resolveExtension(mimeType, pageUrl)}`;
+        } else {
+          filename = pathjoin(filename,
+            nameFormatter.format(this.options.renameRule, this.context.id),
+            nameFormatter.format(this.options.renameImageRule, `p${pageNum}`)
+          ) + `.${this.resolveExtension(mimeType, pageUrl)}`;
+        }
+
+        downloadId = this.lastDownloadId = await FileSystem.getDefault().saveFileInBackground({
           url,
           filename: fixFilename(filename)
-        }
-      });
+        });
+      }
+    } finally {
+      FileSystem.getDefault().revokeWhenSaved(downloadId, url);
     }
-
-    FileSystem.getDefault().revokeWhenSaved(downloadId, url);
 
     this.dispatch('progress', [this.progress]);
   }
@@ -277,36 +272,45 @@ class MultipleDownloadTask extends AbstractDownloadTask {
 
   async saveInfo() {
     const metaFilename = 'info.json';
-    const that = this;
-
-    return new Promise(async resolve => {
-      const blob = new Blob([JSON.stringify(that.options.context)], {
-        type: 'application/json'
-      });
-
-      if (that.shouldZipFile()) {
-        that.zip.file(metaFilename, blob, { date: this.now });
-      } else {
-        await browser.runtime.sendMessage({
-          to: 'ws',
-          action: 'download:saveFile',
-          args: {
-            url: URL.createObjectURL(blob),
-            filename: metaFilename
-          }
-        })
-      }
-      resolve();
+    const blob = new Blob([JSON.stringify(this.options.context)], {
+      type: 'application/json'
     });
+
+    if (this.shouldZipFile()) {
+      this.zip.file(metaFilename, blob, { date: this.now });
+    } else {
+      const url = URL.createObjectURL(blob);
+      let downloadId;
+
+      try {
+        downloadId = await FileSystem.getDefault().saveFileInBackground({ url, filename: metaFilename });
+      } finally {
+        FileSystem.getDefault().revokeWhenSaved(downloadId, url);
+      }
+    }
   }
 
   /**
+   * Save what is left once every page is in (info.json, the zip), then complete.
    * @fires MultipleDownloadTask#complete
+   * @fires MultipleDownloadTask#failure
    */
   async onFinish() {
+    try {
+      await this.saveRest();
+    } catch (error) {
+      console.error(`Could not save ${this.id}`, error);
+      this.lastError = error;
+      this.onFailure();
+      return;
+    }
+
+    this.changeState(this.COMPLETE_STATE);
+    this.dispatch('complete');
+  }
+
+  async saveRest() {
     if (this.singleArchivePageSaved) {
-      this.changeState(this.COMPLETE_STATE);
-      this.dispatch('complete');
       return;
     }
 
@@ -318,28 +322,21 @@ class MultipleDownloadTask extends AbstractDownloadTask {
     }
 
     if (this.shouldZipFile()) {
-      let filename = pathjoin(
+      const filename = fixFilename(pathjoin(
         GlobalSettings().downloadRelativeLocation,
         this.formatPostName()
-      );
-      filename = fixFilename(filename);
+      ));
+      const url = URL.createObjectURL(await this.zip.generateAsync({ type: 'blob' }));
+      let downloadId;
 
-      this.zip.generateAsync({ type: 'blob' }).then(async blob => {
-        this.lastDownloadId = await browser.runtime.sendMessage({
-          to: 'ws',
-          action: 'download:saveFile',
-          args: {
-            url: URL.createObjectURL(blob),
-            filename: filename + '.zip'
-          }
+      try {
+        downloadId = this.lastDownloadId = await FileSystem.getDefault().saveFileInBackground({
+          url,
+          filename: filename + '.zip'
         });
-
-        this.changeState(this.COMPLETE_STATE);
-        this.dispatch('complete');
-      });
-    } else {
-      this.changeState(this.COMPLETE_STATE);
-      this.dispatch('complete');
+      } finally {
+        FileSystem.getDefault().revokeWhenSaved(downloadId, url);
+      }
     }
   }
 

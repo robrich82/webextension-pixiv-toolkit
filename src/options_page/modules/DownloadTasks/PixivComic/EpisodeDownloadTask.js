@@ -145,40 +145,42 @@ class EpisodeDownloadTask extends MultipleDownloadTask {
       this.zip.file(file, blob, { date: now });
     } else {
       let url = URL.createObjectURL(blob);
+      let downloadId;
 
-      this.lastDownloadId = await FileSystem.getDefault().saveFileInBackground({
-        url,
-        filename: pathjoin(GlobalSettings().downloadRelativeLocation,
-          nameFormatter.format(this.options.renameRule, this.context.id),
-          nameFormatter.format(this.options.renameImageRule, this.context.id + `_p${pageNum}`),
-        ) + `.${MimeType.getExtenstion(mimeType)}`
-      });
-
-      FileSystem.getDefault().revokeWhenSaved(this.lastDownloadId, url);
+      try {
+        downloadId = this.lastDownloadId = await FileSystem.getDefault().saveFileInBackground({
+          url,
+          filename: pathjoin(GlobalSettings().downloadRelativeLocation,
+            nameFormatter.format(this.options.renameRule, this.context.id),
+            nameFormatter.format(this.options.renameImageRule, this.context.id + `_p${pageNum}`),
+          ) + `.${MimeType.getExtenstion(mimeType)}`
+        });
+      } finally {
+        FileSystem.getDefault().revokeWhenSaved(downloadId, url);
+      }
     }
 
     this.dispatch('progress', [this.progress]);
   }
 
   /**
-   * @fires MultipleDownloadTask#complete
+   * Save the zip, if pages are zipped. The base class's onFinish() completes or fails the task.
+   * @override
    */
-  onFinish() {
+  async saveRest() {
     if (this.shouldZipFile()) {
       const nameFormatter = NameFormattor.getFormatter({ context: Object.assign({}, this.context) });
+      const url = URL.createObjectURL(await this.zip.generateAsync({ type: 'blob' }));
+      let downloadId;
 
-      this.zip.generateAsync({ type: 'blob' }).then(async blob => {
-        this.lastDownloadId = await FileSystem.getDefault().saveFileInBackground({
-          url: URL.createObjectURL(blob),
+      try {
+        downloadId = this.lastDownloadId = await FileSystem.getDefault().saveFileInBackground({
+          url,
           filename: pathjoin(GlobalSettings().downloadRelativeLocation, nameFormatter.format(this.options.renameRule, this.context.id)) + '.zip'
         });
-
-        this.changeState(this.COMPLETE_STATE);
-        this.dispatch('complete');
-      });
-    } else {
-      this.changeState(this.COMPLETE_STATE);
-      this.dispatch('complete');
+      } finally {
+        FileSystem.getDefault().revokeWhenSaved(downloadId, url);
+      }
     }
   }
 

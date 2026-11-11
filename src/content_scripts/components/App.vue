@@ -203,6 +203,8 @@ export default {
     });
 
     this.pageChangeToken = 0;
+    // Blob urls the page resolver made for this page's previews, revoked when the page goes.
+    this.previewUrls = [];
 
     window.$eventBus.$on('pagechange', page => {
       const pageChangeToken = this.startPage();
@@ -254,8 +256,11 @@ export default {
 
               // A later pagechange owns the selector now.
               if (pageChangeToken !== this.pageChangeToken) {
+                url && URL.revokeObjectURL(url);
                 return;
               }
+
+              url && this.previewUrls.push(url);
 
               if (url && this.$refs.pageSelector) {
                 this.$refs.pageSelector.updatePage(index, url);
@@ -282,6 +287,9 @@ export default {
   },
 
   beforeUnmount() {
+    // A preview still resolving is now stale: it gets revoked, and the rest aren't fetched.
+    ++this.pageChangeToken;
+    this.revokePreviews();
     this.downloadTaskObserver.stopObserve();
   },
 
@@ -293,10 +301,16 @@ export default {
     startPage() {
       const pageChangeToken = ++this.pageChangeToken;
 
+      this.revokePreviews();
       this.initialProgress();
       this.abortAdapterParse();
 
       return pageChangeToken;
+    },
+
+    revokePreviews() {
+      this.previewUrls.forEach(url => URL.revokeObjectURL(url));
+      this.previewUrls = [];
     },
 
     initialProgress() {

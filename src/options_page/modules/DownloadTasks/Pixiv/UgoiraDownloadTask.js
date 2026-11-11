@@ -90,6 +90,11 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
   zip;
 
   /**
+   * @type {boolean} The frames zip is saved
+   */
+  zipSaved = false;
+
+  /**
    *
    * @param {UgoiraDownloadTaskOptions} options
    */
@@ -153,14 +158,11 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
    * @fires UgoiraDownloadTask#progress
    */
   async onItemFinish({ blob, mimeType }) {
-    ZipRepo.getDefault().storeZip(this.uid, blob);
-
     this.data = blob;
 
     let nameFormatter = NameFormatter.getFormatter({ context: this.context });
 
     this.zip = new JSZip();
-    // Downloader doesn't wait for this handler, so onFinish waits on the zip instead.
     this.zipLoaded = this.zip.loadAsync(blob);
     await this.zipLoaded;
 
@@ -168,19 +170,24 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
       this.zip.file('animation.json', this.makeAnimationJsonContent(this.options.packAnimationJsonType));
     }
 
-    let url = URL.createObjectURL(await this.zip.generateAsync({ type: 'blob' }));
+    // A retry after info.json failed to save downloads the zip again, but mustn't save it twice.
+    if (!this.zipSaved) {
+      let url = URL.createObjectURL(await this.zip.generateAsync({ type: 'blob' }));
+      let downloadId;
 
-    this.lastDownloadId = await browser.runtime.sendMessage({
-      to: 'ws', action: 'download:saveFile',
-      args: {
-        url,
-        filename: pathjoin(GlobalSettings().downloadRelativeLocation, nameFormatter.format(
-          this.options.renameRule
-        )) + '.' + MimeType.getExtenstion(mimeType)
+      try {
+        downloadId = this.lastDownloadId = await FileSystem.getDefault().saveFileInBackground({
+          url,
+          filename: pathjoin(GlobalSettings().downloadRelativeLocation, nameFormatter.format(
+            this.options.renameRule
+          )) + '.' + MimeType.getExtenstion(mimeType)
+        });
+      } finally {
+        FileSystem.getDefault().revokeWhenSaved(downloadId, url);
       }
-    })
 
-    FileSystem.getDefault().revokeWhenSaved(this.lastDownloadId, url);
+      this.zipSaved = true;
+    }
 
     this.dispatch('progress', [this.progress]);
 
@@ -188,15 +195,19 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
      * Save work information accroding the enableDownloadMetadata setting
      */
     if (GlobalSettings().enableDownloadMetadata && this.options.context) {
-      const blob = new Blob([JSON.stringify(this.options.context)], { type: 'application/json' });
-      await browser.runtime.sendMessage({
-        to: 'ws', action: 'download:saveFile',
-        args: {
-          url: URL.createObjectURL(blob),
-          filename: 'info.json'
-        }
-      });
+      const infoUrl = URL.createObjectURL(new Blob([JSON.stringify(this.options.context)], { type: 'application/json' }));
+
+      let infoDownloadId;
+
+      try {
+        infoDownloadId = await FileSystem.getDefault().saveFileInBackground({ url: infoUrl, filename: 'info.json' });
+      } finally {
+        FileSystem.getDefault().revokeWhenSaved(infoDownloadId, infoUrl);
+      }
     }
+
+    // Cached for another conversion of the same work only once everything saved, so a retry downloads again.
+    ZipRepo.getDefault().storeZip(this.uid, blob);
   }
 
   /**
@@ -325,19 +336,18 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
        */
       let animationFileUrl = URL.createObjectURL(new Blob([data], { type: MimeType.getFileMimeType(outputFilename) }));
       let nameFormatter = NameFormatter.getFormatter({ context: this.context });
+      let downloadId;
 
-      this.lastDownloadId = await browser.runtime.sendMessage({
-        to: 'ws',
-        action: 'download:saveFile',
-        args: {
+      try {
+        downloadId = this.lastDownloadId = await FileSystem.getDefault().saveFileInBackground({
           url: animationFileUrl,
           filename: pathjoin(GlobalSettings().downloadRelativeLocation, nameFormatter.format(
             this.options.renameRule
           )) + '.' + MimeType.getFileExtension(outputFilename)
-        }
-      });
-
-      FileSystem.getDefault().revokeWhenSaved(this.lastDownloadId, animationFileUrl);
+        });
+      } finally {
+        FileSystem.getDefault().revokeWhenSaved(downloadId, animationFileUrl);
+      }
     });
   }
 

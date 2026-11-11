@@ -198,3 +198,14 @@ describe('revokeWhenSaved', () => {
     expect(browser.downloads.search).not.toHaveBeenCalled();
   });
 });
+
+test.each([undefined, null])('a background save answered with %s rejects, naming the file', async answer => {
+  // Application.onMessage answers a handler that threw with undefined.
+  browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    sendResponse(answer);
+    return true;
+  });
+
+  await expect(fileSystem().saveFileInBackground({ url: 'blob:x', filename: 'dir/a.png' }))
+    .rejects.toThrow('Could not save "dir/a.png"');
+});

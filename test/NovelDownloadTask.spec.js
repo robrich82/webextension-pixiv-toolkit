@@ -188,7 +188,7 @@ test('a save the background could not make fails the task', async () => {
   await task.start();
 
   expect(task.isFailure()).toBe(true);
-  expect(task.lastError).toEqual(new Error('Could not save txt book'));
+  expect(task.lastError).toEqual(new Error('Could not save "novels/555_A Novel.txt"'));
   expect(URL.revokeObjectURL).toHaveBeenCalledWith(saved[0].url);
 });
 

@@ -462,3 +462,25 @@ test('a file that ends after pause(), with no abort to answer, still pauses the 
   await finished;
   expect(requestedUrls()).toEqual([file(1), file(2)]);
 });
+
+test('a file is in flight until its item-finish handlers settle; one that rejects fails the file', async () => {
+  createDownloader([1, 2]);
+  let rejectSave;
+  downloader.addListener('item-finish', ({ args }) => args.n === 1 && new Promise((resolve, reject) => { rejectSave = reject; }));
+  const failed = nextEvent('failure');
+
+  downloader.download();
+  (await nthRequest(0)).respond('one');
+  await vi.waitFor(() => expect(rejectSave).toBeDefined(), { interval: 1 });
+  await browser._fake.flush();
+  // The handler still holds the only slot.
+  expect(requestedUrls()).toEqual([file(1)]);
+
+  rejectSave(new Error('Could not save "1.png"'));
+  (await nthRequest(1)).respond('two');
+  await failed;
+
+  expect(named('item-error')).toEqual([new Error('Could not save "1.png"')]);
+  expect(downloader.successCount).toBe(1);
+  expect(downloader.failedDownloadFiles.map(downloadFile => downloadFile.args)).toEqual([{ n: 1 }]);
+});

@@ -115,9 +115,11 @@ class FileSystem {
   /**
    * Save file in background
    * @param {SaveFileOptions} options
+   * @returns {Promise<number>} The download id
+   * @throws {Error} The background couldn't save it: it answers that with no download id.
    */
   async saveFileInBackground(options) {
-    return await browser.runtime.sendMessage({
+    const downloadId = await browser.runtime.sendMessage({
       to: 'ws',
       action: 'download:saveFile',
       args: {
@@ -125,6 +127,12 @@ class FileSystem {
         filename: options.filename
       }
     });
+
+    if (downloadId === undefined || downloadId === null) {
+      throw new Error(`Could not save "${options.filename}"`);
+    }
+
+    return downloadId;
   }
 }
 

@@ -115,11 +115,6 @@ class NovelDownloadTask extends AbstractDownloadTask {
     } finally {
       FileSystem.getDefault().revokeWhenSaved(downloadId, url);
     }
-
-    // The background answers a failed save with no download id rather than an error.
-    if (this.lastDownloadId === undefined) {
-      throw new Error(`Could not save ${extension} book`);
-    }
   }
 
   /**

@@ -19,7 +19,7 @@ class Downloader extends Event {
   downloadFiles = [];
 
   /**
-   * The files can't be downloaded.
+   * Files that could not be downloaded or saved, retried by the next `download()`.
    * @type {{file: string, seq: number|string, args: Object}[]}
    */
   failedDownloadFiles = [];
@@ -93,11 +93,21 @@ class Downloader extends Event {
     }]);
   }
 
-  finishFile(itemFinishData) {
+  finishFile() {
     this.successCount++;
     this.dispatchProgress();
-    this.dispatch('item-finish', [itemFinishData]);
     this.downloadNext();
+  }
+
+  /**
+   * Run the `item-finish` handlers and wait for them: a handler that rejects (a save
+   * that failed) fails the file, as a failed download does.
+   * @returns {Promise<void>}
+   */
+  dispatchItemFinish(itemFinishData) {
+    const listeners = (this.events['item-finish'] || []).filter(Boolean);
+
+    return Promise.all(listeners.map(listener => listener.caller.apply(listener.thisArg, [itemFinishData]))).then(() => {});
   }
 
   /**
@@ -107,7 +117,7 @@ class Downloader extends Event {
     this.failedDownloadFiles.push(downloadFile);
     this.progresses[downloadFile.seq] = 0;
 
-    console.error(`Could not download ${downloadFile.file}`, error);
+    console.error(`Could not download or save ${downloadFile.file}`, error);
 
     this.dispatch('item-error', [error]);
     this.dispatchProgress();
@@ -223,7 +233,7 @@ class Downloader extends Event {
 
         this.progresses[downloadFile.seq] = 1;
 
-        // The port counts as in flight until afterItemDownload settles, so the run can't end around it.
+        // The port counts as in flight until afterItemDownload and the item-finish handlers settle.
         fetch(data)
           .then(response => response.blob())
           .then(blob => {
@@ -242,9 +252,10 @@ class Downloader extends Event {
             return Promise.resolve(this.afterItemDownload.call(this, { itemFinishData, downloadFile }))
               .then(() => itemFinishData);
           })
-          .then(itemFinishData => {
+          .then(itemFinishData => this.dispatchItemFinish(itemFinishData))
+          .then(() => {
             this.removeDownloadFromCollection(downloadFilePort);
-            this.finishFile(itemFinishData);
+            this.finishFile();
           }, error => {
             this.removeDownloadFromCollection(downloadFilePort);
             this.failFile(downloadFile, error);

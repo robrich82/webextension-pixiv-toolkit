@@ -5,7 +5,6 @@
  */
 import browser from './doubles/browser';
 import { fakeDownloadFileBackground } from './helpers/downloadFileBackground';
-import { answerSaves } from './helpers/saveFileBackground';
 import { decrypteImage } from '@/modules/Parser/PixivComic/ImageDecrypte';
 import EpisodeDownloadTask from '@/options_page/modules/DownloadTasks/PixivComic/EpisodeDownloadTask';
 
@@ -81,6 +80,7 @@ afterEach(() => {
 });
 
 test('fetches each page with its gridshuffle key, decrypts it, and zips it, named for its decrypted type', async () => {
+  const revoke = vi.spyOn(URL, 'revokeObjectURL');
   const task = createTask();
   const completed = vi.fn();
   task.addListener('complete', completed);
@@ -100,6 +100,12 @@ test('fetches each page with its gridshuffle key, decrypts it, and zips it, name
   expect(await zipped[0].blob.text()).toBe('decrypted encrypted 0');
   expect(savedFilenames()).toEqual(['pixiv/77_Episode 1.zip']);
   expect(completed).toHaveBeenCalledTimes(1);
+  const [zip] = background.saves;
+  await browser._fake.flush();
+  expect(revoke).not.toHaveBeenCalledWith(zip.url);
+  browser._fake.finishDownload(zip.downloadId);
+  await browser._fake.flush();
+  expect(revoke).toHaveBeenCalledWith(zip.url);
   expect(task.toJson()).toMatchObject({ type: 'PIXIV_COMIC_EPISODE', state: task.COMPLETE_STATE, progress: 1 });
 });
 
@@ -142,7 +148,7 @@ test('saves each page into a work folder when zipping is off', async () => {
 
 test('a page saved to a work folder keeps its blob url until its download finishes (#296)', async () => {
   settings({ globalZipMultipleImages: 0 });
-  const saves = answerSaves();
+  const saves = background.saves;
   vi.spyOn(URL, 'revokeObjectURL');
   const task = createTask({ totalPages: 1 });
 
@@ -227,4 +233,38 @@ test('start does nothing unless the task is pending', async () => {
   await browser._fake.flush();
 
   expect(background.requests).toEqual([]);
+});
+
+describe('a save that fails fails the task', () => {
+  beforeEach(() => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  test('the episode zip', async () => {
+    const revoke = vi.spyOn(URL, 'revokeObjectURL');
+    background.failSaves(() => true);
+    const task = createTask();
+
+    task.start();
+    await completePages(0, 1);
+    await vi.waitFor(() => expect(task.isFailure()).toBe(true));
+
+    expect(task.lastError).toEqual(new Error('Could not save "pixiv/77_Episode 1.zip"'));
+    expect(revoke).toHaveBeenCalledWith(background.saves[0].url);
+  });
+
+  test('a page saved on its own', async () => {
+    const revoke = vi.spyOn(URL, 'revokeObjectURL');
+    settings({ globalZipMultipleImages: 0 });
+    background.failSaves(save => save.filename.endsWith('p1.png'));
+    const task = createTask();
+
+    task.start();
+    await completePages(0, 1);
+    await vi.waitFor(() => expect(task.isFailure()).toBe(true));
+
+    expect(task.lastError).toEqual(new Error('Could not save "pixiv/77_Episode 1/p1.png"'));
+    const failed = background.saves.find(save => save.filename.endsWith('p1.png'));
+    expect(revoke).toHaveBeenCalledWith(failed.url);
+  });
 });

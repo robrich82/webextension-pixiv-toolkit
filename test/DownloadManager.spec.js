@@ -8,16 +8,17 @@ import { fakeDownloadFileBackground } from './helpers/downloadFileBackground';
 import DownloadManager from '@/options_page/modules/DownloadManager';
 import MultiplePagesDownloadTask from '@/options_page/modules/DownloadTasks/MultiplePagesDownloadTask';
 import NovelDownloadTask from '@/options_page/modules/DownloadTasks/Pixiv/NovelDownloadTask';
+import IllustDownloadTask from '@/options_page/modules/DownloadTasks/Pixiv/IllustDownloadTask';
 
 let background;
 let manager;
 
 const page = (n, p = 0) => `https://i.pximg.net/img/${n}_p${p}.png`;
 
-const createTask = (n, totalPages = 1) => new MultiplePagesDownloadTask({
+const createTask = (n, totalPages = 1, { Task = MultiplePagesDownloadTask, pages } = {}) => new Task({
   id: `pixiv_illust:${n}`,
   url: `https://www.pixiv.net/artworks/${n}`,
-  pages: Array.from({ length: totalPages }, (_, p) => page(n, p)),
+  pages: pages || Array.from({ length: totalPages }, (_, p) => page(n, p)),
   selectedIndexes: [],
   pageNumberStartWithOne: 1,
   pageNumberLength: -1,
@@ -105,6 +106,7 @@ test('a finished task frees its slot, and the next queued task starts', async ()
 });
 
 test('a task downloads every page, one at a time, before saving its zip', async () => {
+  const revoke = vi.spyOn(URL, 'revokeObjectURL');
   const task = createTask(1, 3);
   await manager.addTask(task);
 
@@ -121,6 +123,66 @@ test('a task downloads every page, one at a time, before saving its zip', async 
     action: 'download:saveFile',
     args: expect.objectContaining({ filename: '1.zip' })
   }));
+  // The background's id for the zip's download.
+  expect(task.toJson().downloadId).toBe(1);
+  const [zip] = background.saves;
+  await browser._fake.flush();
+  expect(revoke).not.toHaveBeenCalledWith(zip.url);
+  browser._fake.finishDownload(zip.downloadId);
+  await browser._fake.flush();
+  expect(revoke).toHaveBeenCalledWith(zip.url);
+});
+
+test('info.json saved beside the pages keeps its url until its download finishes', async () => {
+  Object.assign(window.$app.settings, { downloadSaveMode: 1, enableDownloadMetadata: true });
+  const revoke = vi.spyOn(URL, 'revokeObjectURL');
+  const task = createTask(1, 1, { Task: IllustDownloadTask });
+  await manager.addTask(task);
+  await vi.waitFor(() => expect(background.request(page(1))).toBeDefined());
+  background.request(page(1)).complete();
+  await vi.waitFor(() => expect(task.isComplete()).toBe(true));
+
+  const info = background.saves.find(save => save.filename === 'info.json');
+  await browser._fake.flush();
+  expect(revoke).not.toHaveBeenCalledWith(info.url);
+  browser._fake.finishDownload(info.downloadId);
+  await browser._fake.flush();
+  expect(revoke).toHaveBeenCalledWith(info.url);
+});
+
+test('a page still saving when the task pauses is kept, and the task resumes from the next page', async () => {
+  window.$app.settings.downloadSaveMode = 1;
+  let releaseSave;
+  background.leaveSaves(save => save.filename === '1/p1.png');
+  browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.action === 'download:saveFile' && message.args.filename === '1/p1.png') {
+      releaseSave = () => sendResponse(7);
+      return true;
+    }
+  });
+  const task = createTask(1, 2);
+  await manager.addTask(task);
+  await browser._fake.flush();
+  background.request(page(1, 0)).complete();
+  await vi.waitFor(() => expect(releaseSave).toBeDefined());
+
+  await manager.pauseTask(task.id);
+  releaseSave();
+  await vi.waitFor(() => expect(task.downloader.successCount).toBe(1));
+  await browser._fake.flush();
+
+  expect(task.isPaused()).toBe(true);
+  expect(background.aborted).toEqual([]);
+  expect(background.requests).toHaveLength(1);
+
+  task.changeState(task.PENDING_STATE);
+  task.start();
+  await vi.waitFor(() => expect(background.request(page(1, 1))).toBeDefined());
+  background.request(page(1, 1)).complete();
+  await vi.waitFor(() => expect(task.isComplete()).toBe(true));
+
+  expect(background.requests.map(request => request.url)).toEqual([page(1, 0), page(1, 1)]);
+  expect(background.saves.map(save => save.filename)).toEqual(['1/p2.png']);
 });
 
 test('a task whose page fails ends in failure, saves nothing, and frees its slot', async () => {
@@ -291,6 +353,7 @@ describe('a novel task', () => {
   beforeEach(() => {
     novelSaves = 0;
     // Hold the novel's save until the spec releases it.
+    background.leaveSaves(save => save.filename.endsWith('.txt'));
     browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
       if (message.action === 'download:saveFile' && message.args.filename.endsWith('.txt')) {
         novelSaves++;
@@ -465,5 +528,107 @@ describe('retry and resume', () => {
     expect(() => manager.startAll()).not.toThrow();
     expect(states(tasks)).toEqual([DOWNLOADING]);
     expect(manager.lastError).toBeNull();
+  });
+});
+
+describe('a save that fails fails the task', () => {
+  const failedTask = async (settings, prepare = () => {}, Task = MultiplePagesDownloadTask) => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    Object.assign(window.$app.settings, settings);
+    const task = createTask(1, 2, { Task });
+    prepare(task);
+    await manager.addTask(task);
+    await browser._fake.flush();
+
+    for (const p of [0, 1]) {
+      await vi.waitFor(() => expect(background.request(page(1, p))).toBeDefined());
+      background.request(page(1, p)).complete();
+    }
+    await vi.waitFor(() => expect(task.isFailure()).toBe(true));
+    await browser._fake.flush();
+
+    return task;
+  };
+
+  test('a page saved on its own that the background could not save', async () => {
+    const revoke = vi.spyOn(URL, 'revokeObjectURL');
+    background.failSaves(save => save.filename.endsWith('p2.png'));
+    const task = await failedTask({ downloadSaveMode: 1 });
+
+    expect(task.lastError).toEqual(new Error('Could not save "1/p2.png"'));
+    expect(background.saves.map(save => save.filename)).toEqual(['1/p1.png', '1/p2.png']);
+    expect(revoke).toHaveBeenCalledWith(background.saves[1].url);
+  });
+
+  test('the zip the background could not save', async () => {
+    const revoke = vi.spyOn(URL, 'revokeObjectURL');
+    background.failSaves(save => save.filename === '1.zip');
+    const task = await failedTask({});
+
+    expect(task.lastError).toEqual(new Error('Could not save "1.zip"'));
+    expect(revoke).toHaveBeenCalledWith(background.saves.at(-1).url);
+  });
+
+  test('a zip that could not be generated', async () => {
+    const error = new Error('zip failed');
+    const task = await failedTask({}, task => {
+      task.zip.generateAsync = () => Promise.reject(error);
+    });
+
+    expect(task.lastError).toBe(error);
+    expect(background.saves).toEqual([]);
+  });
+
+  test('an info.json the background could not save', async () => {
+    background.failSaves(save => save.filename === 'info.json');
+    const task = await failedTask({ downloadSaveMode: 1, enableDownloadMetadata: true }, () => {}, IllustDownloadTask);
+
+    expect(task.lastError).toEqual(new Error('Could not save "info.json"'));
+  });
+
+  test('a single page that is an archive', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    background.failSaves(() => true);
+    const archive = 'https://example.fanbox.cc/files/archive.zip';
+    const task = createTask(1, 1, { pages: [archive] });
+    await manager.addTask(task);
+
+    await vi.waitFor(() => expect(background.request(archive)).toBeDefined());
+    background.request(archive).complete('zip', 'application/zip');
+    await vi.waitFor(() => expect(task.isFailure()).toBe(true));
+
+    expect(task.lastError).toEqual(new Error('Could not save "1.zip"'));
+    expect(background.saves).toHaveLength(1);
+  });
+
+  test('a retry after the zip failed to save saves it again without fetching the pages again', async () => {
+    let failing = true;
+    background.failSaves(save => failing && save.filename === '1.zip');
+    const task = await failedTask({});
+
+    failing = false;
+    // The pages are only in the zip, so a change of save mode since mustn't skip it.
+    window.$app.settings.downloadSaveMode = 1;
+    task.changeState(task.PENDING_STATE);
+    task.start();
+    await vi.waitFor(() => expect(task.isComplete()).toBe(true));
+
+    expect(background.requests).toHaveLength(2);
+    expect(background.saves.map(save => save.filename)).toEqual(['1.zip', '1.zip']);
+  });
+
+  test('a failed save is retried with its page when the task is started again', async () => {
+    let failing = true;
+    background.failSaves(save => failing && save.filename === '1/p2.png');
+    const task = await failedTask({ downloadSaveMode: 1 });
+
+    failing = false;
+    task.changeState(task.PENDING_STATE);
+    task.start();
+    await vi.waitFor(() => expect(background.requests).toHaveLength(3));
+    background.request(page(1, 1)).complete();
+    await vi.waitFor(() => expect(task.isComplete()).toBe(true));
+
+    expect(background.saves.map(save => save.filename)).toEqual(['1/p1.png', '1/p2.png', '1/p2.png']);
   });
 });
