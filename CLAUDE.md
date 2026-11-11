@@ -18,6 +18,7 @@ pnpm test                  # Vitest, unit + components projects, with coverage t
 pnpm exec vitest run --coverage.enabled=false test/NameFormatter.spec.js
 pnpm exec vitest run --coverage.enabled=false --project components
 pnpm run test:e2e          # Playwright; needs `pnpm run build` first (loads dist/chrome)
+pnpm run test:e2e:firefox  # node --test in real Firefox; needs `pnpm run build:firefox` first, prerequisites in docs/testing.md "Firefox"
 ```
 
 There is no linter or formatter. CI (`.github/workflows/ci.yml`) runs `pnpm audit`, `pnpm test`, both builds and the e2e tests.
