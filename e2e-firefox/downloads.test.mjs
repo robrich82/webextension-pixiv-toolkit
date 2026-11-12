@@ -51,7 +51,8 @@ test('an illust is downloaded and saved in a zip', { timeout: TIMEOUT }, async (
   assertNoErrors();
 });
 
-test('DL GIF converts the ugoira frames with FFmpeg.wasm', { timeout: TIMEOUT }, async () => {
+/** Launch on the ugoira, click a format button and return the converted animation. */
+async function convertUgoira(label, mime, settings) {
   firefox = await launch({
     ajax: {
       '/ajax/illust/10000003': 'pixiv/illust-ugoira.json',
@@ -62,16 +63,69 @@ test('DL GIF converts the ugoira frames with FFmpeg.wasm', { timeout: TIMEOUT },
     }
   });
 
-  const tab = await firefox.openPanel('https://www.pixiv.net/en/artworks/10000003');
-  await firefox.clickButton(tab, 'DL GIF');
+  if (settings) {
+    await firefox.seedSettings(settings);
+  }
 
-  // The frames zip is saved as soon as it arrives; the GIF follows once
+  const tab = await firefox.openPanel('https://www.pixiv.net/en/artworks/10000003');
+  await firefox.clickButton(tab, label);
+
+  // The frames zip is saved as soon as it arrives; the animation follows once
   // ffmpeg.wasm has converted the frames.
   const files = await firefox.savedFiles(2);
-  assert.deepEqual(files.map(file => file.mime).sort(), ['application/zip', 'image/gif']);
-  const gif = files.find(file => file.mime === 'image/gif');
-  // test/fixtures/pixiv/illust-ugoira-frames.zip: three 16x16 frames.
-  assert.deepEqual(await firefox.decodeImage(gif.path, 'image/gif'), { width: 16, height: 16 });
+  assert.deepEqual(files.map(file => file.mime).sort(), ['application/zip', mime].sort());
+
+  return files.find(file => file.mime === mime);
+}
+
+// test/fixtures/pixiv/illust-ugoira-frames.zip: three 16x16 frames.
+const FRAME_SIZE = { width: 16, height: 16 };
+
+for (const { label, mime } of [
+  { label: 'DL GIF', mime: 'image/gif' },
+  { label: 'DL APNG', mime: 'image/apng' },
+  { label: 'DL WEBM', mime: 'video/webm' },
+  { label: 'DL MP4', mime: 'video/mp4' }
+]) {
+  test(`${label} converts the ugoira frames with FFmpeg.wasm`, { timeout: TIMEOUT }, async () => {
+    const animation = await convertUgoira(label, mime);
+
+    const { duration, ...size } = await firefox.decodeMedia(animation.path, mime);
+    assert.deepEqual(size, FRAME_SIZE);
+    if (mime.startsWith('video/')) {
+      assert.ok(duration > 0, `duration ${duration}`);
+    }
+    assertNoErrors();
+  });
+}
+
+test('DL Custom runs the custom FFmpeg command', { timeout: TIMEOUT }, async () => {
+  // The last argument names the output, and so the saved file's type.
+  const animation = await convertUgoira('DL Custom', 'image/gif', {
+    ugoiraCustomFFmpegCommand: '-f concat -i input.txt -vf scale=8:4 -plays 0 custom.gif'
+  });
+
+  // The scale shows the custom command ran, not the fixed GIF one.
+  assert.deepEqual(await firefox.decodeMedia(animation.path, 'image/gif'), { width: 8, height: 4 });
+  assertNoErrors();
+});
+
+test('a novel is saved as a text file with its url, author, title and text', { timeout: TIMEOUT }, async () => {
+  const url = 'https://www.pixiv.net/novel/show.php?id=40000001';
+  firefox = await launch({ ajax: { '/ajax/novel/40000001': 'pixiv/novel-single.json' } });
+
+  const tab = await firefox.openPanel(url);
+  await firefox.clickButton(tab, 'Download');
+
+  const [file] = await firefox.savedFiles(1);
+  assert.equal(file.name, '40000001_the tide comes in.txt');
+  assert.deepEqual(fs.readFileSync(file.path, 'utf8').split('\r\n\r\n'), [
+    url,
+    'tidewriter',
+    'the tide comes in',
+    // The parser turns each line break into <br />, and the book writes those as \r\n.
+    'The tide comes in.\r\nIt goes out again.'
+  ]);
   assertNoErrors();
 });
 
