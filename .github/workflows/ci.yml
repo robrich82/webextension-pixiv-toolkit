@@ -93,10 +93,13 @@ jobs:
 
       # Uses the runner image's Firefox and openssl (see docs/testing.md). Runs
       # even when the Chromium E2E fails, so a failure shows which browsers it hits.
+      # libavcodec is Firefox's H.264 decoder on Linux, for the MP4 test.
       - name: Run Firefox E2E tests
         if: ${{ !cancelled() && steps.build-firefox.outcome == 'success' }}
         timeout-minutes: 10
         run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends libavcodec-extra
           firefox --version
           pnpm run test:e2e:firefox
 

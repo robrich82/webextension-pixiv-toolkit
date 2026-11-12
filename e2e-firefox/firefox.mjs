@@ -522,7 +522,10 @@ class Firefox {
         video.src = url;
         await new Promise((resolve, reject) => {
           video.onloadeddata = resolve;
-          video.onerror = () => reject(new Error(`Can't decode ${type}: ${video.error?.message}`));
+          // Linux Firefox decodes H.264 with the system libavcodec, and reports a missing one only as a metadata error.
+          const noH264 = type === 'video/mp4' && !video.canPlayType('video/mp4; codecs="avc1.42E01E"');
+          video.onerror = () => reject(new Error(`Can't decode ${type}: ${video.error?.message}` +
+            (noH264 ? '; this Firefox has no H.264 decoder (on Linux, install libavcodec-extra)' : '')));
         });
 
         return { width: video.videoWidth, height: video.videoHeight, duration: video.duration };
