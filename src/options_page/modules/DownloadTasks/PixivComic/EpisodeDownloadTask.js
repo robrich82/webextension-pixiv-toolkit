@@ -230,14 +230,6 @@ class EpisodeDownloadTask extends MultipleDownloadTask {
   /**
    * @override
    */
-  pause() {
-    this.changeState(this.PAUSED_STATE);
-    this.downloader.pause();
-  }
-
-  /**
-   * @override
-   */
   stop() {
     this.downloader.pause();
   }
