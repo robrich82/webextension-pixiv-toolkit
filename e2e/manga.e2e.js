@@ -2,12 +2,12 @@ const fs = require('fs');
 const {
   test, expect, mockPixiv, collectErrors, openPanel, seedSettings, recordSaveNames, savedFiles
 } = require('./fixtures');
+const { PIXEL } = require('./fakePixivRoutes');
 
 const MANGA_URL = 'https://www.pixiv.net/en/artworks/10000002';
-const PIXEL = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
 const original = p => `/img-original/img/2024/11/23/22/05/00/10000002_p${p}.jpg`;
 // Each page's bytes end with its own marker, so a file can be matched to the page it came from.
-const pageBody = p => Buffer.concat([Buffer.from(PIXEL, 'base64'), Buffer.from(`page ${p}`)]);
+const pageBody = p => Buffer.concat([PIXEL, Buffer.from(`page ${p}`)]);
 
 test.beforeEach(async ({ context }) => {
   await mockPixiv(context, {

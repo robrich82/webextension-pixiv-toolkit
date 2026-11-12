@@ -4,14 +4,12 @@ import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import tls from 'node:tls';
+import fakePixivRoutes from '../e2e/fakePixivRoutes.js';
 
-const FIXTURES = path.join(import.meta.dirname, '..', 'test', 'fixtures');
-const HOSTS = ['www.pixiv.net', 'i.pximg.net'];
-// 1x1 transparent PNG, served for every unmapped i.pximg.net request.
-export const PIXEL = Buffer.from(
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
-  'base64'
-);
+const { PIXIV_HOSTS: HOSTS, PIXEL, pixivResponse } = fakePixivRoutes;
+
+// Re-exported for the tests' page bodies.
+export { PIXEL };
 
 /**
  * A throwaway self-signed certificate. Firefox runs with acceptInsecureCerts,
@@ -37,14 +35,14 @@ function makeCertificate() {
 }
 
 /**
- * An HTTPS proxy standing in for pixiv, routed like e2e/fixtures.js mockPixiv()
- * plus inline `pximg` bodies. Firefox sends every request through it: www.pixiv.net and
- * i.pximg.net are answered from test/fixtures, and any other host is refused,
- * so a run never reaches the network.
+ * An HTTPS proxy standing in for pixiv. Firefox sends every request through it:
+ * www.pixiv.net and i.pximg.net are answered by e2e/fakePixivRoutes.js, the
+ * routing the Chromium suite uses too, and any other host is refused, so a run
+ * never reaches the network.
  *
- * @param {{ ajax: Record<string, string>, pximg?: Record<string, string|{ contentType: string, body: Buffer }> }} routes
+ * @param {Parameters<typeof pixivResponse>[1]} routes
  */
-export async function startFakePixiv({ ajax, pximg = {} }) {
+export async function startFakePixiv(routes) {
   const { key, cert } = makeCertificate();
   const requests = [];
   const refused = [];
@@ -52,40 +50,29 @@ export async function startFakePixiv({ ajax, pximg = {} }) {
   const tunnels = new Set();
 
   const respond = (res, status, contentType, body) => {
+    body = Buffer.from(body);
     res.writeHead(status, { 'content-type': contentType, 'content-length': body.length });
     res.end(body);
   };
-  const fixture = name => fs.readFileSync(path.join(FIXTURES, name));
 
   const site = http.createServer((req, res) => {
     const url = new URL(req.url, `https://${req.headers.host}`);
     requests.push(url.href);
 
-    if (url.hostname === 'i.pximg.net') {
-      const route = pximg[url.pathname];
+    const response = pixivResponse(url, routes);
 
-      if (typeof route === 'string') {
-        return respond(res, 200, route.endsWith('.zip') ? 'application/zip' : 'application/octet-stream', fixture(route));
-      }
-
-      return route ? respond(res, 200, route.contentType, route.body) : respond(res, 200, 'image/png', PIXEL);
+    if (!response) {
+      refused.push(url.host);
+      return respond(res, 403, 'text/plain', 'refused');
     }
 
-    if (ajax[url.pathname]) {
-      return respond(res, 200, 'application/json', fixture(ajax[url.pathname]));
-    }
-
-    if (!url.pathname.startsWith('/ajax/')) {
-      return respond(res, 200, 'text/html', Buffer.from('<!doctype html><html><head><title>pixiv</title></head><body></body></html>'));
-    }
-
-    respond(res, 404, 'application/json', Buffer.from('{"error":true,"body":[]}'));
+    respond(res, response.status, response.contentType, response.body);
   });
 
   const proxy = http.createServer((req, res) => {
     // Plain-http proxy requests: pixiv is https-only, so nothing here is ours.
     refused.push(req.url);
-    respond(res, 403, 'text/plain', Buffer.from('refused'));
+    respond(res, 403, 'text/plain', 'refused');
   });
 
   proxy.on('connect', (req, socket, head) => {
