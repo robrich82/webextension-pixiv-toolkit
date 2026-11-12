@@ -265,6 +265,7 @@ describe('HistoryOptions', () => {
           download.type = options.type;
         });
         URL.createObjectURL = vi.fn(() => 'blob:history');
+        URL.revokeObjectURL = vi.fn();
         vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function () {
           download.href = this.href;
           download.filename = this.download;
@@ -274,7 +275,21 @@ describe('HistoryOptions', () => {
       };
 
       afterEach(() => {
+        vi.useRealTimers();
         delete URL.createObjectURL;
+        delete URL.revokeObjectURL;
+      });
+
+      test('revokes the blob url after the click, not during it', async () => {
+        captureDownload();
+        const wrapper = shallowMountOption(HistoryOptions, { browserItems });
+        vi.useFakeTimers({ toFake: ['setTimeout'] });
+
+        await wrapper.vm.exportVisitHistory();
+        expect(URL.revokeObjectURL).not.toHaveBeenCalled();
+
+        vi.runAllTimers();
+        expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:history');
       });
 
       test('downloads every entry, newest visit first, without database ids', async () => {

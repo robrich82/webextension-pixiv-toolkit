@@ -50,11 +50,14 @@ export default {
       let blob = new Blob([JSON.stringify(this.browserItems)], {type: 'application/json'})
 
       let a = document.createElement('a')
-      a.href = URL.createObjectURL(blob)
+      const url = URL.createObjectURL(blob)
+      a.href = url
       a.download = 'pixiv_toolkit_settings-' + Date.now() + '.json'
       document.body.appendChild(a);
       a.click();
       a.remove();
+      // Deferred: revoking straight after the click can cancel the download.
+      setTimeout(() => URL.revokeObjectURL(url));
     },
 
     importSettings() {
