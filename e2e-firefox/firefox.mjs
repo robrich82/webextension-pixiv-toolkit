@@ -499,18 +499,36 @@ class Firefox {
     }, fs.readFileSync(file).toString('base64'));
   }
 
-  /** Decode a saved image in Firefox and return its dimensions. Rejects if it doesn't decode. */
-  async decodeImage(file, mime) {
+  /**
+   * Decode a saved image or video in Firefox and return its dimensions, plus
+   * duration for a video. Rejects if it doesn't decode.
+   */
+  async decodeMedia(file, mime) {
     return this.inDownloadManager(async (base64, type) => {
       const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
       const url = URL.createObjectURL(new Blob([bytes], { type }));
-      const image = new Image();
-      image.src = url;
 
       try {
-        await image.decode();
+        if (type.startsWith('image/')) {
+          const image = new Image();
+          image.src = url;
+          await image.decode();
 
-        return { width: image.naturalWidth, height: image.naturalHeight };
+          return { width: image.naturalWidth, height: image.naturalHeight };
+        }
+
+        const video = document.createElement('video');
+        video.muted = true;
+        video.src = url;
+        await new Promise((resolve, reject) => {
+          video.onloadeddata = resolve;
+          // Linux Firefox decodes H.264 with the system libavcodec, and reports a missing one only as a metadata error.
+          const noH264 = type === 'video/mp4' && !video.canPlayType('video/mp4; codecs="avc1.42E01E"');
+          video.onerror = () => reject(new Error(`Can't decode ${type}: ${video.error?.message}` +
+            (noH264 ? '; this Firefox has no H.264 decoder (on Linux, install libavcodec-extra)' : '')));
+        });
+
+        return { width: video.videoWidth, height: video.videoHeight, duration: video.duration };
       } finally {
         URL.revokeObjectURL(url);
       }

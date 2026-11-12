@@ -351,7 +351,8 @@ Two limits worth knowing before adding a test:
 
 `pnpm run test:e2e:firefox` runs `e2e-firefox/*.test.mjs` with `node --test`
 against `dist/firefox`, so run `pnpm run build:firefox` first. It needs
-Firefox 148 or later and `openssl` 1.1.1 or later on the PATH. Firefox is
+Firefox 148 or later and `openssl` 1.1.1 or later on the PATH; on Linux, the
+MP4 test also needs the system libavcodec (`libavcodec-extra`). Firefox is
 looked up at its default install location on Windows and macOS and on the PATH
 on Linux; `FIREFOX=<path>` overrides. A snap Firefox can't see the temp
 profile, so use the deb or a tarball. Set `HEADED=1` to watch, or
