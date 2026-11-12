@@ -273,6 +273,27 @@ test('starting a task that is already downloading is reported as an error, not a
   expect(background.requests).toHaveLength(1);
 });
 
+// #305: a complete multi-page task has nothing queued, so starting it again only re-saved its zip.
+test('starting a complete task is reported as an error, and saves nothing again', async () => {
+  const task = createTask(1, 2);
+  await manager.addTask(task);
+  for (const p of [0, 1]) {
+    await vi.waitFor(() => expect(background.request(page(1, p))).toBeDefined());
+    background.request(page(1, p)).complete();
+  }
+  await vi.waitFor(() => expect(task.isComplete()).toBe(true));
+  await browser._fake.flush();
+  const savesBefore = background.saves.length;
+
+  await manager.startTask(task.id);
+  await browser._fake.flush();
+
+  expect(manager.lastError).toMatchObject({ name: 'RuntimeError' });
+  expect(task.isComplete()).toBe(true);
+  expect(background.saves).toHaveLength(savesBefore);
+  expect(background.requests).toHaveLength(2);
+});
+
 test('stopping a task aborts its file without changing its state', async () => {
   const [task] = await addTasks(1);
 
