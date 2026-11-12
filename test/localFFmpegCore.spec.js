@@ -1,8 +1,8 @@
 import fs from 'fs';
 import path from 'path';
-import { localFFmpegCore } from '../config/localFFmpegCore';
+import { localFFmpegCore } from '../scripts/localFFmpegCore.mjs';
 
-// Mirrors the CopyPlugin pattern in config/webpack.background.config.js.
+// Mirrors the @ffmpeg/ffmpeg copy in scripts/build.mjs.
 const dir = path.resolve(__dirname, '../node_modules/@ffmpeg/ffmpeg/dist/umd');
 const shipped = fs.readdirSync(dir).filter(f => !f.endsWith('.map'));
 

@@ -3,7 +3,7 @@
 const packageInfo = require('../package.json');
 const baseConfig = require('./webpack.base.config')();
 const utils = require('./utils');
-const { localFFmpegCore } = require('./localFFmpegCore');
+const { localFFmpegCore } = require('../scripts/localFFmpegCore.mjs');
 const { merge } = require('webpack-merge');
 const CopyPlugin = require('copy-webpack-plugin');
 const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;

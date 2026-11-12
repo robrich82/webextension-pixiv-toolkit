@@ -13,6 +13,8 @@
     "dev:bg": "webpack --watch --progress --config config/webpack.background.config.js",
     "build": "cross-env NODE_ENV=production PLATFORM_ENV=chrome webpack --config webpack.config.js",
     "build:firefox": "cross-env NODE_ENV=production PLATFORM_ENV=firefox webpack --config webpack.config.js --env platform=firefox",
+    "build:vite": "node scripts/build.mjs",
+    "build:vite:firefox": "node scripts/build.mjs --platform=firefox",
     "release:firefox": "node scripts/release-firefox.js",
     "test": "vitest run",
     "test:e2e": "playwright test",
