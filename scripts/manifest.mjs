@@ -12,6 +12,8 @@ export function transformManifest(manifest, { platform, version }) {
     return json;
   }
 
+  delete json.version_name;
+
   // Firefox runs the MV3 background as an event page, not a service worker.
   if (json.background?.service_worker) {
     json.background = { scripts: [json.background.service_worker] };
@@ -36,7 +38,8 @@ export function transformManifest(manifest, { platform, version }) {
 
   // Firefox has no `downloads.shelf`.
   if (json.optional_permissions) {
-    json.permissions = [...(json.permissions || []), ...json.optional_permissions.filter(p => p !== 'downloads.shelf')];
+    const supported = json.optional_permissions.filter(p => p !== 'downloads.shelf');
+    if (supported.length) json.permissions = [...(json.permissions || []), ...supported];
     delete json.optional_permissions;
   }
 

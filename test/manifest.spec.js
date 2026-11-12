@@ -56,9 +56,19 @@ describe('transformManifest', () => {
       expect(json).not.toHaveProperty('options_ui');
     });
 
-    it('keeps version and drops version_name', () => {
+    it('adds no permissions key when only downloads.shelf was optional', () => {
+      const { permissions, ...bare } = source;
+      const json = transformManifest({ ...bare, optional_permissions: ['downloads.shelf'] }, { platform: 'firefox', version: '1.2.3' });
+
+      expect(json).not.toHaveProperty('permissions');
+    });
+
+    it('keeps version and drops version_name, even one the source sets', () => {
+      const named = transformManifest({ ...source, version_name: 'x' }, { platform: 'firefox', version: '1.2.3' });
+
       expect(json.version).toBe('1.2.3');
       expect(json).not.toHaveProperty('version_name');
+      expect(named).not.toHaveProperty('version_name');
     });
   });
 });

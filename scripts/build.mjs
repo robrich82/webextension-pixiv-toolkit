@@ -86,7 +86,7 @@ function viteConfig({ platform, watch, globals = SHARED_GLOBALS, plugins = [], r
     plugins: [globalExternals(globals), vue(), ...plugins],
     define: {
       PRESET_BROWSER: JSON.stringify(platform),
-      'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV),
+      'process.env.NODE_ENV': JSON.stringify(watch ? 'development' : 'production'),
       // Compile-time flags read by bundled dependencies; Vue itself is the global build.
       __VUE_OPTIONS_API__: 'true',
       __VUE_PROD_DEVTOOLS__: 'false',
@@ -185,13 +185,36 @@ function targets(out) {
 
 const isWithin = (parent, child) => {
   const rel = path.relative(parent, child);
-  return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
+  return rel === '' || (rel !== '..' && !rel.startsWith(`..${path.sep}`) && !path.isAbsolute(rel));
 };
 
-/** The output directory is emptied first, so refuse one that holds the sources. */
+// Follows links in the existing part of the path, so a junction to src/ is seen as src/.
+function realPath(p) {
+  const missing = [];
+  while (!fs.existsSync(p) && path.dirname(p) !== p) {
+    missing.unshift(path.basename(p));
+    p = path.dirname(p);
+  }
+  return path.join(fs.realpathSync.native(p), ...missing);
+}
+
+const isPreviousBuild = dir => ['manifest.json', 'background/background.js'].every(f => fs.existsSync(path.join(dir, f)));
+
+export class UnsafeOutDirError extends Error {}
+
+/**
+ * The output directory is emptied first. Inside the repo only dist/ qualifies;
+ * elsewhere only a missing or empty directory, or an earlier build.
+ */
 export function assertSafeOutDir(out) {
-  if (isWithin(out, root) || isWithin(fromRoot('src'), out)) {
-    throw new Error(`Refusing to build into ${out}: it would be emptied, and it holds the sources.`);
+  const target = realPath(out);
+  const repo = fs.realpathSync.native(root);
+  const safe = isWithin(repo, target)
+    ? isWithin(path.join(repo, 'dist'), target)
+    : !isWithin(target, repo) && (!fs.existsSync(target) || fs.readdirSync(target).length === 0 || isPreviousBuild(target));
+
+  if (!safe) {
+    throw new UnsafeOutDirError(`Refusing to build into ${out}: it is emptied first. Use dist/, or an empty directory or earlier build outside the repo.`);
   }
 }
 
@@ -256,7 +279,8 @@ export async function buildExtension({ platform = 'chrome', watch = false, outDi
   assertSafeOutDir(out);
 
   // Vite and @vitejs/plugin-vue decide dev or production from NODE_ENV, not `mode`,
-  // so an inherited value (Vitest sets `test`) would change the build.
+  // so an inherited value (Vitest sets `test`) would change the build. This sets it
+  // for the whole calling process.
   process.env.NODE_ENV = watch ? 'development' : 'production';
 
   emptyDir(out);
@@ -273,7 +297,7 @@ export async function buildExtension({ platform = 'chrome', watch = false, outDi
 if (import.meta.main) {
   const { values } = parseArgs({
     // `pnpm run build:vite -- --flag` passes the `--` through.
-    args: process.argv.slice(2).filter(arg => arg !== '--'),
+    args: process.argv.slice(2).filter((arg, i) => !(i === 0 && arg === '--')),
     options: {
       platform: { type: 'string', default: 'chrome' },
       watch: { type: 'boolean', default: false },
@@ -292,7 +316,8 @@ if (import.meta.main) {
   try {
     result = await buildExtension({ platform: values.platform, watch: values.watch, outDir: values['out-dir'] });
   } catch (error) {
-    console.error(error.message);
+    // Vite has already printed a failed bundle's error.
+    console.error(error instanceof UnsafeOutDirError ? error.message : error);
     process.exit(1);
   }
 

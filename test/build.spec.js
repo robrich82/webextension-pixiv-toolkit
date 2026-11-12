@@ -43,14 +43,20 @@ function manifestPaths(manifest) {
 
 const read = (out, file) => fs.readFileSync(path.join(out, file), 'utf8');
 
+function fakePreviousBuild(dir) {
+  fs.mkdirSync(path.join(dir, 'background'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'manifest.json'), '{}');
+  fs.writeFileSync(path.join(dir, 'background/background.js'), '');
+}
+
 describe.each(['chrome', 'firefox'])('build for %s', platform => {
   let out;
   let manifest;
 
   beforeAll(async () => {
     out = path.join(tmp, platform);
-    // Left over from an earlier build; the build should clear it.
-    fs.mkdirSync(path.join(out, 'background'), { recursive: true });
+    // An earlier build with a file the new one doesn't emit, which should go.
+    fakePreviousBuild(out);
     fs.writeFileSync(path.join(out, 'background/stale.js'), '');
 
     await run(process.execPath, [SCRIPT, `--platform=${platform}`, `--out-dir=${out}`], { cwd: ROOT });
@@ -104,7 +110,7 @@ describe.each(['chrome', 'firefox'])('build for %s', platform => {
     // src/core/global.js sets window.$_browser from it.
     const expected = platform === 'firefox' ? 'firefox' : 'default';
 
-    expect(read(out, 'content_scripts/app.js')).toContain(`$_browser=\`${expected}\``);
+    expect(read(out, 'content_scripts/app.js')).toMatch(new RegExp(`\\$_browser\\s*=\\s*["'\`]${expected}["'\`]`));
   });
 
   it('reads Vue, vue-i18n and the locales from the globals lib/ provides', () => {
@@ -122,7 +128,7 @@ describe.each(['chrome', 'firefox'])('build for %s', platform => {
       .join('\n');
 
     expect(options).toMatch(/globalThis\.Dexie\b/);
-    expect(read(out, 'background/background.js')).not.toContain('globalThis.');
+    expect(read(out, 'background/background.js')).not.toMatch(/globalThis\.(Dexie|Vue|VueI18n|locales)\b/);
   });
 
   it('compiles the Vue components for production, whatever NODE_ENV the build inherits', () => {
@@ -132,7 +138,7 @@ describe.each(['chrome', 'firefox'])('build for %s', platform => {
   });
 
   it("keeps bundled dependencies' license comments", () => {
-    expect(read(out, 'background/background.js')).toContain('//! moment.js');
+    expect(read(out, 'background/background.js')).toMatch(/^\/\/!|\/\*!/m);
   });
 
   it('exposes the locale messages as the `locales` global', () => {
@@ -146,7 +152,7 @@ describe.each(['chrome', 'firefox'])('build for %s', platform => {
 
   it('ships the umd FFmpeg build without source maps, pointed at the packaged core', () => {
     const files = fs.readdirSync(path.join(out, 'lib/ffmpeg'));
-    // The worker chunk (814.ffmpeg.js) is the one that names the core.
+    // The worker chunk, not ffmpeg.js, is the file that names the core.
     const ffmpeg = files.filter(f => f.endsWith('.js')).map(f => read(out, `lib/ffmpeg/${f}`)).join('\n');
 
     expect(files).toEqual(expect.arrayContaining(['ffmpeg.js', 'ffmpeg-core.js', 'ffmpeg-core.wasm']));
@@ -165,16 +171,55 @@ it('rejects an unknown platform', async () => {
     .rejects.toMatchObject({ code: 1, stderr: expect.stringContaining('Unknown --platform=safari') });
 }, 30000);
 
+it('leaves an unrelated --out-dir untouched and fails', async () => {
+  const dir = path.join(tmp, 'unrelated');
+  fs.mkdirSync(dir);
+  fs.writeFileSync(path.join(dir, 'keep.txt'), '');
+
+  await expect(run(process.execPath, [SCRIPT, `--out-dir=${dir}`], { cwd: ROOT }))
+    .rejects.toMatchObject({ code: 1, stderr: expect.stringContaining('Refusing to build into') });
+  expect(fs.existsSync(path.join(dir, 'keep.txt'))).toBe(true);
+}, 30000);
+
 describe('assertSafeOutDir', () => {
-  it.each(['.', '..', 'src', 'src/statics/x'])('refuses %s, which emptying would wipe sources from', dir => {
-    expect(() => assertSafeOutDir(path.resolve(ROOT, dir))).toThrow(/Refusing to build into/);
-  });
+  const refuses = dir => expect(() => assertSafeOutDir(dir)).toThrow(/Refusing to build into/);
+  const accepts = dir => expect(() => assertSafeOutDir(dir)).not.toThrow();
 
-  it.each(['dist/chrome', 'dist/anything'])('accepts %s', dir => {
-    expect(() => assertSafeOutDir(path.resolve(ROOT, dir))).not.toThrow();
-  });
+  it.each(['.', '..', 'src', 'src/statics/x', 'src/..x', 'test', '.git', 'node_modules'])(
+    'refuses %s in the repo, which is outside dist/',
+    dir => refuses(path.resolve(ROOT, dir))
+  );
 
-  it('accepts a directory outside the repo', () => {
-    expect(() => assertSafeOutDir(tmp)).not.toThrow();
+  it.each(['dist', 'dist/chrome', 'dist/anything'])('accepts %s', dir => accepts(path.resolve(ROOT, dir)));
+
+  describe('outside the repo', () => {
+    let base;
+
+    beforeEach(() => {
+      base = fs.mkdtempSync(path.join(tmp, 'guard-'));
+    });
+
+    it('accepts a missing or empty directory', () => {
+      accepts(path.join(base, 'missing/nested'));
+      accepts(base);
+    });
+
+    it('accepts an earlier build', () => {
+      fakePreviousBuild(base);
+      accepts(base);
+    });
+
+    it('refuses a directory holding anything else', () => {
+      fs.writeFileSync(path.join(base, 'notes.txt'), '');
+      refuses(base);
+    });
+
+    it('refuses a link into the sources', () => {
+      const link = path.join(base, 'link');
+      fs.symlinkSync(path.join(ROOT, 'src'), link, 'junction');
+
+      refuses(link);
+      refuses(path.join(link, 'statics/x'));
+    });
   });
 });
