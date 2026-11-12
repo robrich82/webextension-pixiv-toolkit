@@ -18,7 +18,7 @@ const UNEVEN = [30, 70, 100, 50, 130, 60];
 const EVEN = [70, 70, 70, 70];
 // No common step of 10ms or more, so the tick is floored at 10ms.
 const NEAR = [33, 34, 33, 33, 34, 33];
-// Browsers play a GIF frame under 20ms for 100ms.
+// Browsers play a 10ms animated-image frame for 100ms, so GIF and APNG get 20ms frames.
 const FAST = [10, 10, 10, 10, 10, 10];
 
 /** A command split the way the task splits it, with -safe 0 added the way the task adds it. */
@@ -30,14 +30,14 @@ const command = format => {
 
 const input = (delays, format) => UgoiraDownloadTask.concatList(
   delays.map((delay, i) => ({ file: `${String(i).padStart(6, '0')}.jpg`, delay })),
-  { gif: format === 'gif' }
+  { minDelay: ['gif', 'apng'].includes(format) ? 20 : 0 }
 );
 
 const conversions = [
   ...Object.keys(FORMATS).map(format => ({ name: `${format} uneven`, input: input(UNEVEN, format), args: command(format) })),
   ...Object.keys(FORMATS).map(format => ({ name: `${format} even`, input: input(EVEN, format), args: command(format) })),
   ...['gif', 'mp4'].map(format => ({ name: `${format} near`, input: input(NEAR, format), args: command(format) })),
-  { name: 'gif fast', input: input(FAST, 'gif'), args: command('gif') }
+  ...['gif', 'apng'].map(format => ({ name: `${format} fast`, input: input(FAST, format), args: command(format) }))
 ];
 
 /** @type {Record<string, { code: number, starts: number[], total: number }>} */
@@ -73,6 +73,10 @@ test.each(['gif', 'mp4'])('%s starts each frame on the nearest 10ms when the del
   expect(results[`${format} near`]).toMatchObject({ code: 0, starts: [0, 30, 70, 100, 130, 170] });
 });
 
-test('gif gives each frame under 20ms 20ms', () => {
-  expect(results['gif fast']).toMatchObject({ code: 0, starts: [0, 20, 40, 60, 80, 100] });
+// ffprobe reads a GIF delay under 20ms as 100ms, as browsers do, so 20ms steps prove the stored delays.
+test.each([
+  ['gif', [0, 20, 40, 60, 80, 100]],
+  ['apng', [0, 20, 40, 60, 80]]
+])('%s gives each frame under 20ms 20ms', (format, starts) => {
+  expect(results[`${format} fast`]).toMatchObject({ code: 0, starts });
 });

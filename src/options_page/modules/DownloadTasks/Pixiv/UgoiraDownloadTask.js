@@ -278,7 +278,9 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
        * Add frames to ffmpeg file system
        */
       await this.ffmpeg.writeFile('input.txt', UgoiraDownloadTask.concatList(this.options.frames, {
-        gif: /\.gif$/i.test(outputFilename)
+        // Browsers play an animated image's frame of 10ms or less for 100ms. 20ms also keeps a
+        // GIF frame (stored in 10ms steps) from rounding down to 10ms.
+        minDelay: /\.(gif|apng)$/i.test(outputFilename) ? 20 : 0
       }));
       loadedFiles.push('input.txt');
 
@@ -329,12 +331,12 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
   /**
    * input.txt: the concat demuxer's list of frames, each with its delay and the frame rate.
    * @param {{ file: string, delay: number }[]} frames
-   * @param {{ gif?: boolean }} [output] gif: browsers play a GIF frame under 20ms for 100ms, so
-   *   each frame lasts at least 20ms
+   * @param {{ minDelay?: number }} [output] minDelay: positive delays below it are raised to it
    * @returns {string}
    */
-  static concatList(frames, { gif = false } = {}) {
-    const timed = frames.map(frame => (gif && frame.delay > 0 && frame.delay < 20 ? { ...frame, delay: 20 } : frame));
+  static concatList(frames, { minDelay = 0 } = {}) {
+    const timed = frames.map(frame =>
+      (frame.delay > 0 && frame.delay < minDelay ? { ...frame, delay: minDelay } : frame));
     const frameRate = UgoiraDownloadTask.frameRate(timed);
 
     return timed.map(frame =>
@@ -346,13 +348,13 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
 
   /**
    * input.txt's `option` lines need the concat demuxer's unsafe mode, so each `-f concat` input
-   * that reads input.txt (any path ending in it), custom commands included, gets `-safe 0`: added
+   * that reads input.txt (in any directory), custom commands included, gets `-safe 0`: added
    * before its `-i`, or replacing the value of its own `-safe`. input.txt only names the frame
    * files written here.
    * @param {string[]} args A command's arguments, changed in place
    */
   static allowConcatOptions(args) {
-    let start = 0; // where the options of the input at `i` begin
+    let start = 0; // where the current input's options begin: after the previous input's file
 
     for (let i = 0; i < args.length - 1; i++) {
       if (args[i] !== '-i') {
@@ -361,7 +363,7 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
 
       const options = args.slice(start, i);
 
-      if (/(^|\/)input\.txt$/.test(args[i + 1]) && options.includes('concat')) {
+      if (/(^|[/:])input\.txt$/.test(args[i + 1]) && options.includes('concat')) {
         const safe = options.lastIndexOf('-safe');
 
         if (safe > -1 && safe < options.length - 1) {
