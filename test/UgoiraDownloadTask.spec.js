@@ -232,11 +232,12 @@ test('saves the work information beside the zip when metadata is on', async () =
   task.start();
   await completeDownload(task);
   await vi.waitFor(() => expect(task.isComplete()).toBe(true));
-  await vi.waitFor(() => expect(savedNames()).toContain('info.json'));
+  // #307: beside the zip, not in the Downloads root.
+  await vi.waitFor(() => expect(savedNames()).toContain('ugoira/125_Moving.info.json'));
 
-  const info = saved.find(file => file.filename === 'info.json');
+  const info = saved.find(file => file.filename === 'ugoira/125_Moving.info.json');
   expect(JSON.parse(await info.blob.text())).toMatchObject({ id: '125', title: 'Moving' });
-  const infoSave = background.saves.find(save => save.filename === 'info.json');
+  const infoSave = background.saves.find(save => save.filename === 'ugoira/125_Moving.info.json');
   await browser._fake.flush();
   expect(revoke).not.toHaveBeenCalledWith(infoSave.url);
   browser._fake.finishDownload(infoSave.downloadId);
@@ -457,14 +458,14 @@ describe('a save that fails fails the task', () => {
   test('info.json: nothing is converted, and a retry downloads again but saves the zip once', async () => {
     window.$app.settings.enableDownloadMetadata = true;
     let failing = true;
-    background.failSaves(save => failing && save.filename === 'info.json');
+    background.failSaves(save => failing && save.filename === 'ugoira/151_Moving.info.json');
     const task = createTask({ id: '151' });
 
     task.start();
     await completeDownload(task);
     await vi.waitFor(() => expect(task.isFailure()).toBe(true));
 
-    expect(task.lastError).toEqual(new Error('Could not save "info.json"'));
+    expect(task.lastError).toEqual(new Error('Could not save "ugoira/151_Moving.info.json"'));
     expect(ffmpegs).toEqual([]);
 
     failing = false;
@@ -474,7 +475,9 @@ describe('a save that fails fails the task', () => {
     background.requests[1].complete(await framesZip(), 'application/zip');
     await vi.waitFor(() => expect(task.isComplete()).toBe(true));
 
-    expect(savedNames()).toEqual(['ugoira/151_Moving.zip', 'info.json', 'info.json', 'ugoira/151_Moving.gif']);
+    expect(savedNames()).toEqual([
+      'ugoira/151_Moving.zip', 'ugoira/151_Moving.info.json', 'ugoira/151_Moving.info.json', 'ugoira/151_Moving.gif'
+    ]);
   });
 
   test('the converted animation', async () => {

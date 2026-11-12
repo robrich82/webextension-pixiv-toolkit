@@ -9,6 +9,7 @@ import DownloadManager from '@/options_page/modules/DownloadManager';
 import MultiplePagesDownloadTask from '@/options_page/modules/DownloadTasks/MultiplePagesDownloadTask';
 import NovelDownloadTask from '@/options_page/modules/DownloadTasks/Pixiv/NovelDownloadTask';
 import IllustDownloadTask from '@/options_page/modules/DownloadTasks/Pixiv/IllustDownloadTask';
+import MangaDownloadTask from '@/options_page/modules/DownloadTasks/Pixiv/MangaDownloadTask';
 
 let background;
 let manager;
@@ -142,12 +143,44 @@ test('info.json saved beside the pages keeps its url until its download finishes
   background.request(page(1)).complete();
   await vi.waitFor(() => expect(task.isComplete()).toBe(true));
 
-  const info = background.saves.find(save => save.filename === 'info.json');
+  const info = background.saves.find(save => save.filename === '1/info.json');
   await browser._fake.flush();
   expect(revoke).not.toHaveBeenCalledWith(info.url);
   browser._fake.finishDownload(info.downloadId);
   await browser._fake.flush();
   expect(revoke).toHaveBeenCalledWith(info.url);
+});
+
+// #307: info.json used to land in the Downloads root, under the same name for every work.
+describe('info.json for pages saved one by one goes beside them', () => {
+  const savedNames = async (settings, Task = IllustDownloadTask) => {
+    Object.assign(window.$app.settings, { downloadSaveMode: 1, enableDownloadMetadata: true }, settings);
+    const task = createTask(1, 2, { Task });
+    await manager.addTask(task);
+    for (const p of [0, 1]) {
+      await vi.waitFor(() => expect(background.request(page(1, p))).toBeDefined());
+      background.request(page(1, p)).complete();
+    }
+    await vi.waitFor(() => expect(task.isComplete()).toBe(true));
+
+    return background.saves.map(save => save.filename);
+  };
+
+  test('in the work folder', async () => {
+    expect(await savedNames({ downloadRelativeLocation: 'pixiv/' })).toEqual([
+      'pixiv/1/p1.png', 'pixiv/1/p2.png', 'pixiv/1/info.json'
+    ]);
+  });
+
+  test('named after the work when there is no work folder', async () => {
+    expect(await savedNames({ dontCreateWorkFolder: 2 })).toEqual(['p1.png', 'p2.png', '1.info.json']);
+  });
+
+  test('in the work folder for manga, which always has one', async () => {
+    expect(await savedNames({ dontCreateWorkFolder: 2 }, MangaDownloadTask)).toEqual([
+      '1/p1.png', '1/p2.png', '1/info.json'
+    ]);
+  });
 });
 
 test('a page still saving when the task pauses is kept, and the task resumes from the next page', async () => {
@@ -644,10 +677,10 @@ describe('a save that fails fails the task', () => {
   });
 
   test('an info.json the background could not save', async () => {
-    background.failSaves(save => save.filename === 'info.json');
+    background.failSaves(save => save.filename === '1/info.json');
     const task = await failedTask({ downloadSaveMode: 1, enableDownloadMetadata: true }, () => {}, IllustDownloadTask);
 
-    expect(task.lastError).toEqual(new Error('Could not save "info.json"'));
+    expect(task.lastError).toEqual(new Error('Could not save "1/info.json"'));
   });
 
   test('a single page that is an archive', async () => {

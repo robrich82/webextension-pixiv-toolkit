@@ -212,6 +212,15 @@ class MultipleDownloadTask extends AbstractDownloadTask {
   }
 
   /**
+   * Pages saved one by one go in a folder named after the post, unless the settings say not
+   * to make one. Manga always gets one.
+   * @returns {boolean}
+   */
+  savesInWorkFolder() {
+    return this.type === 'PIXIV_MANGA' || !this.dontCreateWorkFolder();
+  }
+
+  /**
    *
    * @param {*} param0
    * @fires MultipleDownloadTask#progress
@@ -244,7 +253,7 @@ class MultipleDownloadTask extends AbstractDownloadTask {
       } else {
         let filename = GlobalSettings().downloadRelativeLocation;
 
-        if (this.type !== 'PIXIV_MANGA' && this.dontCreateWorkFolder()) {
+        if (!this.savesInWorkFolder()) {
           filename = pathjoin(filename,
             nameFormatter.format((GlobalSettings().combinWRRuleAndIRRuleWhenDontCreateWorkFolder === 0 ? '' : (this.options.renameRule + '_')) + this.options.renameImageRule, `${this.context.id}-p${pageNum}`)
           ) + `.${this.resolveExtension(mimeType, pageUrl)}`;
@@ -284,11 +293,16 @@ class MultipleDownloadTask extends AbstractDownloadTask {
     if (this.shouldZipFile()) {
       this.zip.file(metaFilename, blob, { date: this.now });
     } else {
+      // Beside the pages: in the work folder, or named after the post when there isn't one.
+      const location = GlobalSettings().downloadRelativeLocation;
+      const filename = this.savesInWorkFolder() ?
+        pathjoin(location, this.formatPostName(), metaFilename) :
+        pathjoin(location, this.formatPostName()) + '.info.json';
       const url = URL.createObjectURL(blob);
       let downloadId;
 
       try {
-        downloadId = await FileSystem.getDefault().saveFileInBackground({ url, filename: metaFilename });
+        downloadId = await FileSystem.getDefault().saveFileInBackground({ url, filename: fixFilename(filename) });
       } finally {
         FileSystem.getDefault().revokeWhenSaved(downloadId, url);
       }

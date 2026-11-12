@@ -200,7 +200,13 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
       let infoDownloadId;
 
       try {
-        infoDownloadId = await FileSystem.getDefault().saveFileInBackground({ url: infoUrl, filename: 'info.json' });
+        // Beside the zip, named after the work.
+        infoDownloadId = await FileSystem.getDefault().saveFileInBackground({
+          url: infoUrl,
+          filename: pathjoin(GlobalSettings().downloadRelativeLocation, nameFormatter.format(
+            this.options.renameRule
+          )) + '.info.json'
+        });
       } finally {
         FileSystem.getDefault().revokeWhenSaved(infoDownloadId, infoUrl);
       }
