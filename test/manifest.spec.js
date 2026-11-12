@@ -48,6 +48,14 @@ describe('transformManifest', () => {
       expect(optional).not.toHaveProperty('optional_permissions');
     });
 
+    it('folds optional permissions without an options_page or a permissions list', () => {
+      const { options_page, permissions, ...bare } = source;
+      const json = transformManifest({ ...bare, optional_permissions: ['notifications'] }, { platform: 'firefox', version: '1.2.3' });
+
+      expect(json.permissions).toEqual(['notifications']);
+      expect(json).not.toHaveProperty('options_ui');
+    });
+
     it('keeps version and drops version_name', () => {
       expect(json.version).toBe('1.2.3');
       expect(json).not.toHaveProperty('version_name');

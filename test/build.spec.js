@@ -1,7 +1,7 @@
 /**
  * Runs scripts/build.mjs for real, once per platform, into a temp directory
- * and checks that what the manifest and pages load exists and has the right
- * shape. The E2E suites (docs/testing.md) cover the build actually running.
+ * and checks the output's shape. Nothing in CI loads this build in a browser
+ * yet: the E2E suites run on the webpack build until it is replaced.
  */
 import { execFile } from 'child_process';
 import fs from 'fs';
@@ -9,6 +9,7 @@ import os from 'os';
 import path from 'path';
 import { promisify } from 'util';
 import vm from 'vm';
+import { assertSafeOutDir } from '../scripts/build.mjs';
 
 const run = promisify(execFile);
 const ROOT = path.resolve(__dirname, '..');
@@ -22,7 +23,7 @@ beforeAll(() => {
 });
 
 afterAll(() => {
-  fs.rmSync(tmp, { recursive: true, force: true });
+  fs.rmSync(tmp, { recursive: true, force: true, maxRetries: 3 });
 });
 
 /** Every extension-relative path the manifest makes the browser load. */
@@ -48,6 +49,10 @@ describe.each(['chrome', 'firefox'])('build for %s', platform => {
 
   beforeAll(async () => {
     out = path.join(tmp, platform);
+    // Left over from an earlier build; the build should clear it.
+    fs.mkdirSync(path.join(out, 'background'), { recursive: true });
+    fs.writeFileSync(path.join(out, 'background/stale.js'), '');
+
     await run(process.execPath, [SCRIPT, `--platform=${platform}`, `--out-dir=${out}`], { cwd: ROOT });
     manifest = JSON.parse(read(out, 'manifest.json'));
   }, 120000);
@@ -62,6 +67,10 @@ describe.each(['chrome', 'firefox'])('build for %s', platform => {
       expect(manifest.background).toEqual({ service_worker: 'background/background.js' });
       expect(manifest.version_name).toBe(version);
     }
+  });
+
+  it('empties the output directory first', () => {
+    expect(fs.existsSync(path.join(out, 'background/stale.js'))).toBe(false);
   });
 
   it('emits every file the manifest references', () => {
@@ -91,16 +100,39 @@ describe.each(['chrome', 'firefox'])('build for %s', platform => {
     }
   );
 
-  it('defines PRESET_BROWSER', () => {
-    expect(read(out, 'content_scripts/app.js')).not.toMatch(/\bPRESET_BROWSER\b/);
+  it('sets PRESET_BROWSER to the platform', () => {
+    // src/core/global.js sets window.$_browser from it.
+    const expected = platform === 'firefox' ? 'firefox' : 'default';
+
+    expect(read(out, 'content_scripts/app.js')).toContain(`$_browser=\`${expected}\``);
   });
 
   it('reads Vue, vue-i18n and the locales from the globals lib/ provides', () => {
     const content = read(out, 'content_scripts/app.js');
 
     for (const name of ['Vue', 'VueI18n', 'locales']) {
-      expect(content).toContain(`globalThis.${name}`);
+      expect(content).toMatch(new RegExp(`globalThis\\.${name}\\b`));
     }
+  });
+
+  it('reads Dexie from its global only in the options pages', () => {
+    const options = fs.readdirSync(path.join(out, 'options_page/static'))
+      .filter(f => f.endsWith('.js'))
+      .map(f => read(out, `options_page/static/${f}`))
+      .join('\n');
+
+    expect(options).toMatch(/globalThis\.Dexie\b/);
+    expect(read(out, 'background/background.js')).not.toContain('globalThis.');
+  });
+
+  it('compiles the Vue components for production, whatever NODE_ENV the build inherits', () => {
+    // The build inherits Vitest's NODE_ENV=test. A dev build embeds each
+    // component's absolute source path as `__file`.
+    expect(read(out, 'content_scripts/app.js')).not.toContain('__file');
+  });
+
+  it("keeps bundled dependencies' license comments", () => {
+    expect(read(out, 'background/background.js')).toContain('//! moment.js');
   });
 
   it('exposes the locale messages as the `locales` global', () => {
@@ -112,12 +144,15 @@ describe.each(['chrome', 'firefox'])('build for %s', platform => {
     expect(context.locales.localeEn.extName.message).toEqual(expect.any(String));
   });
 
-  it('ships the umd FFmpeg build without source maps or the CDN core URL', () => {
+  it('ships the umd FFmpeg build without source maps, pointed at the packaged core', () => {
     const files = fs.readdirSync(path.join(out, 'lib/ffmpeg'));
+    // The worker chunk (814.ffmpeg.js) is the one that names the core.
+    const ffmpeg = files.filter(f => f.endsWith('.js')).map(f => read(out, `lib/ffmpeg/${f}`)).join('\n');
 
     expect(files).toEqual(expect.arrayContaining(['ffmpeg.js', 'ffmpeg-core.js', 'ffmpeg-core.wasm']));
     expect(files.filter(f => f.endsWith('.map'))).toEqual([]);
-    expect(read(out, 'lib/ffmpeg/ffmpeg.js')).not.toContain('unpkg.com');
+    expect(ffmpeg).not.toContain('unpkg.com');
+    expect(ffmpeg).toContain('"ffmpeg-core.js"');
   });
 
   it('leaves src/statics/remote out of the package', () => {
@@ -128,4 +163,18 @@ describe.each(['chrome', 'firefox'])('build for %s', platform => {
 it('rejects an unknown platform', async () => {
   await expect(run(process.execPath, [SCRIPT, '--platform=safari'], { cwd: ROOT }))
     .rejects.toMatchObject({ code: 1, stderr: expect.stringContaining('Unknown --platform=safari') });
+}, 30000);
+
+describe('assertSafeOutDir', () => {
+  it.each(['.', '..', 'src', 'src/statics/x'])('refuses %s, which emptying would wipe sources from', dir => {
+    expect(() => assertSafeOutDir(path.resolve(ROOT, dir))).toThrow(/Refusing to build into/);
+  });
+
+  it.each(['dist/chrome', 'dist/anything'])('accepts %s', dir => {
+    expect(() => assertSafeOutDir(path.resolve(ROOT, dir))).not.toThrow();
+  });
+
+  it('accepts a directory outside the repo', () => {
+    expect(() => assertSafeOutDir(tmp)).not.toThrow();
+  });
 });

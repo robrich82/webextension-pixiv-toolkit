@@ -5,14 +5,15 @@
 export function transformManifest(manifest, { platform, version }) {
   const json = structuredClone(manifest);
 
-  json.version_name = json.version = version;
+  json.version = version;
 
   if (platform !== 'firefox') {
+    json.version_name = version;
     return json;
   }
 
   // Firefox runs the MV3 background as an event page, not a service worker.
-  if (json.background && json.background.service_worker) {
+  if (json.background?.service_worker) {
     json.background = { scripts: [json.background.service_worker] };
   }
 
@@ -30,15 +31,13 @@ export function transformManifest(manifest, { platform, version }) {
 
   if (json.options_page) {
     json.options_ui = { page: json.options_page, open_in_tab: true };
-
-    // Firefox has no `downloads.shelf`.
-    (json.optional_permissions || []).forEach(permission => {
-      if (permission !== 'downloads.shelf') json.permissions.push(permission);
-    });
-
-    delete json.optional_permissions;
     delete json.options_page;
-    delete json.version_name;
+  }
+
+  // Firefox has no `downloads.shelf`.
+  if (json.optional_permissions) {
+    json.permissions = [...(json.permissions || []), ...json.optional_permissions.filter(p => p !== 'downloads.shelf')];
+    delete json.optional_permissions;
   }
 
   return json;

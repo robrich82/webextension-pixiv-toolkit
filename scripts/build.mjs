@@ -5,7 +5,8 @@
  *   node scripts/build.mjs [--platform=chrome|firefox] [--watch] [--out-dir=<dir>]
  *
  * --watch builds unminified with inline source maps and rebuilds on change.
- * Files copied from src/statics are copied once, so restart it after editing them.
+ * What copyStatics() writes (src/statics, lib/ vendor files, manifest.json) is
+ * written once, so restart it after editing those.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -21,10 +22,9 @@ const root = fileURLToPath(new URL('..', import.meta.url));
 const fromRoot = p => path.join(root, p);
 
 /**
- * Loaded as classic <script>s from lib/ (see the HTML pages and the manifest's
- * content_scripts), so bundles read them from the global instead of bundling
- * a second copy. Dexie is only external in the options pages: the background
- * has no page to load lib/dexie into, so it bundles its own.
+ * The pages and the manifest's content_scripts load these from lib/ as classic
+ * <script>s, so bundles read the global instead of bundling a second copy.
+ * The background and locales targets have no page to load them into.
  */
 const SHARED_GLOBALS = { vue: 'Vue', 'vue-i18n': 'VueI18n', locales: 'locales' };
 
@@ -62,10 +62,7 @@ function injectEntryScript(entries) {
   };
 }
 
-/**
- * The pages load lib/ scripts as classic <script>s on purpose, and Vite warns
- * about each one on every build. Drop those warnings; keep the rest.
- */
+// The pages load lib/ scripts as classic <script>s on purpose; Vite warns about each one.
 function quietLogger() {
   const logger = createLogger('warn');
   const warn = logger.warn;
@@ -75,21 +72,22 @@ function quietLogger() {
   return logger;
 }
 
-function viteConfig({ platform, dev, watch, globals = SHARED_GLOBALS, plugins = [], root: viteRoot = root, outDir, build: buildOptions }) {
+function viteConfig({ platform, watch, globals = SHARED_GLOBALS, plugins = [], root: viteRoot = root, outDir, build: buildOptions }) {
+  const rolldownOptions = buildOptions.rolldownOptions || {};
+
   return {
     configFile: false,
     envDir: false,
     root: viteRoot,
     base: './',
     publicDir: false,
-    mode: dev ? 'development' : 'production',
+    mode: watch ? 'development' : 'production',
     customLogger: quietLogger(),
     plugins: [globalExternals(globals), vue(), ...plugins],
     define: {
       PRESET_BROWSER: JSON.stringify(platform),
-      'process.env.NODE_ENV': JSON.stringify(dev ? 'development' : 'production'),
-      // Vue's compile-time flags. Vue itself is the prebuilt global build, but
-      // the bundled vue-router and Vuetify read them.
+      'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV),
+      // Compile-time flags read by bundled dependencies; Vue itself is the global build.
       __VUE_OPTIONS_API__: 'true',
       __VUE_PROD_DEVTOOLS__: 'false',
       __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: 'false',
@@ -108,31 +106,30 @@ function viteConfig({ platform, dev, watch, globals = SHARED_GLOBALS, plugins = 
       target: ['chrome88', 'firefox109'],
       assetsInlineLimit: 10000,
       assetsDir: 'static',
-      minify: !dev,
-      sourcemap: dev ? 'inline' : false,
+      minify: !watch,
+      sourcemap: watch ? 'inline' : false,
       reportCompressedSize: false,
       // Extension pages load from disk, so a download-size budget means nothing.
       chunkSizeWarningLimit: Infinity,
       watch: watch ? {} : null,
-      ...buildOptions
+      ...buildOptions,
+      rolldownOptions: {
+        ...rolldownOptions,
+        // Minifying drops bundled dependencies' license banners otherwise.
+        output: { ...rolldownOptions.output, comments: { legal: true } }
+      }
     }
   };
 }
 
-/**
- * One classic script and at most one stylesheet, `static/css/<name>.css`.
- * With `globalName`, the entry's default export becomes that global.
- */
-function iife(entry, fileName, globalName) {
+// One classic script and at most one stylesheet, `static/css/<name>.css`.
+function iife(entry, fileName) {
   return {
     cssCodeSplit: false,
     rolldownOptions: {
       input: entry,
-      // Vite drops an app entry's exports unless told to keep them.
-      ...(globalName && { preserveEntrySignatures: 'strict' }),
       output: {
         format: 'iife',
-        name: globalName,
         entryFileNames: fileName,
         assetFileNames: info => info.names.some(n => n.endsWith('.css'))
           ? `static/css/${path.basename(fileName, '.js')}.css`
@@ -145,20 +142,25 @@ function iife(entry, fileName, globalName) {
 function targets(out) {
   return [
     {
+      name: 'locales',
       globals: {},
       outDir: path.join(out, 'lib'),
-      build: iife(fromRoot('src/modules/Locales.js'), 'locales.js', 'locales')
+      // Library mode, so the entry's default export becomes the `locales` global.
+      build: { lib: { entry: fromRoot('src/modules/Locales.js'), formats: ['iife'], name: 'locales', fileName: () => 'locales.js' } }
     },
     {
+      name: 'background',
       globals: {},
       outDir: path.join(out, 'background'),
       build: iife(fromRoot('src/background/Bootstrap.js'), 'background.js')
     },
     {
+      name: 'content script',
       outDir: path.join(out, 'content_scripts'),
       build: iife(fromRoot('src/content_scripts/main.js'), 'app.js')
     },
     {
+      name: 'options pages',
       globals: { ...SHARED_GLOBALS, dexie: 'Dexie' },
       root: fromRoot('src/options_page'),
       outDir: path.join(out, 'options_page'),
@@ -173,11 +175,24 @@ function targets(out) {
       }
     },
     {
+      name: 'popup',
       root: fromRoot('src/popup_page'),
       outDir: path.join(out, 'popup_page'),
       build: { rolldownOptions: { input: fromRoot('src/popup_page/index.html') } }
     }
   ];
+}
+
+const isWithin = (parent, child) => {
+  const rel = path.relative(parent, child);
+  return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
+};
+
+/** The output directory is emptied first, so refuse one that holds the sources. */
+export function assertSafeOutDir(out) {
+  if (isWithin(out, root) || isWithin(fromRoot('src'), out)) {
+    throw new Error(`Refusing to build into ${out}: it would be emptied, and it holds the sources.`);
+  }
 }
 
 function emptyDir(dir) {
@@ -220,35 +235,45 @@ function copyStatics(platform, out) {
   fs.writeFileSync(path.join(out, 'manifest.json'), JSON.stringify(transformManifest(manifest, { platform, version })));
 }
 
-// In watch mode build() returns as soon as the watcher starts.
+// In watch mode build() returns as soon as the watcher starts. Resolves false if the first build failed.
 function firstBuild(watcher) {
   return new Promise(resolve => {
     const onEvent = event => {
       if (event.code === 'END' || event.code === 'ERROR') {
         watcher.off('event', onEvent);
-        resolve();
+        resolve(event.code === 'END');
       }
     };
     watcher.on('event', onEvent);
   });
 }
 
+/** Returns the output directory and, in watch mode, the targets whose first build failed. */
 export async function buildExtension({ platform = 'chrome', watch = false, outDir } = {}) {
   const out = path.resolve(outDir || fromRoot(`dist/${platform}`));
+  const failed = [];
+
+  assertSafeOutDir(out);
+
+  // Vite and @vitejs/plugin-vue decide dev or production from NODE_ENV, not `mode`,
+  // so an inherited value (Vitest sets `test`) would change the build.
+  process.env.NODE_ENV = watch ? 'development' : 'production';
 
   emptyDir(out);
   copyStatics(platform, out);
 
-  for (const target of targets(out)) {
-    const result = await build(viteConfig({ platform, dev: watch, watch, ...target }));
-    if (watch) await firstBuild(result);
+  for (const { name, ...target } of targets(out)) {
+    const result = await build(viteConfig({ platform, watch, ...target }));
+    if (watch && !(await firstBuild(result))) failed.push(name);
   }
 
-  return out;
+  return { out, failed };
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (import.meta.main) {
   const { values } = parseArgs({
+    // `pnpm run build:vite -- --flag` passes the `--` through.
+    args: process.argv.slice(2).filter(arg => arg !== '--'),
     options: {
       platform: { type: 'string', default: 'chrome' },
       watch: { type: 'boolean', default: false },
@@ -262,7 +287,20 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   }
 
   const started = Date.now();
-  const out = await buildExtension({ platform: values.platform, watch: values.watch, outDir: values['out-dir'] });
+  let result;
 
-  console.log(`Built ${values.platform} into ${path.relative(process.cwd(), out) || '.'} in ${Date.now() - started} ms${values.watch ? '; watching for changes' : ''}.`);
+  try {
+    result = await buildExtension({ platform: values.platform, watch: values.watch, outDir: values['out-dir'] });
+  } catch (error) {
+    console.error(error.message);
+    process.exit(1);
+  }
+
+  const into = path.relative(process.cwd(), result.out) || '.';
+
+  if (result.failed.length) {
+    console.error(`First build failed for: ${result.failed.join(', ')}. Watching for changes.`);
+  } else {
+    console.log(`Built ${values.platform} into ${into} in ${Date.now() - started} ms${values.watch ? '; watching for changes' : ''}.`);
+  }
 }
