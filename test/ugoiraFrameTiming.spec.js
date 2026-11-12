@@ -18,6 +18,8 @@ const UNEVEN = [30, 70, 100, 50, 130, 60];
 const EVEN = [70, 70, 70, 70];
 // No common step of 10ms or more, so the tick is floored at 10ms.
 const NEAR = [33, 34, 33, 33, 34, 33];
+// Browsers play a GIF frame under 20ms for 100ms.
+const FAST = [10, 10, 10, 10, 10, 10];
 
 /** A command split the way the task splits it, with -safe 0 added the way the task adds it. */
 const command = format => {
@@ -26,14 +28,16 @@ const command = format => {
   return args;
 };
 
-const input = delays => UgoiraDownloadTask.concatList(
-  delays.map((delay, i) => ({ file: `${String(i).padStart(6, '0')}.jpg`, delay }))
+const input = (delays, format) => UgoiraDownloadTask.concatList(
+  delays.map((delay, i) => ({ file: `${String(i).padStart(6, '0')}.jpg`, delay })),
+  { gif: format === 'gif' }
 );
 
 const conversions = [
-  ...Object.keys(FORMATS).map(format => ({ name: `${format} uneven`, input: input(UNEVEN), args: command(format) })),
-  ...Object.keys(FORMATS).map(format => ({ name: `${format} even`, input: input(EVEN), args: command(format) })),
-  ...['gif', 'mp4'].map(format => ({ name: `${format} near`, input: input(NEAR), args: command(format) }))
+  ...Object.keys(FORMATS).map(format => ({ name: `${format} uneven`, input: input(UNEVEN, format), args: command(format) })),
+  ...Object.keys(FORMATS).map(format => ({ name: `${format} even`, input: input(EVEN, format), args: command(format) })),
+  ...['gif', 'mp4'].map(format => ({ name: `${format} near`, input: input(NEAR, format), args: command(format) })),
+  { name: 'gif fast', input: input(FAST, 'gif'), args: command('gif') }
 ];
 
 /** @type {Record<string, { code: number, starts: number[], total: number }>} */
@@ -67,4 +71,8 @@ test.each(['gif', 'webm', 'mp4'])('%s with equal delays shows every frame, the l
 
 test.each(['gif', 'mp4'])('%s starts each frame on the nearest 10ms when the delays share no 10ms step', format => {
   expect(results[`${format} near`]).toMatchObject({ code: 0, starts: [0, 30, 70, 100, 130, 170] });
+});
+
+test('gif gives each frame under 20ms 20ms', () => {
+  expect(results['gif fast']).toMatchObject({ code: 0, starts: [0, 20, 40, 60, 80, 100] });
 });

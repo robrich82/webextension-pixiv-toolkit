@@ -267,7 +267,14 @@ describe('frame timing (#322)', () => {
     ['adds one when the command has -safe only after -i, where it is an output option',
       '-f concat -i input.txt -safe 0 out.webm', '-f concat -safe 0 -i input.txt -safe 0 out.webm'],
     ['leaves a command that does not read input.txt', '-i step.mkv out.webm', '-i step.mkv out.webm'],
-    ['leaves a command that reads input.txt without the concat demuxer', '-i input.txt out.gif', '-i input.txt out.gif']
+    ['leaves a command that reads input.txt without the concat demuxer', '-i input.txt out.gif', '-i input.txt out.gif'],
+    ['adds one for input.txt under another path', '-f concat -i ./input.txt out.gif', '-f concat -safe 0 -i ./input.txt out.gif'],
+    ['leaves a list that is only named like input.txt', '-f concat -i myinput.txt out.gif', '-f concat -i myinput.txt out.gif'],
+    ['sets a -safe the command gives another value', '-f concat -safe 1 -i input.txt out.gif', '-f concat -safe 0 -i input.txt out.gif'],
+    ['adds one for each input that reads input.txt', '-f concat -i input.txt -f concat -i input.txt out.gif',
+      '-f concat -safe 0 -i input.txt -f concat -safe 0 -i input.txt out.gif'],
+    ['looks only at the options of the input that reads input.txt', '-safe 0 -i a.mkv -f concat -i input.txt out.gif',
+      '-safe 0 -i a.mkv -f concat -safe 0 -i input.txt out.gif']
   ])('allowConcatOptions %s', (_, command, expected) => {
     const args = command.split(' ');
 
@@ -288,6 +295,42 @@ describe('frame timing (#322)', () => {
 
     expect(ffmpegs[0].files.get('input.txt'))
       .toBe("file '000000.jpg'\r\nduration 0\r\nfile '000001.jpg'\r\nduration 0\r\n");
+  });
+
+  test('concatList gives a GIF frame under 20ms 20ms, and leaves other outputs alone', () => {
+    const frames = [{ file: 'a.jpg', delay: 10 }, { file: 'b.jpg', delay: 15 }, { file: 'c.jpg', delay: 30 }];
+
+    expect(UgoiraDownloadTask.concatList(frames, { gif: true })).toBe(
+      "file 'a.jpg'\r\noption framerate 1000/10\r\nduration 0.02\r\n" +
+      "file 'b.jpg'\r\noption framerate 1000/10\r\nduration 0.02\r\n" +
+      "file 'c.jpg'\r\noption framerate 1000/10\r\nduration 0.03\r\n"
+    );
+    expect(UgoiraDownloadTask.concatList(frames)).toBe(
+      "file 'a.jpg'\r\noption framerate 1000/10\r\nduration 0.01\r\n" +
+      "file 'b.jpg'\r\noption framerate 1000/10\r\nduration 0.015\r\n" +
+      "file 'c.jpg'\r\noption framerate 1000/10\r\nduration 0.03\r\n"
+    );
+  });
+
+  test.each([
+    ['the default GIF command', '', '1000/20', '0.02'],
+    ['a custom command whose output is a GIF', '-f concat -i input.txt -plays 0 fast.GIF', '1000/20', '0.02'],
+    ['a custom command whose output is not a GIF', '-f concat -i input.txt output.webm', '1000/10', '0.01']
+  ])('input.txt times a 10ms frame for %s', async (_, ffmpegCommandArgs, rate, duration) => {
+    const task = createTask({
+      ffmpegCommandArgs,
+      convertType: ffmpegCommandArgs ? 'CUSTOM' : 'gif',
+      frames: [{ file: '000000.jpg', delay: 10 }, { file: '000001.jpg', delay: 10 }]
+    });
+
+    task.start();
+    await completeDownload(task);
+    await vi.waitFor(() => expect(task.isComplete()).toBe(true));
+
+    expect(ffmpegs[0].files.get('input.txt')).toBe(
+      `file '000000.jpg'\r\noption framerate ${rate}\r\nduration ${duration}\r\n` +
+      `file '000001.jpg'\r\noption framerate ${rate}\r\nduration ${duration}\r\n`
+    );
   });
 });
 

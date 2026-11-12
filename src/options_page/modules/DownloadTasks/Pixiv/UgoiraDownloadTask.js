@@ -252,12 +252,6 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
       }
 
       /**
-       * Add frames to ffmpeg file system
-       */
-      await this.ffmpeg.writeFile('input.txt', UgoiraDownloadTask.concatList(this.options.frames));
-      loadedFiles.push('input.txt');
-
-      /**
        * parse ffmpeg command line(s)
        */
       const ffmpegCommands = [];
@@ -279,6 +273,14 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
 
       const lastCommand = ffmpegCommands[ffmpegCommands.length - 1];
       const outputFilename = lastCommand[lastCommand.length - 1];
+
+      /**
+       * Add frames to ffmpeg file system
+       */
+      await this.ffmpeg.writeFile('input.txt', UgoiraDownloadTask.concatList(this.options.frames, {
+        gif: /\.gif$/i.test(outputFilename)
+      }));
+      loadedFiles.push('input.txt');
 
       for (const seq in ffmpegCommands) {
         console.log(ffmpegCommands[seq]);
@@ -303,16 +305,16 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
   }
 
   /**
-   * The frame rate input.txt gives each frame, as `1000/<ms>`: one tick is the largest step that
-   * every delay is a multiple of. Without it the concat demuxer reads the JPEG frames at the image
-   * demuxer's default 25 fps and rounds every delay to 40ms (#322). An output at a constant frame
-   * rate repeats frames on this tick, so it is no finer than the delays need.
+   * The frame rate input.txt gives each frame, as `1000/<tick ms>`. Without it the concat demuxer
+   * reads the JPEG frames at the image demuxer's default 25 fps and rounds every delay to 40ms
+   * (#322). The tick is the largest step every delay is a multiple of, so an output at a constant
+   * frame rate repeats frames no more often than the delays need.
    *
-   * The tick is at least 10ms, the finest step GIF stores, so frames then start on the nearest
-   * 10ms. x264 picks the H.264 level from this rate: delays like 33/34ms would otherwise ask for
-   * 1000 fps, and a level hardware decoders refuse.
-   * @param {{ delay: number }[]} frames
-   * @returns {string|undefined} undefined when no delay is a positive whole number of ms
+   * The tick is at least 10ms: x264 picks the H.264 level from this rate, and delays like 33/34ms
+   * would otherwise ask for 1000 fps, a level hardware decoders refuse. Frames then start on the
+   * nearest 10ms.
+   * @param {{ delay: number }[]} frames Delays that aren't a positive whole number of ms are skipped
+   * @returns {string|undefined} undefined when no delay is usable
    */
   static frameRate(frames) {
     const gcd = (a, b) => (b ? gcd(b, a % b) : a);
@@ -325,14 +327,17 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
   }
 
   /**
-   * input.txt: the concat demuxer's list of frames, each with its frame rate and delay.
+   * input.txt: the concat demuxer's list of frames, each with its delay and the frame rate.
    * @param {{ file: string, delay: number }[]} frames
+   * @param {{ gif?: boolean }} [output] gif: browsers play a GIF frame under 20ms for 100ms, so
+   *   each frame lasts at least 20ms
    * @returns {string}
    */
-  static concatList(frames) {
-    const frameRate = UgoiraDownloadTask.frameRate(frames);
+  static concatList(frames, { gif = false } = {}) {
+    const timed = frames.map(frame => (gif && frame.delay > 0 && frame.delay < 20 ? { ...frame, delay: 20 } : frame));
+    const frameRate = UgoiraDownloadTask.frameRate(timed);
 
-    return frames.map(frame =>
+    return timed.map(frame =>
       `file '${frame.file}'\r\n` +
       (frameRate ? `option framerate ${frameRate}\r\n` : '') +
       `duration ${frame.delay / 1000}\r\n`
@@ -340,17 +345,34 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
   }
 
   /**
-   * input.txt's `option` lines need the concat demuxer's unsafe mode, so put `-safe 0` before
-   * `-i input.txt` in each command that reads it, custom ones included. input.txt only names the
-   * frame files written here.
+   * input.txt's `option` lines need the concat demuxer's unsafe mode, so each `-f concat` input
+   * that reads input.txt (any path ending in it), custom commands included, gets `-safe 0`: added
+   * before its `-i`, or replacing the value of its own `-safe`. input.txt only names the frame
+   * files written here.
    * @param {string[]} args A command's arguments, changed in place
    */
   static allowConcatOptions(args) {
-    const input = args.findIndex((arg, i) => arg === '-i' && args[i + 1] === 'input.txt');
-    const before = args.slice(0, input);
+    let start = 0; // where the options of the input at `i` begin
 
-    if (input > -1 && before.includes('concat') && !before.includes('-safe')) {
-      args.splice(input, 0, '-safe', '0');
+    for (let i = 0; i < args.length - 1; i++) {
+      if (args[i] !== '-i') {
+        continue;
+      }
+
+      const options = args.slice(start, i);
+
+      if (/(^|\/)input\.txt$/.test(args[i + 1]) && options.includes('concat')) {
+        const safe = options.lastIndexOf('-safe');
+
+        if (safe > -1 && safe < options.length - 1) {
+          args[start + safe + 1] = '0';
+        } else {
+          args.splice(i, 0, '-safe', '0');
+          i += 2;
+        }
+      }
+
+      start = i + 2;
     }
   }
 

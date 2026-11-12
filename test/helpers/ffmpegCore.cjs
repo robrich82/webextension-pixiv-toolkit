@@ -20,7 +20,9 @@ const wasmBinary = fs.readFileSync(path.join(path.dirname(require.resolve('@ffmp
 
 /**
  * A fresh core, and the lines it prints. A core crashes after a few execs, so each job gets its own.
- * @param {(core: object) => void} job
+ * @template T
+ * @param {(core: object, output: string[]) => T} job
+ * @returns {Promise<T>}
  */
 async function withCore(job) {
   const output = [];
