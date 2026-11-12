@@ -1,7 +1,8 @@
 /**
  * The ugoira conversions run through the bundled FFmpeg.wasm core (FFmpeg 5.1), timed with its
  * ffprobe. The download task's own spec fakes FFmpeg; this one checks what the real core does with
- * the input.txt and commands the task builds (#322: every delay used to be rounded to 40ms).
+ * the input.txt and commands the task builds: each frame lasts its own delay (#322), the last
+ * frame too (#325).
  */
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
@@ -21,23 +22,29 @@ const NEAR = [33, 34, 33, 33, 34, 33];
 // Browsers play a 10ms animated-image frame for 100ms, so GIF and APNG get 20ms frames.
 const FAST = [10, 10, 10, 10, 10, 10];
 
-/** A command split the way the task splits it, with -safe 0 added the way the task adds it. */
-const command = format => {
-  const args = UGOIRA_FFMPEG_CLI_ARGS[FORMATS[format]].split(' ');
-  UgoiraDownloadTask.allowConcatOptions(args);
-  return args;
+// A long last frame, which the concat demuxer would cut to one tick (#325).
+const HOLD = [100, 100, 1000];
+
+/** A conversion of the delays with `command`, readied the way runFFmpeg readies it. */
+const conversion = (name, command, delays) => {
+  const frames = delays.map((delay, i) => ({ file: `${String(i).padStart(6, '0')}.jpg`, delay }));
+  const args = command.split(' ');
+  const input = UgoiraDownloadTask.prepareConversion([args], frames);
+
+  return { name, input, args };
 };
+const preset = (name, format, delays) =>
+  conversion(`${format} ${name}`, UGOIRA_FFMPEG_CLI_ARGS[FORMATS[format]], delays);
 
-const input = (delays, format) => UgoiraDownloadTask.concatList(
-  delays.map((delay, i) => ({ file: `${String(i).padStart(6, '0')}.jpg`, delay })),
-  { minDelay: ['gif', 'apng'].includes(format) ? 20 : 0 }
-);
-
+const ALL = Object.keys(FORMATS);
 const conversions = [
-  ...Object.keys(FORMATS).map(format => ({ name: `${format} uneven`, input: input(UNEVEN, format), args: command(format) })),
-  ...Object.keys(FORMATS).map(format => ({ name: `${format} even`, input: input(EVEN, format), args: command(format) })),
-  ...['gif', 'mp4'].map(format => ({ name: `${format} near`, input: input(NEAR, format), args: command(format) })),
-  ...['gif', 'apng'].map(format => ({ name: `${format} fast`, input: input(FAST, format), args: command(format) }))
+  ...ALL.map(format => preset('uneven', format, UNEVEN)),
+  ...ALL.map(format => preset('even', format, EVEN)),
+  ...ALL.map(format => preset('hold', format, HOLD)),
+  ...['gif', 'mp4'].map(format => preset('near', format, NEAR)),
+  ...['gif', 'apng'].map(format => preset('fast', format, FAST)),
+  conversion('apng named .png', '-f concat -i input.txt -plays 0 -f apng out.png', HOLD),
+  conversion('gif named .img', '-f concat -i input.txt -f gif out.img', HOLD)
 ];
 
 /** @type {Record<string, { code: number, starts: number[], total: number }>} */
@@ -55,28 +62,41 @@ beforeAll(() => {
   results = Object.fromEntries(conversions.map(({ name }, i) => [name, list[i]]));
 }, 120000);
 
+// A video ends with a repeat of the last frame, one tick before the end (#325).
 test.each([
   ['gif', [0, 30, 100, 200, 250, 380]],
-  // The APNG muxer drops the last frame, as it did before.
-  ['apng', [0, 30, 100, 200, 250]],
-  ['webm', [0, 30, 100, 200, 250, 380]],
-  ['mp4', [0, 30, 100, 200, 250, 380]]
-])('%s starts each frame after the delays before it, not on a 40ms step', (format, starts) => {
-  expect(results[`${format} uneven`]).toMatchObject({ code: 0, starts });
+  ['apng', [0, 30, 100, 200, 250, 380]],
+  ['webm', [0, 30, 100, 200, 250, 380, 430]],
+  ['mp4', [0, 30, 100, 200, 250, 380, 430]]
+])('%s shows each frame for its own delay, the last too', (format, starts) => {
+  expect(results[`${format} uneven`]).toEqual({ code: 0, starts, total: 440 });
 });
 
-test.each(['gif', 'webm', 'mp4'])('%s with equal delays shows every frame, the last too, for its delay', format => {
+test.each(ALL)('%s with equal delays shows every frame for its delay', format => {
   expect(results[`${format} even`]).toEqual({ code: 0, starts: [0, 70, 140, 210], total: 280 });
 });
 
-test.each(['gif', 'mp4'])('%s starts each frame on the nearest 10ms when the delays share no 10ms step', format => {
-  expect(results[`${format} near`]).toMatchObject({ code: 0, starts: [0, 30, 70, 100, 130, 170] });
+test.each([
+  ['gif', [0, 100, 200]],
+  ['apng', [0, 100, 200]],
+  ['webm', [0, 100, 200, 1100]],
+  ['mp4', [0, 100, 200, 1100]]
+])('%s holds a long last frame for its delay', (format, starts) => {
+  expect(results[`${format} hold`]).toEqual({ code: 0, starts, total: 1200 });
+});
+
+test.each(['apng named .png', 'gif named .img'])('a custom command whose -f picks the format holds the last frame (%s)', name => {
+  expect(results[name]).toEqual({ code: 0, starts: [0, 100, 200], total: 1200 });
+});
+
+test.each([
+  ['gif', [0, 30, 70, 100, 130, 170]],
+  ['mp4', [0, 30, 70, 100, 130, 170, 190]]
+])('%s starts each frame on the nearest 10ms when the delays share no 10ms step', (format, starts) => {
+  expect(results[`${format} near`]).toEqual({ code: 0, starts, total: 200 });
 });
 
 // ffprobe reads a GIF delay under 20ms as 100ms, as browsers do, so 20ms steps prove the stored delays.
-test.each([
-  ['gif', [0, 20, 40, 60, 80, 100]],
-  ['apng', [0, 20, 40, 60, 80]]
-])('%s gives each frame under 20ms 20ms', (format, starts) => {
-  expect(results[`${format} fast`]).toMatchObject({ code: 0, starts });
+test.each(['gif', 'apng'])('%s gives each frame under 20ms 20ms', format => {
+  expect(results[`${format} fast`]).toEqual({ code: 0, starts: [0, 20, 40, 60, 80, 100], total: 120 });
 });

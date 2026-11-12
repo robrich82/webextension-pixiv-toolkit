@@ -182,7 +182,8 @@ test('saves the frames zip, then converts the frames and saves the animation', a
     "file '000000.jpg'\r\noption framerate 1000/50\r\nduration 0.1\r\n" +
     "file '000001.jpg'\r\noption framerate 1000/50\r\nduration 0.25\r\n"
   );
-  expect(ffmpeg.commands).toEqual([['-f', 'concat', '-safe', '0', '-i', 'input.txt', '-plays', '0', 'out.gif']]);
+  expect(ffmpeg.commands)
+    .toEqual([['-f', 'concat', '-safe', '0', '-i', 'input.txt', '-plays', '0', '-final_delay', '25', 'out.gif']]);
   expect(ffmpeg.deleted).toEqual(['000000.jpg', '000001.jpg', 'input.txt', 'out.gif']);
   expect(ffmpeg.terminated).toBe(true);
   expect(task.ffmpeg).toBeNull();
@@ -248,17 +249,17 @@ test('saves the work information beside the zip when metadata is on', async () =
 
 describe('frame timing (#322)', () => {
   test.each([
-    ['equal delays', [100, 100, 150], '1000/50'],
-    ['delays with no common step of 10ms or more', [33, 34, 33], '1000/10'],
-    ['delays whose common step is not a multiple of 10ms', [15, 45, 30], '1000/15'],
-    ['one frame', [70], '1000/70'],
-    ['a frame with no usable delay', [0, 60, 90, undefined], '1000/30']
-  ])('frameRate: %s', (_, delays, rate) => {
-    expect(UgoiraDownloadTask.frameRate(delays.map(delay => ({ delay })))).toBe(rate);
+    ['equal delays', [100, 100, 150], 50],
+    ['delays with no common step of 10ms or more', [33, 34, 33], 10],
+    ['delays whose common step is not a multiple of 10ms', [15, 45, 30], 15],
+    ['one frame', [70], 70],
+    ['a frame with no usable delay', [0, 60, 90, undefined], 30]
+  ])('tick: %s', (_, delays, tick) => {
+    expect(UgoiraDownloadTask.tick(delays.map(delay => ({ delay })))).toBe(tick);
   });
 
-  test('frameRate is undefined when no delay is a positive whole number of ms', () => {
-    expect(UgoiraDownloadTask.frameRate([{ delay: 0 }, { delay: 12.5 }])).toBeUndefined();
+  test('tick is undefined when no delay is a positive whole number of ms', () => {
+    expect(UgoiraDownloadTask.tick([{ delay: 0 }, { delay: 12.5 }])).toBeUndefined();
   });
 
   test.each([
@@ -301,24 +302,128 @@ describe('frame timing (#322)', () => {
       .toBe("file '000000.jpg'\r\nduration 0\r\nfile '000001.jpg'\r\nduration 0\r\n");
   });
 
-  test('concatList raises a delay under minDelay to minDelay, and leaves the rest alone', () => {
-    const frames = [
-      { file: 'a.jpg', delay: 10 }, { file: 'b.jpg', delay: 19 }, { file: 'c.jpg', delay: 20 }, { file: 'd.jpg', delay: 30 }
-    ];
+  test.each([
+    ['gif', [20, 20, 20, 30]],
+    ['apng', [20, 20, 20, 30]],
+    ['video', [10, 19, 20, 30]]
+  ])('timedFrames gives a %s these delays for 10, 19, 20 and 30ms', (format, delays) => {
+    const frames = [10, 19, 20, 30].map(delay => ({ file: 'a.jpg', delay }));
 
-    // The minDelay call comes first: a clamp that changed `frames` in place would fail the second.
-    expect(UgoiraDownloadTask.concatList(frames, { minDelay: 20 })).toBe(
-      "file 'a.jpg'\r\noption framerate 1000/10\r\nduration 0.02\r\n" +
-      "file 'b.jpg'\r\noption framerate 1000/10\r\nduration 0.02\r\n" +
-      "file 'c.jpg'\r\noption framerate 1000/10\r\nduration 0.02\r\n" +
-      "file 'd.jpg'\r\noption framerate 1000/10\r\nduration 0.03\r\n"
-    );
-    expect(UgoiraDownloadTask.concatList(frames)).toBe(
-      "file 'a.jpg'\r\noption framerate 1000/10\r\nduration 0.01\r\n" +
-      "file 'b.jpg'\r\noption framerate 1000/10\r\nduration 0.019\r\n" +
-      "file 'c.jpg'\r\noption framerate 1000/10\r\nduration 0.02\r\n" +
-      "file 'd.jpg'\r\noption framerate 1000/10\r\nduration 0.03\r\n"
-    );
+    expect(UgoiraDownloadTask.timedFrames(frames, format).map(frame => frame.delay)).toEqual(delays);
+    expect(frames.map(frame => frame.delay)).toEqual([10, 19, 20, 30]);
+  });
+
+  test.each([
+    ['-i input.txt out.gif', 'gif'],
+    ['-i input.txt dir/OUT.GIF', 'gif'],
+    ['-i input.txt OUT.APNG', 'apng'],
+    ['-i input.txt output.webm', 'video'],
+    ['-i input.txt output.mp4', 'video'],
+    ['-f concat -i input.txt out.gif', 'gif'],
+    ['-i input.txt -f apng out.png', 'apng'],
+    ['-i input.txt -f gif out.img', 'gif'],
+    ['-i input.txt -f GIF out.gif', 'gif'],
+    ['-i input.txt -f APNG out.png', 'apng'],
+    ['-i input.txt -f webm out.gif', 'video']
+  ])('outputFormat: %s is %s', (command, format) => {
+    expect(UgoiraDownloadTask.outputFormat(command.split(' '))).toBe(format);
+  });
+
+  describe('the last frame keeps its delay (#325)', () => {
+    const frames = [{ file: 'a.jpg', delay: 100 }, { file: 'b.jpg', delay: 100 }, { file: 'c.jpg', delay: 1000 }];
+    const head = "file 'a.jpg'\r\noption framerate 1000/100\r\nduration 0.1\r\n" +
+      "file 'b.jpg'\r\noption framerate 1000/100\r\nduration 0.1\r\n";
+    const repeat = "file 'c.jpg'\r\noption framerate 1000/100\r\n";
+
+    test.each([
+      ['a video shortens it by the tick its repeat lasts', 'video', `${head}${repeat}duration 0.9\r\n${repeat}`],
+      ['an APNG leaves it to -final_delay', 'apng', `${head}${repeat}duration 1\r\n`],
+      ['a GIF leaves it to -final_delay', 'gif', `${head}${repeat}duration 1\r\n`]
+    ])('concatList: %s', (_, format, list) => {
+      expect(UgoiraDownloadTask.concatList(frames, format)).toBe(list);
+    });
+
+    test('concatList: a video whose last delay is under the 10ms tick is left as it is', () => {
+      expect(UgoiraDownloadTask.concatList([{ file: 'a.jpg', delay: 100 }, { file: 'b.jpg', delay: 5 }], 'video')).toBe(
+        "file 'a.jpg'\r\noption framerate 1000/10\r\nduration 0.1\r\n" +
+        "file 'b.jpg'\r\noption framerate 1000/10\r\nduration 0.005\r\n"
+      );
+    });
+
+    test('concatList: a frame with no delay gets no duration line', () => {
+      expect(UgoiraDownloadTask.concatList([{ file: 'a.jpg', delay: 100 }, { file: 'b.jpg' }, { file: 'c.jpg', delay: 100 }]))
+        .toBe(
+          "file 'a.jpg'\r\noption framerate 1000/100\r\nduration 0.1\r\n" +
+          "file 'b.jpg'\r\noption framerate 1000/100\r\n" +
+          "file 'c.jpg'\r\noption framerate 1000/100\r\nduration 0.1\r\n"
+        );
+    });
+
+    test('concatList: a video whose last frame lasts one tick is left as it is', () => {
+      expect(UgoiraDownloadTask.concatList([{ file: 'a.jpg', delay: 70 }, { file: 'b.jpg', delay: 70 }], 'video')).toBe(
+        "file 'a.jpg'\r\noption framerate 1000/70\r\nduration 0.07\r\n" +
+        "file 'b.jpg'\r\noption framerate 1000/70\r\nduration 0.07\r\n"
+      );
+    });
+
+    test('concatList: a video whose last delay is not usable repeats nothing', () => {
+      expect(UgoiraDownloadTask.concatList([{ file: 'a.jpg', delay: 100 }, { file: 'b.jpg', delay: 0 }], 'video')).toBe(
+        "file 'a.jpg'\r\noption framerate 1000/100\r\nduration 0.1\r\n" +
+        "file 'b.jpg'\r\noption framerate 1000/100\r\nduration 0\r\n"
+      );
+    });
+
+    test.each([
+      ['a GIF gets the last delay in 10ms units before the output', 'gif', [100, 1000], '-plays 0 out.gif', '-plays 0 -final_delay 100 out.gif'],
+      ['a GIF rounds it to the nearest 10ms', 'gif', [100, 1005], 'out.gif', '-final_delay 101 out.gif'],
+      ['a GIF gives a last frame under 20ms 20ms', 'gif', [100, 10], 'out.gif', '-final_delay 2 out.gif'],
+      ['a GIF caps it at the muxer\'s 65535', 'gif', [100, 700000], 'out.gif', '-final_delay 65535 out.gif'],
+      ['an APNG gets the last delay in seconds', 'apng', [100, 1000], '-plays 0 out.apng', '-plays 0 -final_delay 1000/1000 out.apng'],
+      ['an APNG keeps it to the ms', 'apng', [100, 1005], 'out.apng', '-final_delay 1005/1000 out.apng'],
+      ['an APNG gives a last frame under 20ms 20ms', 'apng', [100, 10], 'out.apng', '-final_delay 20/1000 out.apng'],
+      ['an APNG caps it at the muxer\'s 65535s', 'apng', [100, 70000000], 'out.apng', '-final_delay 65535000/1000 out.apng'],
+      ['keeps a -final_delay the command sets', 'gif', [100, 1000], '-final_delay 5 out.gif', '-final_delay 5 out.gif'],
+      ['leaves a last delay that is not usable', 'gif', [100, 0], 'out.gif', 'out.gif'],
+      ['leaves an empty frame list', 'apng', [], 'out.apng', 'out.apng'],
+      ['leaves a video', 'video', [100, 1000], 'out.webm', 'out.webm']
+    ])('holdLastFrame: %s', (_, format, delays, command, expected) => {
+      const args = command.split(' ');
+
+      UgoiraDownloadTask.holdLastFrame(args, delays.map(delay => ({ delay })), format);
+
+      expect(args.join(' ')).toBe(expected);
+    });
+
+    test('a two-line custom GIF command gets -final_delay on the line writing the GIF', async () => {
+      const task = createTask({
+        ffmpegCommandArgs: '-f concat -i input.txt -vf palettegen palette.png\n-f concat -i input.txt -i palette.png -lavfi paletteuse out.gif',
+        convertType: 'CUSTOM'
+      });
+
+      task.start();
+      await completeDownload(task);
+      await vi.waitFor(() => expect(task.isComplete()).toBe(true));
+
+      expect(ffmpegs[0].commands).toEqual([
+        ['-f', 'concat', '-safe', '0', '-i', 'input.txt', '-vf', 'palettegen', 'palette.png'],
+        ['-f', 'concat', '-safe', '0', '-i', 'input.txt', '-i', 'palette.png', '-lavfi', 'paletteuse', '-final_delay', '25', 'out.gif']
+      ]);
+    });
+
+    test('a video command gets the shortened last frame and its repeat in input.txt', async () => {
+      const task = createTask({ ffmpegCommandArgs: '-f concat -i input.txt output.mp4', convertType: 'CUSTOM' });
+
+      task.start();
+      await completeDownload(task);
+      await vi.waitFor(() => expect(task.isComplete()).toBe(true));
+
+      expect(ffmpegs[0].files.get('input.txt')).toBe(
+        "file '000000.jpg'\r\noption framerate 1000/50\r\nduration 0.1\r\n" +
+        "file '000001.jpg'\r\noption framerate 1000/50\r\nduration 0.2\r\n" +
+        "file '000001.jpg'\r\noption framerate 1000/50\r\n"
+      );
+      expect(ffmpegs[0].commands).toEqual([['-f', 'concat', '-safe', '0', '-i', 'input.txt', 'output.mp4']]);
+    });
   });
 
   test.each([
@@ -433,7 +538,8 @@ test('a second task for the same work converts the cached zip without downloadin
 
   expect(background.requests).toHaveLength(1);
   expect(second.progress).toBe(1);
-  expect(ffmpegs[1].commands).toEqual([['-f', 'concat', '-safe', '0', '-i', 'input.txt', 'output.apng']]);
+  expect(ffmpegs[1].commands)
+    .toEqual([['-f', 'concat', '-safe', '0', '-i', 'input.txt', '-final_delay', '250/1000', 'output.apng']]);
   expect(savedNames()).toEqual(['ugoira/130_Moving.zip', 'ugoira/130_Moving.gif', 'ugoira/130_Moving.apng']);
 });
 

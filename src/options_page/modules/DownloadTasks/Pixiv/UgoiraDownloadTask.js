@@ -269,19 +269,13 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
         });
       }
 
-      ffmpegCommands.forEach(UgoiraDownloadTask.allowConcatOptions);
-
       const lastCommand = ffmpegCommands[ffmpegCommands.length - 1];
       const outputFilename = lastCommand[lastCommand.length - 1];
 
       /**
        * Add frames to ffmpeg file system
        */
-      await this.ffmpeg.writeFile('input.txt', UgoiraDownloadTask.concatList(this.options.frames, {
-        // Browsers play an animated image's frame of 10ms or less for 100ms. 20ms also keeps a
-        // GIF frame (stored in 10ms steps) from rounding down to 10ms.
-        minDelay: /\.(gif|apng)$/i.test(outputFilename) ? 20 : 0
-      }));
+      await this.ffmpeg.writeFile('input.txt', UgoiraDownloadTask.prepareConversion(ffmpegCommands, this.options.frames));
       loadedFiles.push('input.txt');
 
       for (const seq in ffmpegCommands) {
@@ -307,43 +301,125 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
   }
 
   /**
-   * The frame rate input.txt gives each frame, as `1000/<tick ms>`. Without it the concat demuxer
-   * reads the JPEG frames at the image demuxer's default 25 fps and rounds every delay to 40ms
-   * (#322). The tick is the largest step every delay is a multiple of, so an output at a constant
-   * frame rate repeats frames no more often than the delays need.
+   * The tick input.txt gives each frame, as the frame rate `1000/<tick>`. Without it the concat
+   * demuxer reads the JPEG frames at the image demuxer's default 25 fps and rounds every delay to
+   * 40ms (#322). The tick is the largest step every delay is a multiple of, so an output at a
+   * constant frame rate repeats frames no more often than the delays need.
    *
    * The tick is at least 10ms: x264 picks the H.264 level from this rate, and delays like 33/34ms
    * would otherwise ask for 1000 fps, a level hardware decoders refuse. Frames then start on the
    * nearest 10ms.
    * @param {{ delay: number }[]} frames Delays that aren't a positive whole number of ms are skipped
-   * @returns {string|undefined} undefined when no delay is usable
+   * @returns {number|undefined} in ms; undefined when no delay is usable
    */
-  static frameRate(frames) {
+  static tick(frames) {
     const gcd = (a, b) => (b ? gcd(b, a % b) : a);
     const step = frames
       .map(frame => frame.delay)
-      .filter(delay => Number.isInteger(delay) && delay > 0)
+      .filter(UgoiraDownloadTask.usableDelay)
       .reduce(gcd, 0);
 
-    return step ? `1000/${Math.max(step, 10)}` : undefined;
+    return step ? Math.max(step, 10) : undefined;
+  }
+
+  /**
+   * @param {*} delay
+   * @returns {boolean} whether the delay is a positive whole number of ms
+   */
+  static usableDelay(delay) {
+    return Number.isInteger(delay) && delay > 0;
+  }
+
+  /**
+   * @param {string[]} command The last command; its output is its last argument
+   * @returns {'gif'|'apng'|'video'} from an output `-f`, else from the output's extension
+   */
+  static outputFormat(command) {
+    const muxer = command.lastIndexOf('-f');
+    const format = muxer > command.lastIndexOf('-i') ?
+      command[muxer + 1] :
+      /\.(gif|apng)$/i.exec(command[command.length - 1])?.[1];
+
+    return ['gif', 'apng'].find(name => name === format?.toLowerCase()) ?? 'video';
+  }
+
+  /**
+   * Browsers play an animated image's frame of 10ms or less for 100ms, so a GIF's or APNG's
+   * positive delays under 20ms are raised to 20ms, which also keeps a GIF frame (stored in 10ms
+   * steps) from rounding down to 10ms.
+   * @param {{ file: string, delay: number }[]} frames
+   * @param {'gif'|'apng'|'video'} format
+   * @returns {{ file: string, delay: number }[]}
+   */
+  static timedFrames(frames, format) {
+    const minDelay = format === 'video' ? 0 : 20;
+
+    return frames.map(frame =>
+      (frame.delay > 0 && frame.delay < minDelay ? { ...frame, delay: minDelay } : frame));
+  }
+
+  /**
+   * Adds -safe 0 to the commands and -final_delay to the last, and returns input.txt.
+   * @param {string[][]} commands Changed in place
+   * @param {{ file: string, delay: number }[]} frames
+   * @returns {string}
+   */
+  static prepareConversion(commands, frames) {
+    const lastCommand = commands[commands.length - 1];
+    const format = UgoiraDownloadTask.outputFormat(lastCommand);
+
+    commands.forEach(UgoiraDownloadTask.allowConcatOptions);
+    UgoiraDownloadTask.holdLastFrame(lastCommand, frames, format);
+
+    return UgoiraDownloadTask.concatList(frames, format);
   }
 
   /**
    * input.txt: the concat demuxer's list of frames, each with its delay and the frame rate.
+   *
+   * The demuxer ignores the last entry's duration (#325), so a video's last frame would last one
+   * tick. A longer one is shortened by a tick and repeated for that tick. GIF and APNG get
+   * -final_delay instead (holdLastFrame).
    * @param {{ file: string, delay: number }[]} frames
-   * @param {{ minDelay?: number }} [output] minDelay: positive delays below it are raised to it
+   * @param {'gif'|'apng'|'video'} [format='video']
    * @returns {string}
    */
-  static concatList(frames, { minDelay = 0 } = {}) {
-    const timed = frames.map(frame =>
-      (frame.delay > 0 && frame.delay < minDelay ? { ...frame, delay: minDelay } : frame));
-    const frameRate = UgoiraDownloadTask.frameRate(timed);
+  static concatList(frames, format = 'video') {
+    const timed = UgoiraDownloadTask.timedFrames(frames, format);
+    const tick = UgoiraDownloadTask.tick(timed);
+    const entries = timed.map(frame => ({ file: frame.file, duration: frame.delay }));
+    const last = entries[entries.length - 1];
 
-    return timed.map(frame =>
-      `file '${frame.file}'\r\n` +
-      (frameRate ? `option framerate ${frameRate}\r\n` : '') +
-      `duration ${frame.delay / 1000}\r\n`
+    if (format === 'video' && UgoiraDownloadTask.usableDelay(last?.duration) && last.duration > tick) {
+      last.duration -= tick;
+      entries.push({ file: last.file });
+    }
+
+    return entries.map(({ file, duration }) =>
+      `file '${file}'\r\n` +
+      (tick ? `option framerate 1000/${tick}\r\n` : '') +
+      (duration === undefined ? '' : `duration ${duration / 1000}\r\n`)
     ).join('');
+  }
+
+  /**
+   * The GIF and APNG muxers give the last frame the delay before it, so `-final_delay` gives it its
+   * own, unless the command sets one. GIF takes 10ms units and APNG seconds, each up to 65535. A
+   * video is left alone.
+   * @param {string[]} args The command writing the output, changed in place
+   * @param {{ delay: number }[]} frames
+   * @param {'gif'|'apng'|'video'} format
+   */
+  static holdLastFrame(args, frames, format) {
+    const [last] = UgoiraDownloadTask.timedFrames(frames.slice(-1), format);
+
+    if (format === 'video' || !UgoiraDownloadTask.usableDelay(last?.delay) || args.includes('-final_delay')) {
+      return;
+    }
+
+    args.splice(args.length - 1, 0, '-final_delay', format === 'gif' ?
+      String(Math.min(Math.round(last.delay / 10), 65535)) :
+      `${Math.min(last.delay, 65535000)}/1000`);
   }
 
   /**

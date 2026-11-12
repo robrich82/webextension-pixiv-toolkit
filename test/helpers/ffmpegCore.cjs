@@ -51,16 +51,31 @@ async function withCore(job) {
       core.FS.writeFile('input.txt', input);
       const code = core.exec(...args);
 
+      if (code !== 0) {
+        return { code, starts: [], total: null };
+      }
+
       core.reset();
       output.length = 0;
-      core.ffprobe('-v', 'error', '-select_streams', 'v', '-show_entries', 'packet=pts_time:format=duration',
+      core.ffprobe('-v', 'error', '-select_streams', 'v', '-show_entries', 'packet=pts_time,duration_time:format=duration',
         '-of', 'csv=p=0', args[args.length - 1]);
-      const values = output.filter(line => /^[0-9.]+,?$/.test(line.trim())).map(line => parseFloat(line) * 1000);
+      const packets = [];
+      let duration = NaN;
+      for (const line of output.map(text => text.trim()).filter(Boolean)) {
+        if (/^[^,]+,[^,]+$/.test(line)) {
+          packets.push(line.split(',').map(value => Number(value) * 1000)); // N/A is NaN, which fails the spec
+        } else if (/^([0-9.]+|N\/A)$/.test(line)) {
+          duration = Number(line) * 1000;
+        } else {
+          throw new Error(`Unexpected ffprobe line: ${line}`);
+        }
+      }
 
       return {
         code,
-        starts: values.slice(0, -1).map(Math.round).sort((a, b) => a - b),
-        total: Math.round(values[values.length - 1])
+        starts: packets.map(([pts]) => Math.round(pts)).sort((a, b) => a - b),
+        // An APNG has no format duration (N/A), so its length is where its last frame ends.
+        total: Math.round(Number.isNaN(duration) ? Math.max(...packets.map(([pts, length]) => pts + length)) : duration)
       };
     }));
   }
