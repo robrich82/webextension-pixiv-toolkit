@@ -182,6 +182,12 @@ The background reads each finished file with `FileReader`, which Node lacks, so
 `test/Downloader.spec.js` stays in the `unit` project but opts into jsdom with a
 `// @vitest-environment jsdom` docblock.
 
+`test/UgoiraDownloadTask.spec.js` fakes FFmpeg. To check what the bundled core
+really does with a command, `test/helpers/ffmpegCore.cjs` runs it in a child
+Node process (its web-build globals would confuse Vitest's worker), with a fresh
+core per conversion, since one core crashes after a few runs.
+`test/ugoiraFrameTiming.spec.js` uses it to time each format's frames.
+
 ## DOM code, without jsdom
 
 The `unit` project runs under the `node` test environment. `CopyStr`, the one module

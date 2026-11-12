@@ -234,7 +234,7 @@ export default Object.assign({}, {
     ugoiraFFmpegGIFCliArgs: '-f concat -i input.txt -plays 0 out.gif',
     ugoiraFFmpegAPNGCliArgs: '-f concat -i input.txt -plays 0 output.apng',
     ugoiraFFmpegWEBMCliArgs: '-f concat -i input.txt -safe 0 output.webm',
-    ugoiraFFmpegMP4CliArgs: '-f concat -i input.txt -safe 0 -c copy output.mp4',
+    ugoiraFFmpegMP4CliArgs: '-f concat -i input.txt -safe 0 -c:v libx264 -pix_fmt yuv420p -vf pad=ceil(iw/2)*2:ceil(ih/2)*2 -fps_mode vfr -movflags +faststart output.mp4',
 
     dontCreateWorkFolder: 0,
     combinWRRuleAndIRRuleWhenDontCreateWorkFolder: 0,

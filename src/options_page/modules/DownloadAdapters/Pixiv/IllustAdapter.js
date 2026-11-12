@@ -8,6 +8,19 @@ import AbstractDownloadTask from "../../DownloadTasks/AbstractDownloadTask";
 import AbstractResource from "@/modules/PageResource/AbstractResource";
 import IllustResource from "@/modules/PageResource/Pixiv/IllustResource";
 
+/**
+ * The ugoira conversions offered as buttons. MP4 is re-encoded to H.264 (frames copied as is make
+ * MJPEG, which browsers don't play), and yuv420p needs even dimensions, hence the pad. Variable
+ * frame rate keeps one frame per ugoira frame; FFmpeg 5.1 would otherwise repeat them at
+ * input.txt's frame rate.
+ */
+export const UGOIRA_FFMPEG_CLI_ARGS = {
+  ugoiraFFmpegGIFCliArgs: '-f concat -i input.txt -plays 0 out.gif',
+  ugoiraFFmpegAPNGCliArgs: '-f concat -i input.txt -plays 0 output.apng',
+  ugoiraFFmpegWEBMCliArgs: '-f concat -i input.txt -safe 0 output.webm',
+  ugoiraFFmpegMP4CliArgs: '-f concat -i input.txt -safe 0 -c:v libx264 -pix_fmt yuv420p -vf pad=ceil(iw/2)*2:ceil(ih/2)*2 -fps_mode vfr -movflags +faststart output.mp4'
+};
+
 class IllustAdapter {
   /**
    * @type {Object}
@@ -94,21 +107,14 @@ class IllustAdapter {
    * @returns {UgoiraDownloadTask}
    */
   createUgoiraDownloadTask(resource, options) {
-    const fixedFFmpegCliArgs = {
-      ugoiraFFmpegGIFCliArgs: '-f concat -i input.txt -plays 0 out.gif',
-      ugoiraFFmpegAPNGCliArgs: '-f concat -i input.txt -plays 0 output.apng',
-      ugoiraFFmpegWEBMCliArgs: '-f concat -i input.txt -safe 0 output.webm',
-      ugoiraFFmpegMP4CliArgs: '-f concat -i input.txt -safe 0 -c copy output.mp4'
-    };
-
     let ffmpegCommandArgs = this.settings.ugoiraCustomFFmpegCommand;
     let convertType = 'CUSTOM';
 
     if (options && typeof options.ugoiraConvertType === 'string') {
       const key = `ugoiraFFmpeg${options.ugoiraConvertType.toUpperCase()}CliArgs`;
 
-      if (fixedFFmpegCliArgs[key]) {
-        ffmpegCommandArgs = fixedFFmpegCliArgs[key];
+      if (UGOIRA_FFMPEG_CLI_ARGS[key]) {
+        ffmpegCommandArgs = UGOIRA_FFMPEG_CLI_ARGS[key];
         convertType = options.ugoiraConvertType;
       }
     }
