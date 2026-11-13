@@ -213,13 +213,14 @@ const ancestorIds = p => {
   }
 };
 
-// Written first into every build, so only a directory this script built is emptied as an earlier build.
+// Written before anything is emptied and never removed, so only a directory this script built
+// counts as an earlier build, even one that stopped partway.
 const BUILD_MARKER = '.ptk-build';
 // Files the OS drops into any folder it shows.
 const OS_FILES = new Set(['desktop.ini', 'Thumbs.db', '.DS_Store']);
 
-const isEmpty = dir => fs.readdirSync(dir).every(f => OS_FILES.has(f));
-const isPreviousBuild = dir => fs.statSync(path.join(dir, BUILD_MARKER), { throwIfNoEntry: false })?.isFile();
+const isEmpty = dir => fs.readdirSync(dir, { withFileTypes: true }).every(e => e.isFile() && OS_FILES.has(e.name));
+const isPreviousBuild = dir => fs.lstatSync(path.join(dir, BUILD_MARKER), { throwIfNoEntry: false })?.isFile();
 const isDisposable = dir => !fs.existsSync(dir) || (fs.statSync(dir).isDirectory() && (isEmpty(dir) || isPreviousBuild(dir)));
 
 export class UnsafeOutDirError extends Error {}
@@ -228,17 +229,19 @@ export class UnsafeOutDirError extends Error {}
  * The output directory is emptied first. Inside the repo only dist/ qualifies;
  * elsewhere only a missing or empty directory, or an earlier build.
  */
-export function assertSafeOutDir(out) {
+export function assertSafeOutDir(out, repoRoot = root) {
   const target = realPath(out);
-  const repo = fs.realpathSync.native(root);
+  const repo = fs.realpathSync.native(repoRoot);
   const dist = path.join(repo, 'dist');
   const targetIds = ancestorIds(target);
   const has = (ids, dir) => fs.existsSync(dir) && ids.includes(dirId(dir));
+  // A dist/ link's id is whatever it points at, src/ or the repo itself.
+  const distIsLink = fs.lstatSync(dist, { throwIfNoEntry: false })?.isSymbolicLink();
 
   const inRepo = isWithin(repo, target) || has(targetIds, repo);
   const holdsRepo = isWithin(target, repo) || has(ancestorIds(repo), target);
   const safe = inRepo
-    ? isWithin(dist, target) || has(targetIds, dist)
+    ? isWithin(dist, target) || (!distIsLink && has(targetIds, dist))
     : !holdsRepo && isDisposable(target);
 
   if (!safe) {
@@ -246,12 +249,13 @@ export function assertSafeOutDir(out) {
   }
 }
 
-function emptyDir(dir) {
+// Exported for its spec: a failed delete must leave the marker, so the next build can retry.
+export function emptyDir(dir) {
   fs.mkdirSync(dir, { recursive: true });
-  for (const entry of fs.readdirSync(dir)) {
-    fs.rmSync(path.join(dir, entry), { recursive: true, force: true });
-  }
   fs.writeFileSync(path.join(dir, BUILD_MARKER), '');
+  for (const entry of fs.readdirSync(dir)) {
+    if (entry !== BUILD_MARKER) fs.rmSync(path.join(dir, entry), { recursive: true, force: true });
+  }
 }
 
 function copyStatics(platform, out) {

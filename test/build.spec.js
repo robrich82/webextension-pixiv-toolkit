@@ -9,7 +9,7 @@ import os from 'os';
 import path from 'path';
 import { promisify } from 'util';
 import vm from 'vm';
-import { assertSafeOutDir } from '../scripts/build.mjs';
+import { assertSafeOutDir, emptyDir } from '../scripts/build.mjs';
 
 const run = promisify(execFile);
 const ROOT = path.resolve(__dirname, '..');
@@ -240,6 +240,12 @@ describe('assertSafeOutDir', () => {
       refuses(base);
     });
 
+    it('refuses a directory named like a file the OS adds', () => {
+      fs.mkdirSync(path.join(base, 'desktop.ini'));
+      fs.writeFileSync(path.join(base, 'desktop.ini/notes.txt'), '');
+      refuses(base);
+    });
+
     it('refuses a directory where the build marker is a directory', () => {
       fs.mkdirSync(path.join(base, '.ptk-build'));
       refuses(base);
@@ -260,6 +266,17 @@ describe('assertSafeOutDir', () => {
     });
   });
 
+  it.each(['src', '.'])('refuses the sources when dist/ is a link to %s', linkTo => {
+    const repo = fs.mkdtempSync(path.join(tmp, 'repo-'));
+    fs.mkdirSync(path.join(repo, 'src'));
+    fs.writeFileSync(path.join(repo, 'src/keep.js'), '');
+    fs.symlinkSync(path.join(repo, linkTo), path.join(repo, 'dist'), 'junction');
+
+    for (const dir of ['src', 'src/new', 'dist/new']) {
+      expect(() => assertSafeOutDir(path.join(repo, dir), repo)).toThrow(/Refusing to build into/);
+    }
+  });
+
   // realpath keeps a UNC path as UNC, so only the directory's identity shows it is the repo.
   const unc = process.platform === 'win32' && /^[A-Za-z]:\\/.test(ROOT)
     ? `\\\\localhost\\${ROOT[0]}$${ROOT.slice(2)}`
@@ -268,5 +285,26 @@ describe('assertSafeOutDir', () => {
   it.skipIf(!unc || !fs.existsSync(unc))('refuses a UNC spelling of a repo directory outside dist/', () => {
     refuses(path.join(unc, 'src/new'));
     refuses(unc);
+  });
+});
+
+describe('emptyDir', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('keeps the build marker when a delete fails, so the next build may retry', () => {
+    const dir = fs.mkdtempSync(path.join(tmp, 'locked-'));
+    fakePreviousBuild(dir);
+    fs.writeFileSync(path.join(dir, 'locked.js'), '');
+    // As when Windows holds a file open. Every other delete goes through.
+    const rmSync = fs.rmSync;
+    vi.spyOn(fs, 'rmSync').mockImplementation((p, options) => {
+      if (path.basename(p) === 'locked.js') throw Object.assign(new Error('EPERM'), { code: 'EPERM' });
+      rmSync(p, options);
+    });
+
+    expect(() => emptyDir(dir)).toThrow('EPERM');
+    expect(() => assertSafeOutDir(dir)).not.toThrow();
   });
 });
