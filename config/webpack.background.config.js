@@ -3,7 +3,8 @@
 const packageInfo = require('../package.json');
 const baseConfig = require('./webpack.base.config')();
 const utils = require('./utils');
-const { localFFmpegCore } = require('./localFFmpegCore');
+const { localFFmpegCore } = require('../scripts/localFFmpegCore.mjs');
+const { transformManifest } = require('../scripts/manifest.mjs');
 const { merge } = require('webpack-merge');
 const CopyPlugin = require('copy-webpack-plugin');
 const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
@@ -81,67 +82,8 @@ module.exports = env => {
           }, {
             from: utils.resolve('src/statics/manifest.json'),
             to: utils.resolve(`dist/${platform}/manifest.json`),
-            transform(content, path) {
-              let json = JSON.parse(content.toString());
-
-              json.version_name = json.version = packageInfo.version;
-
-              /**
-               * About manifest file, there are some differences between FireFox and browsers which based Chromium.
-               * So we need do some extra works to make the target browser manifest file.
-               */
-              if (platform === 'firefox') {
-                /**
-                 * Firefox implements the manifest v3 background as an event page,
-                 * it doesn't support `background.service_worker`. Convert it to
-                 * `background.scripts` so the extension can be loaded on Firefox.
-                 */
-                if (json.background && json.background.service_worker) {
-                  json.background = {
-                    scripts: [json.background.service_worker]
-                  };
-                }
-
-                /**
-                 * Firefox requires an explicit add-on id to install a build
-                 * permanently or to sign it through AMO. This fork uses its own
-                 * id so its signed builds stay distinct from the upstream add-on.
-                 *
-                 * `update_url` points Firefox at a self-hosted update manifest
-                 * (published as a GitHub Release asset on this fork, see
-                 * scripts/release-firefox.js) so a signed-but-unlisted build can still
-                 * auto-update instead of requiring a manual reinstall per release.
-                 */
-                json.browser_specific_settings = {
-                  gecko: {
-                    id: 'webextension-pixiv-toolkit-fork@robrich82',
-                    update_url: 'https://github.com/robrich82/webextension-pixiv-toolkit/releases/latest/download/updates.json'
-                  }
-                };
-              }
-
-              if (json.options_page && platform === 'firefox') {
-                console.log(`rename options_page to options_ui`);
-
-                json.options_ui = {};
-                json.options_ui.page = json.options_page;
-                json.options_ui.open_in_tab = true;
-
-                json.optional_permissions && json.optional_permissions.forEach(permission => {
-                  if (permission === 'downloads.shelf') {
-                    return;
-                  }
-
-                  json.permissions.push(permission);
-                });
-
-                delete json.optional_permissions;
-                delete json.options_page;
-
-                console.log(`remove version_name property from manifest`);
-                delete json.version_name;
-              }
-
+            transform(content) {
+              const json = transformManifest(JSON.parse(content.toString()), { platform, version: packageInfo.version });
               return JSON.stringify(json);
             }
           }

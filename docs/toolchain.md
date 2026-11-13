@@ -180,6 +180,13 @@ it — the two files agree, they are just both wrong. No setting prevents this:
 have gone. Name the version you want, and let the `package.json` diff carry the
 decision.
 
+## Vite build (migration in progress)
+
+`pnpm run build:vite` and `build:vite:firefox` run `scripts/build.mjs`, which
+builds the same `dist/<platform>/` with Vite. It is meant to replace webpack and
+Babel (#197). Until then webpack stays the default `build`, and its configs
+also drive `dev`.
+
 ## webpack 4 → 5 notes
 
 Things that needed changing beyond version numbers:
