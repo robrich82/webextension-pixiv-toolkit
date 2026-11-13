@@ -42,6 +42,11 @@
             "schedule": ["* 0-5 * * 1"]
         },
         {
+            "description": "typescript is only here for typescript-language-server, which needs its tsserver. TypeScript 7 ships none.",
+            "matchPackageNames": ["typescript"],
+            "allowedVersions": "<7"
+        },
+        {
             "description": "Raise an engines ceiling only after CI is green on the new major (see docs/toolchain.md); a major bump of the exact pin fails install until then.",
             "matchDepTypes": ["engines"],
             "enabled": false
