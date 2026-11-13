@@ -250,9 +250,7 @@ async function main() {
     fs.rmSync(ARTIFACTS_DIR, { recursive: true, force: true });
 
     console.log('\n== Build ==');
-    runPnpm(['run', 'build:firefox'], {
-      env: { ...process.env, NODE_ENV: 'production', PLATFORM_ENV: 'firefox' }
-    });
+    runPnpm(['run', 'build:firefox']);
 
     console.log('\n== Sign ==');
     await sign(version);
