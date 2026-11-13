@@ -198,7 +198,29 @@ function realPath(p) {
   return path.join(fs.realpathSync.native(p), ...missing);
 }
 
-const isPreviousBuild = dir => ['manifest.json', 'background/background.js'].every(f => fs.existsSync(path.join(dir, f)));
+// Identifies a directory however it is spelled; realpath keeps a UNC path (\\localhost\C$\…) as UNC.
+function dirId(p) {
+  const { dev, ino } = fs.statSync(p, { bigint: true });
+  return ino ? `${dev}:${ino}` : null;
+}
+
+// The ids of p and its ancestors that exist.
+const ancestorIds = p => {
+  const ids = [];
+  for (let dir = p; ; dir = path.dirname(dir)) {
+    if (fs.existsSync(dir)) ids.push(dirId(dir));
+    if (path.dirname(dir) === dir) return ids.filter(Boolean);
+  }
+};
+
+// Written first into every build, so only a directory this script built is emptied as an earlier build.
+const BUILD_MARKER = '.ptk-build';
+// Files the OS drops into any folder it shows.
+const OS_FILES = new Set(['desktop.ini', 'Thumbs.db', '.DS_Store']);
+
+const isEmpty = dir => fs.readdirSync(dir).every(f => OS_FILES.has(f));
+const isPreviousBuild = dir => fs.statSync(path.join(dir, BUILD_MARKER), { throwIfNoEntry: false })?.isFile();
+const isDisposable = dir => !fs.existsSync(dir) || (fs.statSync(dir).isDirectory() && (isEmpty(dir) || isPreviousBuild(dir)));
 
 export class UnsafeOutDirError extends Error {}
 
@@ -209,9 +231,15 @@ export class UnsafeOutDirError extends Error {}
 export function assertSafeOutDir(out) {
   const target = realPath(out);
   const repo = fs.realpathSync.native(root);
-  const safe = isWithin(repo, target)
-    ? isWithin(path.join(repo, 'dist'), target)
-    : !isWithin(target, repo) && (!fs.existsSync(target) || fs.readdirSync(target).length === 0 || isPreviousBuild(target));
+  const dist = path.join(repo, 'dist');
+  const targetIds = ancestorIds(target);
+  const has = (ids, dir) => fs.existsSync(dir) && ids.includes(dirId(dir));
+
+  const inRepo = isWithin(repo, target) || has(targetIds, repo);
+  const holdsRepo = isWithin(target, repo) || has(ancestorIds(repo), target);
+  const safe = inRepo
+    ? isWithin(dist, target) || has(targetIds, dist)
+    : !holdsRepo && isDisposable(target);
 
   if (!safe) {
     throw new UnsafeOutDirError(`Refusing to build into ${out}: it is emptied first. Use dist/, or an empty directory or earlier build outside the repo.`);
@@ -223,6 +251,7 @@ function emptyDir(dir) {
   for (const entry of fs.readdirSync(dir)) {
     fs.rmSync(path.join(dir, entry), { recursive: true, force: true });
   }
+  fs.writeFileSync(path.join(dir, BUILD_MARKER), '');
 }
 
 function copyStatics(platform, out) {
@@ -295,9 +324,12 @@ export async function buildExtension({ platform = 'chrome', watch = false, outDi
 }
 
 if (import.meta.main) {
+  // `pnpm run build:vite:firefox -- --flag` passes the `--` through, after the script's own args.
+  const args = process.argv.slice(2);
+  if (args.includes('--')) args.splice(args.indexOf('--'), 1);
+
   const { values } = parseArgs({
-    // `pnpm run build:vite -- --flag` passes the `--` through.
-    args: process.argv.slice(2).filter((arg, i) => !(i === 0 && arg === '--')),
+    args,
     options: {
       platform: { type: 'string', default: 'chrome' },
       watch: { type: 'boolean', default: false },
@@ -316,8 +348,9 @@ if (import.meta.main) {
   try {
     result = await buildExtension({ platform: values.platform, watch: values.watch, outDir: values['out-dir'] });
   } catch (error) {
-    // Vite has already printed a failed bundle's error.
-    console.error(error instanceof UnsafeOutDirError ? error.message : error);
+    // A bundler error's message already names the file and shows the code; its stack is the bundler's.
+    const expected = error instanceof UnsafeOutDirError || error.errors || error.plugin || error.loc;
+    console.error(expected ? error.message : error);
     process.exit(1);
   }
 

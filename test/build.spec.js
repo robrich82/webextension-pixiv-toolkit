@@ -45,8 +45,7 @@ const read = (out, file) => fs.readFileSync(path.join(out, file), 'utf8');
 
 function fakePreviousBuild(dir) {
   fs.mkdirSync(path.join(dir, 'background'), { recursive: true });
-  fs.writeFileSync(path.join(dir, 'manifest.json'), '{}');
-  fs.writeFileSync(path.join(dir, 'background/background.js'), '');
+  fs.writeFileSync(path.join(dir, '.ptk-build'), '');
 }
 
 describe.each(['chrome', 'firefox'])('build for %s', platform => {
@@ -77,6 +76,10 @@ describe.each(['chrome', 'firefox'])('build for %s', platform => {
 
   it('empties the output directory first', () => {
     expect(fs.existsSync(path.join(out, 'background/stale.js'))).toBe(false);
+  });
+
+  it('marks the output as a build, so a later build may empty it', () => {
+    expect(fs.statSync(path.join(out, '.ptk-build')).isFile()).toBe(true);
   });
 
   it('emits every file the manifest references', () => {
@@ -181,6 +184,16 @@ it('leaves an unrelated --out-dir untouched and fails', async () => {
   expect(fs.existsSync(path.join(dir, 'keep.txt'))).toBe(true);
 }, 30000);
 
+it('reads flags after the `--` that `pnpm run <script> -- <flags>` appends', async () => {
+  const dir = path.join(tmp, 'after-dashdash');
+  fs.mkdirSync(dir);
+  fs.writeFileSync(path.join(dir, 'keep.txt'), '');
+
+  // pnpm puts the `--` after the script's own --platform. The refusal shows --out-dir was read.
+  await expect(run(process.execPath, [SCRIPT, '--platform=firefox', '--', `--out-dir=${dir}`], { cwd: ROOT }))
+    .rejects.toMatchObject({ code: 1, stderr: expect.stringContaining(`Refusing to build into ${dir}`) });
+}, 30000);
+
 describe('assertSafeOutDir', () => {
   const refuses = dir => expect(() => assertSafeOutDir(dir)).toThrow(/Refusing to build into/);
   const accepts = dir => expect(() => assertSafeOutDir(dir)).not.toThrow();
@@ -204,14 +217,38 @@ describe('assertSafeOutDir', () => {
       accepts(base);
     });
 
-    it('accepts an earlier build', () => {
-      fakePreviousBuild(base);
+    it('accepts a directory holding only files the OS adds', () => {
+      for (const file of ['desktop.ini', 'Thumbs.db', '.DS_Store']) fs.writeFileSync(path.join(base, file), '');
+      accepts(base);
+    });
+
+    it('accepts an earlier build, even one that stopped partway', () => {
+      fs.writeFileSync(path.join(base, '.ptk-build'), '');
       accepts(base);
     });
 
     it('refuses a directory holding anything else', () => {
       fs.writeFileSync(path.join(base, 'notes.txt'), '');
       refuses(base);
+    });
+
+    it('refuses an unrelated extension project laid out like a build', () => {
+      fs.mkdirSync(path.join(base, '.git'));
+      fs.mkdirSync(path.join(base, 'background'));
+      fs.writeFileSync(path.join(base, 'manifest.json'), '{}');
+      fs.writeFileSync(path.join(base, 'background/background.js'), '');
+      refuses(base);
+    });
+
+    it('refuses a directory where the build marker is a directory', () => {
+      fs.mkdirSync(path.join(base, '.ptk-build'));
+      refuses(base);
+    });
+
+    it('refuses a file', () => {
+      const file = path.join(base, 'file');
+      fs.writeFileSync(file, '');
+      refuses(file);
     });
 
     it('refuses a link into the sources', () => {
@@ -221,5 +258,15 @@ describe('assertSafeOutDir', () => {
       refuses(link);
       refuses(path.join(link, 'statics/x'));
     });
+  });
+
+  // realpath keeps a UNC path as UNC, so only the directory's identity shows it is the repo.
+  const unc = process.platform === 'win32' && /^[A-Za-z]:\\/.test(ROOT)
+    ? `\\\\localhost\\${ROOT[0]}$${ROOT.slice(2)}`
+    : null;
+
+  it.skipIf(!unc || !fs.existsSync(unc))('refuses a UNC spelling of a repo directory outside dist/', () => {
+    refuses(path.join(unc, 'src/new'));
+    refuses(unc);
   });
 });
