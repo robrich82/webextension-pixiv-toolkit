@@ -14,7 +14,7 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import vue from '@vitejs/plugin-vue';
 import autoprefixer from 'autoprefixer';
-import { build, createLogger } from 'vite';
+import { build } from 'vite';
 import { localFFmpegCore } from './localFFmpegCore.mjs';
 import { transformManifest } from './manifest.mjs';
 
@@ -45,34 +45,7 @@ function globalExternals(globals) {
   };
 }
 
-/**
- * Adds each options page's entry script. Temporary: the HTML templates are
- * still webpack's too, and HtmlWebpackPlugin injects its own script tag.
- */
-function injectEntryScript(entries) {
-  return {
-    name: 'inject-entry-script',
-    transformIndexHtml: {
-      order: 'pre',
-      handler(html, { filename }) {
-        const src = entries[path.basename(filename, '.html')];
-        return html.replace('</body>', `<script type="module" src="${src}"></script></body>`);
-      }
-    }
-  };
-}
-
-// The pages load lib/ scripts as classic <script>s on purpose; Vite warns about each one.
-function quietLogger() {
-  const logger = createLogger('warn');
-  const warn = logger.warn;
-  logger.warn = (msg, options) => {
-    if (!/can't be bundled without type="module" attribute/.test(msg)) warn(msg, options);
-  };
-  return logger;
-}
-
-function viteConfig({ platform, watch, globals = SHARED_GLOBALS, plugins = [], root: viteRoot = root, outDir, build: buildOptions }) {
+function viteConfig({ platform, watch, globals = SHARED_GLOBALS, root: viteRoot = root, outDir, build: buildOptions }) {
   const rolldownOptions = buildOptions.rolldownOptions || {};
 
   return {
@@ -82,8 +55,8 @@ function viteConfig({ platform, watch, globals = SHARED_GLOBALS, plugins = [], r
     base: './',
     publicDir: false,
     mode: watch ? 'development' : 'production',
-    customLogger: quietLogger(),
-    plugins: [globalExternals(globals), vue(), ...plugins],
+    logLevel: 'warn',
+    plugins: [globalExternals(globals), vue()],
     define: {
       PRESET_BROWSER: JSON.stringify(platform),
       'process.env.NODE_ENV': JSON.stringify(watch ? 'development' : 'production'),
@@ -98,7 +71,7 @@ function viteConfig({ platform, watch, globals = SHARED_GLOBALS, plugins = [], r
       alias: { '@@': fromRoot('src/options_page'), '@': fromRoot('src') },
       extensions: ['.mjs', '.js', '.json', '.vue']
     },
-    // Inline, so Vite doesn't load .postcssrc.js, which is webpack's.
+    // autoprefixer targets package.json's browserslist.
     css: { postcss: { plugins: [autoprefixer()] } },
     build: {
       outDir,
@@ -164,7 +137,6 @@ function targets(out) {
       globals: { ...SHARED_GLOBALS, dexie: 'Dexie' },
       root: fromRoot('src/options_page'),
       outDir: path.join(out, 'options_page'),
-      plugins: [injectEntryScript({ index: './index.js', downloads: './downloads.js' })],
       build: {
         rolldownOptions: {
           input: {
@@ -331,7 +303,7 @@ export async function buildExtension({ platform = 'chrome', watch = false, outDi
 }
 
 if (import.meta.main) {
-  // `pnpm run build:vite:firefox -- --flag` passes the `--` through, after the script's own args.
+  // `pnpm run build:firefox -- --flag` passes the `--` through, after the script's own args.
   const args = process.argv.slice(2);
   if (args.includes('--')) args.splice(args.indexOf('--'), 1);
 
