@@ -57,8 +57,7 @@ major bump of an exact pin fails install until someone raises the ceiling.
 
 **`engines.npm` is `please-use-pnpm`**, a range no npm satisfies, so with
 `engine-strict=true` in `.npmrc` npm refuses the install before it extracts or
-runs anything. npm checks engines only after resolving the tree, so a resolve
-error (`ERESOLVE`) can come first, which `--force` skips. `--force` doesn't skip the engines check.
+runs anything.
 `scripts/only-pnpm.js` can't stop npm: npm runs the root `preinstall` after
 every dependency's install script, the scripts `allowBuilds` exists to gate.
 It still refuses yarn and bun. pnpm ignores `engines.npm`.
@@ -180,9 +179,10 @@ decision.
 ## Build
 
 `scripts/build.mjs` builds each target with Vite; it replaced webpack and Babel
-(#197). Nothing transpiles beyond syntax: Vite lowers syntax to its `build.target`
-but adds no polyfills. Babel never polyfilled either, and only covered `src/`, so
-Vuetify's `Object.hasOwn` and `.at()` already failed on Chrome 88–92.
+(#197). Vite lowers syntax to its `build.target`, in dependencies too, but adds
+no language polyfills (only its own modulepreload one). Babel never polyfilled
+either, so Vuetify's `.at()` (Chrome 92+) and @vuetify/v0's `Object.hasOwn`
+(Chrome 93+) already broke Chrome 88–92.
 
 ## browserslist
 

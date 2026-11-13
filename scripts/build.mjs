@@ -71,11 +71,11 @@ function viteConfig({ platform, watch, globals = SHARED_GLOBALS, root: viteRoot 
       alias: { '@@': fromRoot('src/options_page'), '@': fromRoot('src') },
       extensions: ['.mjs', '.js', '.json', '.vue']
     },
-    // autoprefixer targets package.json's browserslist.
     css: { postcss: { plugins: [autoprefixer()] } },
     build: {
       outDir,
       emptyOutDir: false,
+      // package.json's browserslist, which autoprefixer reads. Change both together.
       target: ['chrome88', 'firefox109'],
       assetsInlineLimit: 10000,
       assetsDir: 'static',
