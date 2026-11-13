@@ -307,4 +307,17 @@ describe('emptyDir', () => {
     expect(() => emptyDir(dir)).toThrow('EPERM');
     expect(() => assertSafeOutDir(dir)).not.toThrow();
   });
+
+  it('replaces a marker that is a link instead of writing through it', () => {
+    const dir = fs.mkdtempSync(path.join(tmp, 'linked-marker-'));
+    const victim = path.join(tmp, `victim-${path.basename(dir)}.txt`);
+    fs.writeFileSync(victim, 'keep');
+    // A hard link needs no privilege on Windows, unlike a file symlink.
+    fs.linkSync(victim, path.join(dir, '.ptk-build'));
+
+    emptyDir(dir);
+
+    expect(fs.readFileSync(victim, 'utf8')).toBe('keep');
+    expect(fs.statSync(path.join(dir, '.ptk-build')).isFile()).toBe(true);
+  });
 });

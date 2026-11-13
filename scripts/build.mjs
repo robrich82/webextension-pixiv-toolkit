@@ -251,8 +251,11 @@ export function assertSafeOutDir(out, repoRoot = root) {
 
 // Exported for its spec: a failed delete must leave the marker, so the next build can retry.
 export function emptyDir(dir) {
+  const marker = path.join(dir, BUILD_MARKER);
   fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(path.join(dir, BUILD_MARKER), '');
+  // Replaced, not rewritten, so a link planted there doesn't truncate what it points at.
+  fs.rmSync(marker, { force: true });
+  fs.writeFileSync(marker, '');
   for (const entry of fs.readdirSync(dir)) {
     if (entry !== BUILD_MARKER) fs.rmSync(path.join(dir, entry), { recursive: true, force: true });
   }
