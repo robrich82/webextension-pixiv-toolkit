@@ -12,7 +12,7 @@ pnpm only (`engines.npm` refuses npm, and the `preinstall` hook refuses yarn and
 pnpm install
 pnpm run build             # production build -> dist/chrome
 pnpm run build:firefox     # production build -> dist/firefox
-pnpm run dev               # watch build (dev:firefox, dev:cs, dev:op, dev:bg for one bundle)
+pnpm run dev               # watch build (dev:firefox); restart it after editing src/statics or the manifest
 pnpm test                  # Vitest, unit + components projects, with coverage thresholds
 # Subsets need --coverage.enabled=false, or the global coverage thresholds fail the run
 pnpm exec vitest run --coverage.enabled=false test/NameFormatter.spec.js
@@ -27,12 +27,14 @@ There is no linter, formatter or type check. The `typescript` devDependency is t
 
 ## Architecture
 
-`webpack.config.js` exports five configs (`config/webpack.*.config.js`), all writing to `dist/<platform>/`. Loading `webpack.config.js` (any build or dev watch) empties that folder first:
+`scripts/build.mjs` runs one Vite build per target into `dist/<platform>/`, after emptying it and copying `src/statics`, the `lib/` vendor files and the manifest. It only empties `dist/`, or a directory outside the repo that is empty or holds its `.ptk-build` marker. The targets:
 
 - **background** (`src/background/`): the MV3 service worker on Chrome and an event page on Firefox.
 - **content scripts** (`src/content_scripts/`): the in-page UI that is injected into Pixiv, Pixiv Comic and Fanbox.
 - **options page** (`src/options_page/`): two pages, `index.html` for settings and `downloads.html` for the **download manager**.
-- **popup**, plus a `common` bundle that only exposes the locales as a UMD global.
+- **popup**, plus `lib/locales.js`, which only exposes the locales as the `locales` global.
+
+The pages and content scripts read `vue`, `vue-i18n` and `locales` (and Dexie, on the options pages) from globals that `lib/` scripts provide, rather than bundling them. Those `<script>` tags carry `vite-ignore`. The background bundles everything.
 
 Aliases: `@` → `src`, `@@` → `src/options_page`. Both are mirrored in `vitest.config.mjs`.
 
@@ -52,7 +54,7 @@ Payloads must survive structured clone. Firefox throws `DataCloneError` on Vue r
 
 ### Chrome vs Firefox
 
-`src/statics/manifest.json` is written for Chrome. `config/webpack.background.config.js` rewrites it for Firefox:
+`src/statics/manifest.json` is written for Chrome. `scripts/manifest.mjs` rewrites it for Firefox:
 
 - `service_worker` becomes `background.scripts`
 - a gecko id and a self-hosted `update_url` are added

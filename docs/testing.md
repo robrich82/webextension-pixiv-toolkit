@@ -7,9 +7,10 @@ environment, see below for why; one spec opts into jsdom, see "Downloads") and `
 under `jsdom`, covered in its own section further down). Vite transforms both
 specs and sources, so everything is ESM.
 
-`resolve.alias` mirrors the webpack aliases, so a spec can import source files
-by the same `@/` and `@@/` paths the source itself uses. It also stands in for
-webpack's `locales` external, and `define` sets `PRESET_BROWSER` to `chrome`.
+`resolve.alias` mirrors the build's aliases (`scripts/build.mjs`), so a spec can
+import source files by the same `@/` and `@@/` paths the source itself uses. It
+also stands in for the build's `locales` global, and `define` sets
+`PRESET_BROWSER` to `chrome`.
 
 To run a subset, use `pnpm exec vitest run <spec>` or `--project components`.
 Coverage is always on, and a subset run fails the floors below, so add
