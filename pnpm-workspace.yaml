@@ -25,7 +25,7 @@ minimumReleaseAge: 1440
 # install script is named here, and every one of them is denied.
 #
 #   @parcel/watcher  native file watching for `sass --watch`. Unreachable --
-#                    watching is webpack's job here.
+#                    Vite does the watching here.
 #   fsevents         macOS-only file watching for Vite's dev server, which
 #                    `vitest run` never starts. The tarball ships a prebuilt
 #                    binary, so its `node-gyp rebuild` is redundant anyway.

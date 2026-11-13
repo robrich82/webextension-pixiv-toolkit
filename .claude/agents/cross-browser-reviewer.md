@@ -1,6 +1,6 @@
 ---
 name: cross-browser-reviewer
-description: Reviews a change for Chrome-vs-Firefox MV3 breakage. Use it for diffs touching src/background, src/content_scripts, runtime messaging or ports, the manifest, or config/webpack.*.config.js. Reports findings; doesn't edit source.
+description: Reviews a change for Chrome-vs-Firefox MV3 breakage. Use it for diffs touching src/background, src/content_scripts, runtime messaging or ports, the manifest, or scripts/build.mjs and scripts/manifest.mjs. Reports findings; doesn't edit source.
 tools: Read, Grep, Glob, Bash
 ---
 
@@ -10,11 +10,11 @@ Get the diff you were pointed at (for example `git diff origin/main...HEAD`). Re
 
 ## Known failure modes in this codebase
 
-1. **Background lifecycle.** Chrome runs `background.service_worker`. On Firefox, `config/webpack.background.config.js` rewrites it to `background.scripts`, an event page. Look for:
+1. **Background lifecycle.** Chrome runs `background.service_worker`. On Firefox, `scripts/manifest.mjs` rewrites it to `background.scripts`, an event page. Look for:
    - code that assumes `importScripts`, `self.registration`, `clients` or other worker-only globals without a guard;
    - code that assumes `window` or `document` exist in the background;
    - state kept in module variables that has to survive the worker or page being unloaded.
-2. **Externals loaded per browser.** Each `config/webpack.*.config.js` declares its bundle's externals (`vue`, `vue-i18n` and `locales` in the base config, Dexie on the options pages, EpubMaker in the content scripts). They are globals loaded by the extension pages' `<script>` tags and the manifest's content-script list. The background loads no script for any of its externals. A background external would have to be wired up both ways: `importScripts` on the Chrome service worker and `background.scripts` on the Firefox event page.
+2. **Globals loaded per browser.** `scripts/build.mjs` reads `vue`, `vue-i18n` and `locales` (plus Dexie on the options pages) from globals instead of bundling them, and the download manager also uses bare globals such as `EpubMaker`, `JSZip` and `FFmpegWASM`. They come from `lib/` scripts loaded by the extension pages' `<script>` tags and the manifest's content-script list. The background bundles everything and loads no `lib/` script. A background global would have to be wired up both ways: `importScripts` on the Chrome service worker and `background.scripts` on the Firefox event page.
 3. **Structured clone.** `runtime.sendMessage`, `port.postMessage` and `storage.set` payloads must not carry Vue reactive proxies, class instances with methods, or functions. Firefox throws `DataCloneError` where Chrome copies silently. The existing pattern is a JSON round-trip (see `getDownloadArgs` in `src/content_scripts/components/App.vue`).
 4. **Message channel lifetime.** An `onMessage` handler that answers asynchronously must return `true` and always call `sendResponse` (including on errors), but **only for messages it handles**. For ignored messages it must return nothing and never call `sendResponse`, or it steals the other listener's reply and Firefox raises "Promised response ... went out of scope". Check `Application.onMessage` (background) and `DownloadsApplication.onMessage` (download manager), and the routing on `to: 'ws'`.
 5. **Cross-origin requests.** Content scripts on Firefox are bound by the page's CORS. Fetches to other origins (Fanbox API, pximg) belong in the background, with the result messaged back to the content script.
@@ -28,7 +28,7 @@ Get the diff you were pointed at (for example `git diff origin/main...HEAD`). Re
 
 ## Verify where you can
 
-- `pnpm run build` and `pnpm run build:firefox`. Check that both pass and inspect `dist/firefox/manifest.json` when the manifest or webpack config changed. Each build empties `dist/<platform>` first, so skip it if a dev watch or e2e run may be using `dist/` in this checkout.
+- `pnpm run build` and `pnpm run build:firefox`. Check that both pass and inspect `dist/firefox/manifest.json` when the manifest, `scripts/manifest.mjs` or `scripts/build.mjs` changed. Each build empties `dist/<platform>` first, so skip it if a dev watch or e2e run may be using `dist/` in this checkout.
 - `pnpm exec vitest related <files> --run --coverage.enabled=false`
 
 ## Report

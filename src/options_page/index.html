@@ -4,10 +4,10 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1.0">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700,400italic">
-    <script src="../lib/dexie/dexie.js"></script>
-    <script src="../lib/vue.global.prod.js"></script>
-    <script src="../lib/vue-i18n.global.prod.js"></script>
-    <script src="../lib/locales.js"></script>
+    <script vite-ignore src="../lib/dexie/dexie.js"></script>
+    <script vite-ignore src="../lib/vue.global.prod.js"></script>
+    <script vite-ignore src="../lib/vue-i18n.global.prod.js"></script>
+    <script vite-ignore src="../lib/locales.js"></script>
     <title>Pixiv Toolkit Next</title>
   </head>
   <body>
@@ -17,6 +17,6 @@
       renders inside it, so reusing the same id would produce two.
     -->
     <div id="app-mount"></div>
-    <!-- built files will be auto injected -->
+    <script type="module" src="./index.js"></script>
   </body>
 </html>

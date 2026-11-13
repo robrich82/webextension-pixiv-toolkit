@@ -1,7 +1,6 @@
 /**
  * Runs scripts/build.mjs for real, once per platform, into a temp directory
- * and checks the output's shape. Nothing in CI loads this build in a browser
- * yet: the E2E suites run on the webpack build until it is replaced.
+ * and checks the output's shape. The E2E suites load the same build in a browser.
  */
 import { execFile } from 'child_process';
 import fs from 'fs';

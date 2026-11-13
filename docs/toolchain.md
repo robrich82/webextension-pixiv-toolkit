@@ -13,12 +13,6 @@ Any other pnpm fetches and runs the `packageManager` version instead (pnpm's
 default `pmOnFail: download`), so a stray global pnpm does no harm. Without
 mise, only the `engines` ranges apply.
 
-The project previously pinned Node `~16.18.0`. It could not run on anything
-newer: webpack 4 hashes module ids with MD4, which OpenSSL 3 (Node 17+) refuses,
-so every build died with `ERR_OSSL_EVP_UNSUPPORTED`. Moving off Node 16
-therefore required the webpack 5 migration below; the two could not be done
-separately.
-
 ## Toolchain pinning
 
 Every engine range carries a **lower and an upper bound**. Open-ended `>=` was
@@ -28,7 +22,7 @@ looks, since the only thing an open range can enforce is a floor.
 
 - **`engines.node`** — one major, the one `mise.toml` pins and CI runs. A
   wider range is a claim nothing tests, and dependencies narrow it without
-  notice: Babel 8 alone excludes Node 23, 22 before 22.18 and 24 before 24.11.
+  notice.
   `test/engines.spec.js` fails when a locked package's own `engines.node` stops
   admitting the whole range, since with `engineStrict` that package would fail
   the install there.
@@ -63,9 +57,7 @@ major bump of an exact pin fails install until someone raises the ceiling.
 
 **`engines.npm` is `please-use-pnpm`**, a range no npm satisfies, so with
 `engine-strict=true` in `.npmrc` npm refuses the install before it extracts or
-runs anything. npm checks engines only after resolving the tree, so another
-resolve error can come first: today `ERESOLVE` on `@vue/vue3-jest`'s Babel 7
-peer, which `--force` skips. `--force` doesn't skip the engines check.
+runs anything.
 `scripts/only-pnpm.js` can't stop npm: npm runs the root `preinstall` after
 every dependency's install script, the scripts `allowBuilds` exists to gate.
 It still refuses yarn and bun. pnpm ignores `engines.npm`.
@@ -118,7 +110,7 @@ denied.
 
 | Package | Why it is denied |
 | --- | --- |
-| `@parcel/watcher` | native file watching for `sass --watch`. Unreachable — watching is webpack's job here. |
+| `@parcel/watcher` | native file watching for `sass --watch`. Unreachable — Vite does the watching here. |
 | `fsevents` | macOS-only file watching for Vite's dev server, which `vitest run` never starts. The tarball ships a prebuilt binary, so its `node-gyp rebuild` is redundant anyway. Skipped on Windows and Linux, so only a Mac install would fail without the entry. |
 
 This replaces `npm ci --ignore-scripts`, which was correct but lived in one line
@@ -184,74 +176,25 @@ it — the two files agree, they are just both wrong. No setting prevents this:
 have gone. Name the version you want, and let the `package.json` diff carry the
 decision.
 
-## Vite build (migration in progress)
+## Build
 
-`pnpm run build:vite` and `build:vite:firefox` run `scripts/build.mjs`, which
-builds the same `dist/<platform>/` with Vite. It is meant to replace webpack and
-Babel (#197). Until then webpack stays the default `build`, and its configs
-also drive `dev`.
-
-## webpack 4 → 5 notes
-
-Things that needed changing beyond version numbers:
-
-- **`node: {fs: 'empty', ...}` → `resolve.fallback: {fs: false, ...}`.** webpack 5
-  stopped auto-polyfilling Node core modules. Nothing in `src` imports them, so
-  they resolve to nothing rather than pulling in browser shims.
-- **`url-loader`/`file-loader` → asset modules.** `utils.assetRules()` replaces
-  three near-identical rule blocks that were duplicated across the options-page,
-  popup and content-script configs. `type: 'asset'` with a `maxSize` of 10000
-  reproduces `url-loader`'s `limit: 10000`. Note asset modules' `[ext]` already
-  includes the leading dot.
-- **`json-loader` and `uglifyjs-webpack-plugin` dropped.** webpack 5 parses JSON
-  natively and ships terser as the default minimizer. (`uglifyjs-webpack-plugin`
-  was in `dependencies`, and imported in the base config without ever being used.)
-- **`target: 'web'` is now explicit.** webpack 5 otherwise infers its target from
-  the `browserslist` field, which would change the emitted runtime — including in
-  the background service worker bundle. Pinning it keeps the runtime the shape it
-  had under webpack 4.
-- **Copied assets are marked `info: { minimized: true }`.** webpack 5 runs its
-  minimizer over *every* emitted asset, including ones `copy-webpack-plugin`
-  passes through. Without this, the vendored libraries under `src/statics/lib`
-  were re-minified (`handlebars-latest.js` 514K → 62K, `jszip.js` 423K → 100K),
-  already-minified files got *larger* from double processing (`vue.min.js`
-  94K → 108K), and every license banner was hoisted out into a separate
-  `.LICENSE.txt`, stripping attribution from third-party code.
-- **`webpack-cli` 3 → 7 changed the env flag**: `--env.platform=firefox` is now
-  `--env platform=firefox`. The `package.json` scripts already pass the new form.
-
-## postcss / sass loader options
-
-`postcss-loader` 8 takes plugin config under `postcssOptions` (still loaded from
-`.postcssrc.js`), and `sass-loader` 8+ takes preprocessor options under
-`sassOptions` rather than at the top level. `utils.cssLoaders()` also now sets
-`importLoaders` so `@import` inside a stylesheet is passed back through postcss
-and sass instead of being inlined verbatim.
-
-`config/vue-loader.config.js` had been carrying vue-loader **v14** options
-(`loaders`, `cssSourceMap`, `cacheBusting`, `transformToRequire`) that v15 has
-silently ignored for years. Only the renamed `transformAssetUrls` survives; SFC
-`<style>` blocks are resolved from the top-level module rules.
+`scripts/build.mjs` builds each target with Vite; it replaced webpack and Babel
+(#197). Vite lowers syntax to its `build.target`, in dependencies too, but adds
+no language polyfills (only its own modulepreload one). Babel never polyfilled
+either, so Vuetify's `.at()` (Chrome 92+) and @vuetify/v0's `Object.hasOwn`
+(Chrome 93+) already broke Chrome 88–92.
 
 ## browserslist
 
-Targets are now `chrome >= 88` / `firefox >= 109` — the floor for manifest v3 —
-replacing `> 1%, last 2 versions, chrome >= 48`. This is why the built CSS is
-~20% smaller: autoprefixer no longer emits `-ms-`/`-webkit-` placeholder and
-keyframe prefixes that no supported browser needs.
+Targets are `chrome >= 88` / `firefox >= 109`, the floor for manifest v3.
+autoprefixer reads them from `package.json`; `scripts/build.mjs` repeats them as
+Vite's `build.target`, so change both together.
 
 ## Dependency `overrides`
 
 These live in `pnpm-workspace.yaml`, not `package.json`. **pnpm does not read
 npm's top-level `overrides` field** — if these are ever moved back there they
 stop applying silently, with no error, and the advisories return.
-
-The `@vue/component-compiler-utils` → `postcss` override this section used to
-document was removed as part of the Vue 3 migration's Phase A: vue-loader 17
-(Vue 3) doesn't load `@vue/component-compiler-utils` at all, using
-`@vue/compiler-sfc` directly instead, so the package and its postcss 7 peer
-are no longer reachable — confirmed via `pnpm why @vue/component-compiler-utils`
-resolving to nothing.
 
 Each entry is commented in place there. Renovate never proposes a major for
 any of them (`renovate.json` disables major updates of the
@@ -273,35 +216,6 @@ more explanation than fits in a comment:
   import makes the ESM entries of `@eslint/eslintrc` and `@eslint/config-array`
   fail to load; eslint itself `require()`s them, so only a future `FlatCompat`
   config would hit it.
-
-## Build output under pnpm
-
-The build is *equivalent* under pnpm but not byte-identical, and that is
-expected rather than a symptom. webpack derives its deterministic module and
-chunk ids from module request paths, and pnpm's paths
-(`node_modules/.pnpm/vuetify@1.5.24_vue@2.7.16/node_modules/vuetify/…`) differ
-from npm's flat ones. So chunk ids renumber, emitted chunk filenames change with
-them, and terser's variable naming shifts with the resulting module order.
-
-Built against identical dependency versions, the bundles match to within twelve
-bytes each (the ids have different digit counts), and the smallest bundle is
-byte-identical. Anyone diffing `dist/` across this migration should expect
-renamed numeric chunks and no size change worth noticing.
-
-`config/webpack.background.config.js` copies four paths out of `node_modules`
-(`vue`, `vue-i18n`, and the `@ffmpeg/core` and `@ffmpeg/ffmpeg` `dist/umd`
-directories — `umd/` specifically, not the whole `dist/`, since `@ffmpeg/core`
-0.12 also ships an `esm/` build of the same ~32MB core+wasm pair that nothing
-here loads). All four are direct dependencies, so pnpm's symlinked top level
-exposes them and `copy-webpack-plugin` resolves through the symlinks into
-`node_modules/.pnpm` without help. This is verified by the builds, not just
-reasoned about — but it is the thing to check first if a copied asset ever
-goes missing.
-
-Because pnpm's `node_modules` is strict and non-flat, anything the build imports
-without declaring will now fail where npm's flat tree let it through. That is
-the layout doing its job: the fix is to declare the dependency, not to loosen
-`node-linker`.
 
 ## CI
 

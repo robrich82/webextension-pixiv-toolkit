@@ -6,17 +6,17 @@ const here = path => fileURLToPath(new URL(path, import.meta.url));
 
 export default defineConfig({
   plugins: [vue()],
-  // webpack's DefinePlugin constant (config/webpack.base.config.js).
+  // scripts/build.mjs defines it per platform.
   define: { PRESET_BROWSER: JSON.stringify('chrome') },
   resolve: {
-    // webpack resolves extensionless .vue imports; Vite needs telling.
+    // Extensionless .vue imports, as in scripts/build.mjs.
     extensions: ['.mjs', '.js', '.json', '.vue'],
     alias: [
       // Before `@`, which would otherwise claim it.
       { find: /^@\/modules\/Extension\/browser$/, replacement: here('test/doubles/browser.js') },
       { find: /^@@\//, replacement: here('src/options_page/') },
       { find: /^@\//, replacement: here('src/') },
-      // webpack resolves `locales` as an external global (config/webpack.base.config.js).
+      // scripts/build.mjs reads `locales` from a global.
       { find: /^locales$/, replacement: here('test/doubles/locales.js') },
       { find: /^vue-virtual-scroller$/, replacement: here('test/doubles/vueVirtualScroller.js') }
     ]

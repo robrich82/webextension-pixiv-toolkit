@@ -31,7 +31,7 @@ import {
 } from 'vuetify/components';
 
 /**
- * Only the components the options page uses, so webpack can tree-shake the
+ * Only the components the options page uses, so the bundler can tree-shake the
  * rest of Vuetify (#97). An unregistered tag silently renders as an inert
  * element in production; vuetifyRegistration.spec.js fails if this list
  * doesn't match the `<v-*>` tags in src.
