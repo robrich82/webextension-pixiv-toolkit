@@ -85,7 +85,11 @@ class Application {
     /**
      * Get settings before doing anything else.
      */
-    this.settings = await settingService.getSettings();
+    this.settingsLoaded = settingService.getSettings().then(settings => {
+      this.settings = settings;
+    });
+
+    await this.settingsLoaded;
   }
 
   onBooted() {
@@ -103,6 +107,9 @@ class Application {
      */
     if ((message.to !== 'ws' || message.to === 'op') && message.action) {
       (async () => {
+        // DownloadsBootstrap doesn't await onBeforeBoot, so this can run before the stored settings replace the defaults.
+        await this.settingsLoaded;
+
         let [serviceName, methodName] = message.action.split(':');
 
         let service = this.getService(serviceName);
