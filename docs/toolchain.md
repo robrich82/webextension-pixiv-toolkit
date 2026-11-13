@@ -159,6 +159,10 @@ Phase A). Vue 3's equivalents (`vue`, `@vue/test-utils`) are
 both back on ordinary caret ranges — none of them are abandoned, and there is no
 version-matching constraint between them to protect.
 
+`typescript` is exact-pinned, and Renovate holds it below 7. It is there only
+for the editor's typescript-language-server, which needs its tsserver, and
+TypeScript 7 ships none.
+
 The committed lockfile is the second layer, and `minimumReleaseAge` is the
 third: caret bounds *which* versions are admissible, the lockfile fixes which
 one is actually installed, and the cooldown keeps a brand-new release out of the
