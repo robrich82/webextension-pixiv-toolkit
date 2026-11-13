@@ -34,7 +34,7 @@ There is no linter, formatter or type check. The `typescript` devDependency is t
 - **options page** (`src/options_page/`): two pages, `index.html` for settings and `downloads.html` for the **download manager**.
 - **popup**, plus `lib/locales.js`, which only exposes the locales as the `locales` global.
 
-The pages and content scripts read `vue`, `vue-i18n` and `locales` (and Dexie, on the options pages) from globals that `lib/` scripts provide, rather than bundling them. Give a new `lib/` `<script>` tag `vite-ignore`, like the existing ones, so Vite leaves it alone. The background bundles everything.
+The pages and content scripts read `vue`, `vue-i18n` and `locales` (and Dexie, on the options pages) from globals that `lib/` scripts provide, rather than bundling them. Give a new `lib/` `<script>` tag `vite-ignore`, like the existing ones, or Vite warns that it can't bundle it. The background bundles everything.
 
 Aliases: `@` → `src`, `@@` → `src/options_page`. Both are mirrored in `vitest.config.mjs`.
 
