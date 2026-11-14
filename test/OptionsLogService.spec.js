@@ -69,4 +69,10 @@ describe('log:getTrackedErrors', () => {
       '2026-01-02T00:00:00.000Z second'
     ]);
   });
+
+  test('still lists an error whose time is missing', async () => {
+    await Db.getDb().trackedErrorRepo().addItem({ error: new Error('no time') });
+
+    expect(await trackedErrors()).toEqual(['Error: no time']);
+  });
 });

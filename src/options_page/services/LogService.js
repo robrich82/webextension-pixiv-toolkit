@@ -32,7 +32,10 @@ class LogService extends AbstractService {
     return items.map(({ error, created_at }) => {
       const message = error && error.message !== undefined ? `${error.name}: ${error.message}` : String(error);
 
-      return `${new Date(created_at).toISOString()} ${message}`;
+      // An invalid date would make toISOString() throw and lose the whole list.
+      const time = new Date(created_at);
+
+      return Number.isNaN(time.getTime()) ? message : `${time.toISOString()} ${message}`;
     });
   }
 }
