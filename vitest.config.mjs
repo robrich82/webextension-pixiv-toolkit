@@ -54,7 +54,7 @@ export default defineConfig({
         // DiagnosisMessages.vue sits well below the rest, so each has its own floor.
         'src/options_page/components/!(Options|DiagnosisMessages).vue': { statements: 90, branches: 85, functions: 81, lines: 90, perFile: true },
         'src/options_page/components/Options.vue': { statements: 100, branches: 0, functions: 100, lines: 100 },
-        'src/options_page/components/DiagnosisMessages.vue': { statements: 76, branches: 100, functions: 62, lines: 75 },
+        'src/options_page/components/DiagnosisMessages.vue': { statements: 80, branches: 100, functions: 62, lines: 76 },
         'src/options_page/Index.vue': { statements: 98, branches: 97, functions: 97, lines: 98 },
         'src/options_page/Downloads.vue': { statements: 83, branches: 86, functions: 87, lines: 84 },
         'src/options_page/components/options/**': { statements: 88, branches: 96, functions: 83, lines: 88 }

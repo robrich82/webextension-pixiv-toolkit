@@ -701,6 +701,9 @@
    "_error_messages": {
        "message": "错误信息"
    },
+   "_error_messages_unavailable": {
+       "message": "无法读取错误信息："
+   },
    "_permissions": {
        "message": "权限"
    },

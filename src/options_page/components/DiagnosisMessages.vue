@@ -11,6 +11,8 @@
 </template>
 
 <script>
+import { trackedErrorLines } from '@@/modules/trackedErrors';
+
 export default {
   data() {
     return {
@@ -26,14 +28,19 @@ export default {
 
       this.settings = JSON.stringify(this.browserItems);
 
-      browser.runtime.sendMessage({
-        action: 'log:getTrackedErrors'
-      }, errorMessages => {
-        (errorMessages || []).forEach(errorMessage => {
-          this.errors += errorMessage + "\r\n";
-        });
-      });
+      this.loadErrors();
     });
+  },
+
+  methods: {
+    async loadErrors() {
+      try {
+        this.errors = (await trackedErrorLines()).map(line => line + "\r\n").join('');
+      } catch (error) {
+        // Not an empty box, which would read as "no errors".
+        this.errors = `${this.tl('_error_messages_unavailable')}\r\n${error}`;
+      }
+    }
   }
 }
 </script>
