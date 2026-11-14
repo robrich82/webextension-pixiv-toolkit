@@ -54,69 +54,6 @@ export const decrypteImage = async (page, encryptedImageBlob, returnType = 'url'
   });
 };
 
-class r {
-  constructor(e) {
-      this.compare = e,
-      this.heapArray = [],
-      this._limit = 0
-  }
-  static getChildrenIndexOf(e) {
-      return [2 * e + 1, 2 * e + 2]
-  }
-  static getParentIndexOf(e) {
-      return e <= 0 ? -1 : Math.floor((e - (e % 2 ? 1 : 2)) / 2)
-  }
-  push(e) {
-      return this._sortNodeUp(this.heapArray.push(e) - 1),
-      !0
-  }
-  length() {
-      return this.heapArray.length
-  }
-  peek() {
-      return this.heapArray[0]
-  }
-  pop() {
-      let e = this.heapArray.pop();
-      return this.length() > 0 && void 0 !== e ? this.replace(e) : e
-  }
-  replace(e) {
-      let t = this.heapArray[0];
-      return this.heapArray[0] = e,
-      this._sortNodeDown(0),
-      t
-  }
-  size() {
-      return this.length()
-  }
-  _moveNode(e, t) {
-      [this.heapArray[e],this.heapArray[t]] = [this.heapArray[t], this.heapArray[e]]
-  }
-  _sortNodeDown(e) {
-      let t = e < this.heapArray.length - 1
-        , n = this.heapArray[e]
-        , i = (e,t)=>(this.heapArray.length > t && 0 > this.compare(this.heapArray[t], this.heapArray[e]) && (e = t),
-      e);
-      for (; t; ) {
-          let s = r.getChildrenIndexOf(e)
-            , o = s.reduce(i, s[0])
-            , u = this.heapArray[o];
-          void 0 !== u && this.compare(n, u) > 0 ? (this._moveNode(e, o),
-          e = o) : t = !1
-      }
-  }
-  _sortNodeUp(e) {
-      let t = e > 0;
-      for (; t; ) {
-          let n = r.getParentIndexOf(e);
-          n >= 0 && this.compare(this.heapArray[n], this.heapArray[e]) > 0 ? (this._moveNode(e, n),
-          e = n) : t = !1
-      }
-  }
-}
-
-// let tE = r(62637);
-
 function tC(e, t) {
   return (e << (t %= 32) >>> 0 | e >>> 32 - t) >>> 0
 }

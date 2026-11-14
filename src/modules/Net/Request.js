@@ -25,12 +25,6 @@ class Request extends Event {
     }
   }
 
-  static globalOptions = {};
-
-  static setGlobalOptions(globalOptions) {
-    Request.globalOptions = globalOptions;
-  }
-
   /**
    * @inheritdoc
    * @override
@@ -90,14 +84,6 @@ class Request extends Event {
 
     if (method !== 'HEAD' && method !== 'GET' && !!data) {
       this.fetchInit.body = data;
-    }
-
-    if (Request.globalOptions.headers) {
-      if (this.fetchInit.headers) {
-        Object.assign(this.fetchInit.headers, Request.globalOptions.headers);
-      } else {
-        this.fetchInit.headers = Request.globalOptions.headers;
-      }
     }
 
     fetch(this.url, this.fetchInit).then(response => {
