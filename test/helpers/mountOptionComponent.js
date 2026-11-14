@@ -13,11 +13,8 @@
  * than a real vue-i18n instance, since these specs assert behaviour, not
  * translated text.
  *
- * `@vue/test-utils` 2 removed `createLocalVue`/`parentComponent` entirely —
- * see docs/vue3-migration.md. Plugins/mixins/mocks now live under `global`,
- * and `createVuetify()` builds its own isolated instance per call (unlike
- * Vue 2's `Vue.use`, there's no global registration to collide across
- * tests), so this can be created once at module scope.
+ * Plugins, mixins and mocks go under `global`. The Vuetify instance is
+ * created once at module scope, since nothing registers globally.
  */
 import { mount, shallowMount } from '@vue/test-utils';
 import { createAppVuetify } from '@/options_page/vuetify';
@@ -63,8 +60,8 @@ export function shallowMountOption(Component, options) {
   return shallowMount(Component, {
     ...built,
     global: {
-      // Vuetify layout components (v-card, v-list, ...) are now really
-      // registered, so shallowMount stubs them and their default slot would
+      // Vuetify layout components (v-card, v-list, ...) are registered, so
+      // shallowMount stubs them and their default slot would
       // otherwise swallow every descendant a spec needs to find. Caveat:
       // this also renders stubbed dialogs/menus regardless of visibility, so
       // a future "X is not visible" assertion needs a real mount, not this.

@@ -72,10 +72,9 @@ describe('RenameDialog', () => {
     expect(wrapper.emitted('update:modelValue')).toEqual([['custom_{id}']]);
   });
 
-  // TODO(vue3-migration phase C, #26): manually assigning
-  // `wrapper.vm.$refs.renameInput` no longer sticks under Vue 3 the way it
-  // did under Vue 2, so `pickMeta`'s real `this.$refs.renameInput.$refs.input`
-  // read sees undefined. Revisit alongside RenameDialog.vue's own migration.
+  // Skipped until #344: pickMeta reads `$refs.renameInput.$refs.input`, which
+  // Vuetify's v-text-field doesn't expose. A fake assigned to `$refs` doesn't
+  // stick under Vue 3, so the fix needs a real mount here.
   test.skip('pickMeta inserts the holder at the cursor and moves the cursor past it', () => {
     vi.useFakeTimers();
 

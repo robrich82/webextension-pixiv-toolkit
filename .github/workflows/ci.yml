@@ -41,8 +41,7 @@ jobs:
       # pnpm denies dependency lifecycle scripts by default and fails the
       # install if a package wants to build without an entry in `allowBuilds`
       # (see pnpm-workspace.yaml, where every such package is denied).
-      # That replaces the old `npm ci --ignore-scripts` flag with a default
-      # that also protects local installs, not just this line of YAML.
+      # The same setting protects local installs.
       #
       # --frozen-lockfile is the `npm ci` equivalent: install exactly the
       # locked tree and fail if package.json and pnpm-lock.yaml disagree. It
