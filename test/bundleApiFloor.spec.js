@@ -84,6 +84,13 @@ describe('newerApiUses', () => {
     expect(newerApiUses(out, { browser: 'chrome', floor: 111 })).toEqual(['a.js: javascript.builtins.RegExp.unicodeSets (needs chrome 112)']);
   });
 
+  it('reports a listed web-API instance method', () => {
+    write('a.js', 'document.startViewTransition(()=>u());el.showPopover();');
+
+    expect(newerApiUses(out, { browser: 'firefox', floor: 128 })).toEqual(['a.js: api.Document.startViewTransition (needs firefox 144)']);
+    expect(newerApiUses(out, { browser: 'chrome', floor: 111 })).toEqual(['a.js: api.HTMLElement.showPopover (needs chrome 114)']);
+  });
+
   it('reports a selector in a JS string', () => {
     write('a.js', 'el.querySelectorAll("details:not(:has(> summary))");');
 
