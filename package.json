@@ -36,6 +36,7 @@
     "@vue/test-utils": "^2.5.1",
     "autoprefixer": "^10.6.1",
     "fake-indexeddb": "^6.2.7",
+    "fflate": "^0.8.3",
     "jsdom": "^31.0.0",
     "postcss": "^8.5.31",
     "sass": "^1.105.2",

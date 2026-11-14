@@ -22,6 +22,7 @@ const { execFileSync } = require('child_process');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const { strFromU8, unzipSync } = require('fflate');
 
 const ROOT = path.resolve(__dirname, '..');
 const REPO = 'robrich82/webextension-pixiv-toolkit';
@@ -232,6 +233,37 @@ function assertSignedXpi(filePath) {
   }
 }
 
+/**
+ * The gecko `strict_min_version` in the .xpi's own manifest, which may be older
+ * than `dist/firefox` when a previously signed .xpi is published.
+ */
+function xpiMinVersion(xpiPath) {
+  let files = unzipSync(fs.readFileSync(xpiPath), { filter: file => file.name === 'manifest.json' });
+
+  if (!files['manifest.json']) {
+    throw new Error(`${path.basename(xpiPath)} has no manifest.json.`);
+  }
+
+  let manifest = JSON.parse(strFromU8(files['manifest.json']));
+
+  return manifest.browser_specific_settings?.gecko?.strict_min_version;
+}
+
+/**
+ * Without `strict_min_version`, Firefox offers the update to every version
+ * that runs WebExtensions, and below the floor the install then fails on
+ * every update check.
+ */
+function updateEntry({ version, updateLink, hash, strictMinVersion }) {
+  let entry = { version, update_link: updateLink, update_hash: `sha256:${hash}` };
+
+  if (strictMinVersion) {
+    entry.applications = { gecko: { strict_min_version: strictMinVersion } };
+  }
+
+  return entry;
+}
+
 async function main() {
   // Validated up front so a missing credential fails fast with a clear message.
   requireEnv('WEB_EXT_API_KEY');
@@ -300,11 +332,9 @@ async function main() {
   updates.addons[EXTENSION_ID] = updates.addons[EXTENSION_ID] || { updates: [] };
   updates.addons[EXTENSION_ID].updates = updates.addons[EXTENSION_ID].updates
     .filter(entry => entry.version !== version);
-  updates.addons[EXTENSION_ID].updates.push({
-    version,
-    update_link: updateLink,
-    update_hash: `sha256:${hash}`
-  });
+  updates.addons[EXTENSION_ID].updates.push(
+    updateEntry({ version, updateLink, hash, strictMinVersion: xpiMinVersion(xpiPath) })
+  );
 
   let updatesPath = path.join(ARTIFACTS_DIR, 'updates.json');
   fs.writeFileSync(updatesPath, JSON.stringify(updates, null, 2));
@@ -322,7 +352,11 @@ async function main() {
   console.log(`\nDone. Firefox will offer this update to anyone running an older signed build with update_url set, next time it checks (or via "Check for Updates" in about:debugging / about:addons).`);
 }
 
-main().catch(error => {
-  console.error(error.stack || error.message);
-  process.exitCode = 1;
-});
+if (require.main === module) {
+  main().catch(error => {
+    console.error(error.stack || error.message);
+    process.exitCode = 1;
+  });
+}
+
+module.exports = { updateEntry, xpiMinVersion };
