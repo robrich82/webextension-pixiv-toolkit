@@ -50,16 +50,7 @@ const GUARDED = [
 ];
 const GUARDED_COMPAT = [/^lib\/dexie\/dexie\.js:\d+ navigator\.userAgentData\(\) /];
 // Uses that degrade on the floor, accepted for now. Per file, so a new use elsewhere still fails.
-const ACCEPTED = {
-  chrome: [],
-  // Vuetify: rules Firefox 115 drops, and a focusable-elements selector it rejects (#354).
-  firefox: [
-    /^options_page\/static\/router-[\w-]+\.css: css\.at-rules\.property /,
-    /^options_page\/static\/router-[\w-]+\.css: css\.selectors\.has /,
-    /^options_page\/static\/router-[\w-]+\.css: css\.types\.length\.lh /,
-    /^options_page\/static\/router-[\w-]+\.js: css\.selectors\.has /
-  ]
-};
+const ACCEPTED = { chrome: [], firefox: [] };
 
 const read = (out, file) => fs.readFileSync(path.join(out, file), 'utf8');
 
