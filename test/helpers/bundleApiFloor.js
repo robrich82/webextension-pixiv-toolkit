@@ -4,17 +4,22 @@
  * can raise the real minimum browser without anything else noticing (#347).
  *
  * Two checks, since neither covers the other:
- * - eslint-plugin-compat, for web APIs and static builtins (`Object.hasOwn`,
- *   `structuredClone`). It can't type a receiver, so it misses prototype
- *   methods such as `.toSorted()`, and it misses several newer statics.
- * - A list of those, and of CSS, matched by pattern. Versions come from MDN's
- *   browser-compat-data, so an entry drops out once the floor passes it.
+ * - eslint-plugin-compat, for web APIs and some static builtins
+ *   (`Object.hasOwn`, `structuredClone`). It can't type a receiver, so it
+ *   misses prototype methods such as `.toSorted()`, and it misses many statics.
+ * - A list of those, of web-API statics and of CSS, matched by pattern.
+ *   Versions come from MDN's browser-compat-data, so an entry drops out once
+ *   the floor passes it.
+ * Neither sees an instance method of a web API, such as
+ * `document.startViewTransition()`.
  */
 import fs from 'fs';
 import path from 'path';
 import bcd from '@mdn/browser-compat-data' with { type: 'json' };
 import { ESLint } from 'eslint';
 import compat from 'eslint-plugin-compat';
+
+const SCRIPT = /\.[cm]?js$/;
 
 const JS_APIS = [
   ['javascript.builtins.Array.at', /\.at\(/],
@@ -31,7 +36,13 @@ const JS_APIS = [
   ['javascript.builtins.RegExp.escape', /\bRegExp\.escape\b/],
   ['javascript.builtins.Set.union', /\.(union|intersection|difference|symmetricDifference|isSubsetOf|isSupersetOf|isDisjointFrom)\(/],
   ['javascript.builtins.String.isWellFormed', /\.(isWellFormed|toWellFormed)\(/],
-  ['javascript.builtins.Uint8Array.fromBase64', /\bUint8Array\.from(Base64|Hex)\b|\.(toBase64|setFromBase64|setFromHex)\(/]
+  ['javascript.builtins.Uint8Array.fromBase64', /\bUint8Array\.from(Base64|Hex)\b|\.(toBase64|setFromBase64|setFromHex)\(/],
+  // A selector passed to querySelector(): one unsupported part makes it throw.
+  ['css.selectors.has', /:has\(/],
+  // Web-API statics such as `URL.canParse` and `AbortSignal.any`.
+  ...Object.entries(bcd.api).flatMap(([name, members]) => Object.keys(members)
+    .filter(member => member.endsWith('_static'))
+    .map(member => [`api.${name}.${member}`, new RegExp(`\\b${name}\\.${member.slice(0, -'_static'.length)}\\b`)]))
 ];
 
 // Properties an older browser just ignores (text-wrap, interpolate-size) aren't listed.
@@ -41,17 +52,19 @@ const CSS_APIS = [
   ['css.at-rules.scope', /@scope\b/],
   ['css.at-rules.starting-style', /@starting-style\b/],
   ['css.selectors.has', /:has\(/],
+  // Vite's CSS minifier lowers nesting, so this is a backstop for the `&` form.
   ['css.selectors.nesting', /[{;}]\s*&/],
   ['css.types.color.color-mix', /\bcolor-mix\(/],
   ['css.types.color.light-dark', /\blight-dark\(/],
   ['css.types.color.oklch', /\bokl(ch|ab)\(/],
-  ['css.types.length.lh', /\dr?lh\b/],
+  // Not inside a base64 data URI.
+  ['css.types.length.lh', /(?<![\w+/.])(\d*\.)?\d+r?lh\b/],
   ['css.types.round', /\b(round|mod|rem)\(/]
 ];
 
 /**
- * The first version that supports `feature` unflagged, unprefixed and in full,
- * or Infinity if none does.
+ * The first version that supports `feature` unflagged, unprefixed, in full
+ * and still, or Infinity if none does.
  */
 export function versionAdded(feature, browser) {
   const compatData = feature.split('.').reduce((node, key) => node?.[key], bcd)?.__compat;
@@ -60,8 +73,8 @@ export function versionAdded(feature, browser) {
     throw new Error(`browser-compat-data has no ${feature}`);
   }
 
-  const statement = [].concat(compatData.support[browser])
-    .find(s => !s.flags && !s.prefix && !s.alternative_name && !s.partial_implementation);
+  const statement = [].concat(compatData.support[browser] ?? [])
+    .find(s => !s.flags && !s.prefix && !s.alternative_name && !s.partial_implementation && !s.version_removed);
   const added = statement?.version_added;
 
   if (added === true) {
@@ -71,24 +84,24 @@ export function versionAdded(feature, browser) {
   return typeof added === 'string' && /^≤?\d/.test(added) ? parseFloat(added.replace('≤', '')) : Infinity;
 }
 
-function filesIn(dir, extension) {
+function filesIn(dir, pattern) {
   return fs.readdirSync(dir, { recursive: true })
-    .filter(file => file.endsWith(extension))
+    .filter(file => pattern.test(file))
     .map(file => file.split(path.sep).join('/'));
 }
 
 /**
  * `file: feature (needs browser N)` for each listed API in `out` that the
  * floor doesn't support. `guarded` lists patterns to remove first, for uses
- * behind a feature check, and `accepted` lists features not to report.
+ * behind a feature check.
  */
-export function newerApiUses(out, { browser, floor, guarded = [], accepted = [] }) {
+export function newerApiUses(out, { browser, floor, guarded = [] }) {
   const found = [];
 
-  for (const [extension, apis] of [['.js', JS_APIS], ['.css', CSS_APIS]]) {
-    const newer = apis.filter(([feature]) => !accepted.includes(feature) && versionAdded(feature, browser) > floor);
+  for (const [files, apis] of [[SCRIPT, JS_APIS], [/\.css$/, CSS_APIS]]) {
+    const newer = apis.filter(([feature]) => versionAdded(feature, browser) > floor);
 
-    for (const file of filesIn(out, extension)) {
+    for (const file of filesIn(out, files)) {
       const content = guarded.reduce((text, pattern) => text.replace(pattern, ''), fs.readFileSync(path.join(out, file), 'utf8'));
 
       for (const [feature, pattern] of newer) {
@@ -103,8 +116,10 @@ export function newerApiUses(out, { browser, floor, guarded = [], accepted = [] 
 }
 
 /**
- * `file:line message` for each eslint-plugin-compat report on `out`'s JS. The
- * plugin adds the targets of any browserslist config above `out` to these.
+ * `file:line message` for each eslint-plugin-compat report on `out`'s JS, and
+ * each file that doesn't parse as ES2023: the floors' newest full edition, and
+ * the `lib/` vendor files are copied without being lowered. The plugin adds
+ * the targets of any browserslist config above `out` to these.
  */
 export async function compatReports(out, { browser, floor }) {
   const eslint = new ESLint({
@@ -112,18 +127,18 @@ export async function compatReports(out, { browser, floor }) {
     overrideConfigFile: true,
     overrideConfig: [
       {
-        files: ['**/*.js'],
+        files: ['**/*.{js,mjs,cjs}'],
         plugins: { compat },
-        languageOptions: { ecmaVersion: 'latest', sourceType: 'script' },
+        languageOptions: { ecmaVersion: 2023, sourceType: 'script' },
         // Vendored files' own eslint-disable comments mustn't hide anything.
         linterOptions: { noInlineConfig: true, reportUnusedDisableDirectives: 'off' },
         settings: { browsers: [`${browser} >= ${floor}`], lintAllEsApis: true },
         rules: { 'compat/compat': 'error' }
       },
-      { files: ['**/static/**/*.js'], languageOptions: { sourceType: 'module' } }
+      { files: ['**/static/**/*.js', '**/*.mjs'], languageOptions: { sourceType: 'module' } }
     ]
   });
-  const results = await eslint.lintFiles(['**/*.js']);
+  const results = await eslint.lintFiles(['**/*.{js,mjs,cjs}']);
 
   return results.flatMap(result => result.messages
     // A parse error is fatal and has no ruleId. Report it, since it hides the file.

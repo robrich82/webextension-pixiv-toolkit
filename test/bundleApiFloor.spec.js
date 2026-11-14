@@ -61,11 +61,29 @@ describe('newerApiUses', () => {
     expect(newerApiUses(out, { browser: 'firefox', floor: 121 })).toEqual([]);
   });
 
-  it('leaves out guarded uses and accepted features', () => {
+  it('leaves out guarded uses', () => {
     write('a.js', 'j.withResolvers&&(F.withResolvers=j.withResolvers);');
-    write('a.css', '.a:has(.b){color:red}');
 
-    expect(newerApiUses(out, { browser: 'firefox', floor: 115, guarded: [DEXIE_GUARD], accepted: ['css.selectors.has'] })).toEqual([]);
+    expect(newerApiUses(out, { browser: 'firefox', floor: 115, guarded: [DEXIE_GUARD] })).toEqual([]);
+  });
+
+  it('reports a web-API static', () => {
+    write('a.mjs', 'URL.canParse(u);');
+
+    expect(newerApiUses(out, { browser: 'chrome', floor: 111 })).toEqual(['a.mjs: api.URL.canParse_static (needs chrome 120)']);
+  });
+
+  it('reports a selector in a JS string', () => {
+    write('a.js', 'el.querySelectorAll("details:not(:has(> summary))");');
+
+    expect(newerApiUses(out, { browser: 'firefox', floor: 115 })).toEqual(['a.js: css.selectors.has (needs firefox 121)']);
+  });
+
+  it('does not read a base64 data URI as the lh unit', () => {
+    write('a.css', '.a{background:url(data:image/png;base64,AAA9lh+/x9lh=);margin-top:calc(1lh / 2)}');
+    write('b.css', '.b{background:url(data:image/png;base64,AAA9lh+/x9lh=)}');
+
+    expect(newerApiUses(out, { browser: 'firefox', floor: 115 })).toEqual(['a.css: css.types.length.lh (needs firefox 120)']);
   });
 
   it('still reports an unguarded use next to a guarded one', () => {
@@ -93,6 +111,15 @@ describe('compatReports', () => {
 
     expect(await compatReports(out, { browser: 'chrome', floor: 88 })).toEqual([
       'lib/vendor.js:2 Object.hasOwn() is not supported in Chrome 88'
+    ]);
+  }, 30000);
+
+  it('reports syntax newer than ES2023, which vendor files skip lowering for', async () => {
+    // The regex v flag needs Chrome 112 and Firefox 116.
+    write('lib/vendor.js', 'const re = /[\\p{L}--[a-z]]/v;');
+
+    expect(await compatReports(out, { browser: 'chrome', floor: 111 })).toEqual([
+      expect.stringMatching(/^lib\/vendor\.js:1 Parsing error/)
     ]);
   }, 30000);
 

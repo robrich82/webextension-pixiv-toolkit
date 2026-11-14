@@ -49,8 +49,15 @@ const GUARDED = [
   /(?<![\w$])([\w$]+)\.withResolvers&&\([\w$]+\.withResolvers=\1\.withResolvers\)/g
 ];
 const GUARDED_COMPAT = [/^lib\/dexie\/dexie\.js:\d+ navigator\.userAgentData\(\) /];
-// Vuetify styling that Firefox 115 drops, accepted for now (#354).
-const ACCEPTED = { chrome: [], firefox: ['css.at-rules.property', 'css.selectors.has', 'css.types.length.lh'] };
+// Uses that degrade on the floor, accepted for now. Per file, so a new use elsewhere still fails.
+const ACCEPTED = {
+  chrome: [],
+  // Vuetify: rules Firefox 115 drops, and a focusable-elements selector it rejects (#354).
+  firefox: [
+    /^options_page\/static\/router-[\w-]+\.css: css\.(at-rules\.property|selectors\.has|types\.length\.lh) /,
+    /^options_page\/static\/router-[\w-]+\.js: css\.selectors\.has /
+  ]
+};
 
 const read = (out, file) => fs.readFileSync(path.join(out, file), 'utf8');
 
@@ -183,9 +190,9 @@ describe.each(['chrome', 'firefox'])('build for %s', platform => {
 
   // The E2E suites run current browsers, so they can't catch this (#347).
   it('uses no listed JS or CSS API newer than the browserslist floor', () => {
-    const found = newerApiUses(out, { browser: platform, floor: floors[platform], guarded: GUARDED, accepted: ACCEPTED[platform] });
+    const found = newerApiUses(out, { browser: platform, floor: floors[platform], guarded: GUARDED });
 
-    expect(found).toEqual([]);
+    expect(found.filter(use => !ACCEPTED[platform].some(pattern => pattern.test(use)))).toEqual([]);
   });
 
   it('calls no web API or builtin that eslint-plugin-compat finds newer than the floor', async () => {
