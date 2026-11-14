@@ -57,7 +57,7 @@ test('the diagnosis page lists tracked errors without the download manager open'
   const errors = collectErrors(context);
   const seeder = await context.newPage();
   await seeder.goto(`chrome-extension://${extensionId}/options_page/index.html`);
-  // Recorded the way the background's DownloadService records one.
+  // Recorded the way the background's DownloadService records one. The schema is src/modules/Db/Db.js's.
   await seeder.evaluate(async () => {
     const db = new Dexie('PixivToolkitDatabase');
     db.version(1).stores({
@@ -71,8 +71,8 @@ test('the diagnosis page lists tracked errors without the download manager open'
   const page = await context.newPage();
   await page.goto(`chrome-extension://${extensionId}/options_page/index.html#/diagnosis_messages`);
 
-  expect(context.pages().some(p => p.url().includes('/downloads.html'))).toBe(false);
   await expect(page.locator('.diagnosis-messages textarea').nth(2))
     .toHaveValue('2026-01-01T00:00:00.000Z Error: seeded error\n');
+  expect(context.pages().some(p => p.url().includes('/downloads.html'))).toBe(false);
   expect(errors).toEqual([]);
 });

@@ -39,13 +39,24 @@ describe('DiagnosisMessages', () => {
   });
 
   test('leaves the errors box empty when none were recorded', async () => {
+    const getItems = vi.spyOn(Db.getDb().trackedErrorRepo(), 'getItems');
+
     const wrapper = shallowMountOption(DiagnosisMessages, { browserItems: {} });
-    await flushPromises();
-    // Let the Dexie read finish, then flush the render.
-    await Db.getDb().trackedErrorRepo().getItems();
+    // '' is also the value before the read, so wait for the read to finish.
+    await vi.waitFor(() => expect(getItems).toHaveBeenCalled());
+    await getItems.mock.results[0].value;
     await flushPromises();
 
     expect(textareas(wrapper)[2]).toBe('');
+  });
+
+  test('loads the errors even if the permissions callback never comes', async () => {
+    await Db.getDb().trackedErrorRepo().addItem({ error: 'an error', created_at: Date.UTC(2026, 0, 1) });
+    vi.spyOn(browser.permissions, 'getAll').mockImplementation(() => {});
+
+    const wrapper = shallowMountOption(DiagnosisMessages, { browserItems: {} });
+
+    await vi.waitFor(() => expect(textareas(wrapper)[2]).toBe('2026-01-01T00:00:00.000Z an error\n'));
   });
 
   test('says the errors could not be read rather than showing an empty box', async () => {

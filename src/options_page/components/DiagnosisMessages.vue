@@ -27,9 +27,9 @@ export default {
       this.permissions = JSON.stringify(permissions);
 
       this.settings = JSON.stringify(this.browserItems);
-
-      this.loadErrors();
     });
+
+    this.loadErrors();
   },
 
   methods: {

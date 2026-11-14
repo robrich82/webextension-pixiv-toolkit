@@ -65,6 +65,6 @@ describe('trackedErrorLines', () => {
   test('rejects when the database cannot be read', async () => {
     Db.getDb().database.close();
 
-    await expect(trackedErrorLines()).rejects.toThrow();
+    await expect(trackedErrorLines()).rejects.toMatchObject({ name: 'DatabaseClosedError' });
   });
 });
