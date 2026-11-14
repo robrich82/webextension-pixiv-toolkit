@@ -170,10 +170,12 @@ own modulepreload one).
 
 ## browserslist
 
-Targets are `chrome >= 111` / `firefox >= 115` (#347). Below Chrome 110 / Firefox
-115 the options page and download manager don't load, because @vuetify/v0 calls
-`Array.prototype.toSorted` at startup. Chrome 110 loads them without Vuetify's
-`color-mix()` colours.
+Targets are `chrome >= 111` / `firefox >= 128` (#347, #354), both set by
+Vuetify. Below Chrome 110 / Firefox 115 the options page and download manager
+don't load, because @vuetify/v0 calls `Array.prototype.toSorted` at startup.
+Chrome 110 loads them without Vuetify's `color-mix()` colours. Firefox below 121
+rejects the `:has()` selector Vuetify finds focusable elements with, and below
+128 it lacks the `@property` registrations its progress animations use.
 
 Change them in `package.json`'s `browserslist`: autoprefixer reads it, and
 `scripts/build.mjs` derives Vite's `build.target` and the manifests' minimum
