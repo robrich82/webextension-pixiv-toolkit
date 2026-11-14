@@ -42,6 +42,11 @@
             "schedule": ["* 0-5 * * 1"]
         },
         {
+            "description": "browser-compat-data releases about weekly and only feeds test/build.spec.js's API floor check; take it once a week.",
+            "matchPackageNames": ["@mdn/browser-compat-data"],
+            "schedule": ["* 0-5 * * 1"]
+        },
+        {
             "description": "typescript is only here for typescript-language-server, which needs its tsserver. TypeScript 7 ships none.",
             "matchPackageNames": ["typescript"],
             "allowedVersions": "<7"
