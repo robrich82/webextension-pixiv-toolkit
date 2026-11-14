@@ -10,6 +10,7 @@ import { promisify } from 'util';
 import vm from 'vm';
 import { assertSafeOutDir, buildTarget, emptyDir } from '../scripts/build.mjs';
 import { browserFloors } from '../scripts/manifest.mjs';
+import { compatReports, newerApiUses } from './helpers/bundleApiFloor';
 
 const run = promisify(execFile);
 const ROOT = path.resolve(__dirname, '..');
@@ -41,6 +42,15 @@ function manifestPaths(manifest) {
     `_locales/${manifest.default_locale}/messages.json`
   ];
 }
+
+// Uses behind a feature check, which are fine below the floor.
+const GUARDED = [
+  // Dexie copies Promise.withResolvers only when it exists.
+  /(?<![\w$])([\w$]+)\.withResolvers&&\([\w$]+\.withResolvers=\1\.withResolvers\)/g
+];
+const GUARDED_COMPAT = [/^lib\/dexie\/dexie\.js:\d+ navigator\.userAgentData\(\) /];
+// Vuetify styling that Firefox 115 drops, accepted for now (#354).
+const ACCEPTED = { chrome: [], firefox: ['css.at-rules.property', 'css.selectors.has', 'css.types.length.lh'] };
 
 const read = (out, file) => fs.readFileSync(path.join(out, file), 'utf8');
 
@@ -170,6 +180,19 @@ describe.each(['chrome', 'firefox'])('build for %s', platform => {
   it('leaves src/statics/remote out of the package', () => {
     expect(fs.existsSync(path.join(out, 'remote'))).toBe(false);
   });
+
+  // The E2E suites run current browsers, so they can't catch this (#347).
+  it('uses no listed JS or CSS API newer than the browserslist floor', () => {
+    const found = newerApiUses(out, { browser: platform, floor: floors[platform], guarded: GUARDED, accepted: ACCEPTED[platform] });
+
+    expect(found).toEqual([]);
+  });
+
+  it('calls no web API or builtin that eslint-plugin-compat finds newer than the floor', async () => {
+    const reports = await compatReports(out, { browser: platform, floor: floors[platform] });
+
+    expect(reports.filter(report => !GUARDED_COMPAT.some(pattern => pattern.test(report)))).toEqual([]);
+  }, 60000);
 });
 
 it('rejects an unknown platform', async () => {

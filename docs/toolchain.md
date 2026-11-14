@@ -177,8 +177,11 @@ Targets are `chrome >= 111` / `firefox >= 115` (#347). Below Chrome 110 / Firefo
 
 Change them in `package.json`'s `browserslist`: autoprefixer reads it, and
 `scripts/build.mjs` derives Vite's `build.target` and the manifests' minimum
-versions from it. Nothing checks the bundles' APIs against it (#351), so a
-dependency bump can raise the real floor silently.
+versions from it. `test/build.spec.js` checks the built JS and CSS against
+the floors (`test/helpers/bundleApiFloor.js`), so a dependency bump that needs
+a newer browser fails `pnpm test`. Either raise the floor, or add the use to
+`GUARDED` (behind a feature check) or `ACCEPTED` (degrades acceptably, with an
+issue) in that spec.
 
 ## Dependency `overrides`
 

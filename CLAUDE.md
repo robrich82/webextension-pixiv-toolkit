@@ -21,7 +21,7 @@ pnpm run test:e2e          # Playwright; needs `pnpm run build` first (loads dis
 pnpm run test:e2e:firefox  # node --test in real Firefox; needs `pnpm run build:firefox` first, prerequisites in docs/testing.md "Firefox"
 ```
 
-There is no linter, formatter or type check. The `typescript` devDependency is there only so editors' typescript-language-server (and Claude's LSP tool) can find a tsserver, and it stays on 6.x because TypeScript 7 ships none. CI (`.github/workflows/ci.yml`) runs `pnpm audit`, `pnpm test`, both builds and the e2e tests.
+There is no linter, formatter or type check. `eslint` and `eslint-plugin-compat` only check the built bundles against the browserslist floor, from `test/build.spec.js`. The `typescript` devDependency is there only so editors' typescript-language-server (and Claude's LSP tool) can find a tsserver, and it stays on 6.x because TypeScript 7 ships none. CI (`.github/workflows/ci.yml`) runs `pnpm audit`, `pnpm test`, both builds and the e2e tests.
 
 `pnpm run release:firefox` (`scripts/release-firefox.js`) builds, signs through AMO and publishes a GitHub release with `updates.json`. AMO signs a given version only once, so don't run it without being asked.
 
