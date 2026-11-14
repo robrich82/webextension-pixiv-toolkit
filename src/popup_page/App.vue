@@ -120,13 +120,13 @@ export default {
 
     openReportIssue() {
       browser.tabs.create({
-        url: 'https://github.com/leoding86/webextension-pixiv-toolkit/issues'
+        url: 'https://github.com/robrich82/webextension-pixiv-toolkit/issues'
       });
     },
 
     openGithub() {
       browser.tabs.create({
-        url: 'https://github.com/leoding86/webextension-pixiv-toolkit'
+        url: 'https://github.com/robrich82/webextension-pixiv-toolkit'
       });
     },
 
