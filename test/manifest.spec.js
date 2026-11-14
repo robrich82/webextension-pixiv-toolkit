@@ -3,26 +3,38 @@ import path from 'path';
 import { browserFloors, transformManifest } from '../scripts/manifest.mjs';
 
 const source = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../src/statics/manifest.json'), 'utf8'));
-const floors = { chrome: '110', firefox: '115' };
+// Not the real floors, so a transform that ignored them would fail.
+const floors = { chrome: '123', firefox: '456' };
 
 describe('browserFloors', () => {
   it('reads the minimum Chrome and Firefox versions', () => {
-    expect(browserFloors(['chrome >= 110', ' firefox >= 115 '])).toEqual({ chrome: '110', firefox: '115' });
+    expect(browserFloors(['chrome >= 111', ' firefox >= 115 '])).toEqual({ chrome: '111', firefox: '115' });
   });
 
-  it('rejects a query it cannot turn into a minimum version', () => {
-    expect(() => browserFloors(['chrome >= 110', 'firefox >= 115', 'last 2 versions'])).toThrow('"last 2 versions"');
+  it.each(['last 2 versions', 'chrome >= 0111'])('rejects "%s", which it cannot turn into a minimum version', query => {
+    expect(() => browserFloors(['firefox >= 115', query])).toThrow(`"${query}"`);
+  });
+
+  it('rejects a second query for the same browser', () => {
+    expect(() => browserFloors(['chrome >= 100', 'firefox >= 115', 'chrome >= 111'])).toThrow('more than one "chrome"');
   });
 
   it('requires both browsers', () => {
-    expect(() => browserFloors(['chrome >= 110'])).toThrow('no "firefox >= N"');
+    expect(() => browserFloors(['chrome >= 111'])).toThrow('no "firefox >= N"');
   });
 
-  it("matches the floors Vuetify needs, in package.json's browserslist", () => {
-    // @vuetify/v0 calls Array.prototype.toSorted when Vuetify starts (#347).
-    const { browserslist } = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../package.json'), 'utf8'));
+  it('requires a list', () => {
+    expect(() => browserFloors(undefined)).toThrow('browserslist array');
+  });
 
-    expect(browserFloors(browserslist)).toEqual(floors);
+  it("keeps package.json's browserslist at or above what Vuetify needs (#347)", () => {
+    // @vuetify/v0 calls Array.prototype.toSorted when Vuetify starts (Chrome 110,
+    // Firefox 115), and Vuetify's CSS colours use color-mix() (Chrome 111).
+    const { browserslist } = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../package.json'), 'utf8'));
+    const { chrome, firefox } = browserFloors(browserslist);
+
+    expect(Number(chrome)).toBeGreaterThanOrEqual(111);
+    expect(Number(firefox)).toBeGreaterThanOrEqual(115);
   });
 });
 
@@ -30,7 +42,7 @@ describe('transformManifest', () => {
   it('stamps the version and minimum Chrome version for Chrome and changes nothing else', () => {
     const json = transformManifest(source, { platform: 'chrome', version: '1.2.3', floors });
 
-    expect(json).toEqual({ ...source, version: '1.2.3', version_name: '1.2.3', minimum_chrome_version: '110' });
+    expect(json).toEqual({ ...source, version: '1.2.3', version_name: '1.2.3', minimum_chrome_version: '123' });
   });
 
   it('does not mutate the source manifest', () => {
@@ -52,7 +64,7 @@ describe('transformManifest', () => {
       expect(json.browser_specific_settings.gecko).toEqual({
         id: 'webextension-pixiv-toolkit-fork@robrich82',
         update_url: 'https://github.com/robrich82/webextension-pixiv-toolkit/releases/latest/download/updates.json',
-        strict_min_version: '115.0'
+        strict_min_version: '456.0'
       });
       expect(json).not.toHaveProperty('minimum_chrome_version');
     });

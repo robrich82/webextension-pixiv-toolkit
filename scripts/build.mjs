@@ -77,8 +77,7 @@ function viteConfig({ platform, watch, globals = SHARED_GLOBALS, root: viteRoot 
     build: {
       outDir,
       emptyOutDir: false,
-      // From package.json's browserslist, which autoprefixer reads too.
-      target: [`chrome${floors.chrome}`, `firefox${floors.firefox}`],
+      target: buildTarget(floors),
       assetsInlineLimit: 10000,
       assetsDir: 'static',
       minify: !watch,
@@ -196,6 +195,11 @@ const OS_FILES = new Set(['desktop.ini', 'Thumbs.db', '.DS_Store']);
 const isEmpty = dir => fs.readdirSync(dir, { withFileTypes: true }).every(e => e.isFile() && OS_FILES.has(e.name));
 const isPreviousBuild = dir => fs.lstatSync(path.join(dir, BUILD_MARKER), { throwIfNoEntry: false })?.isFile();
 const isDisposable = dir => !fs.existsSync(dir) || (fs.statSync(dir).isDirectory() && (isEmpty(dir) || isPreviousBuild(dir)));
+
+/** Vite's build.target for the browserslist floors autoprefixer also reads. */
+export function buildTarget(floors) {
+  return [`chrome${floors.chrome}`, `firefox${floors.firefox}`];
+}
 
 export class UnsafeOutDirError extends Error {}
 

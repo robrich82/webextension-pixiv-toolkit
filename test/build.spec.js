@@ -8,7 +8,7 @@ import os from 'os';
 import path from 'path';
 import { promisify } from 'util';
 import vm from 'vm';
-import { assertSafeOutDir, emptyDir } from '../scripts/build.mjs';
+import { assertSafeOutDir, buildTarget, emptyDir } from '../scripts/build.mjs';
 import { browserFloors } from '../scripts/manifest.mjs';
 
 const run = promisify(execFile);
@@ -196,6 +196,12 @@ it('reads flags after the `--` that `pnpm run <script> -- <flags>` appends', asy
   await expect(run(process.execPath, [SCRIPT, '--platform=firefox', '--', `--out-dir=${dir}`], { cwd: ROOT }))
     .rejects.toMatchObject({ code: 1, stderr: expect.stringContaining(`Refusing to build into ${dir}`) });
 }, 30000);
+
+describe('buildTarget', () => {
+  it("targets the browserslist floors, so Vite lowers syntax to the manifest's minimum versions", () => {
+    expect(buildTarget({ chrome: '123', firefox: '456' })).toEqual(['chrome123', 'firefox456']);
+  });
+});
 
 describe('assertSafeOutDir', () => {
   const refuses = dir => expect(() => assertSafeOutDir(dir)).toThrow(/Refusing to build into/);

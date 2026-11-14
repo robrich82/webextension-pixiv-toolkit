@@ -166,18 +166,19 @@ decision.
 
 `scripts/build.mjs` builds each target with Vite. Vite lowers syntax to its
 `build.target`, in dependencies too, but adds no language polyfills (only its
-own modulepreload one). The floors below therefore have to cover every API the
-bundles call, not just their syntax.
+own modulepreload one).
 
 ## browserslist
 
-Targets are `chrome >= 110` / `firefox >= 115`, because @vuetify/v0 calls
-`Array.prototype.toSorted` when Vuetify starts. Below them the options page and
-download manager don't load (#347). `package.json`'s `browserslist` is the only
-place to change them: autoprefixer reads it, and `scripts/build.mjs` derives
-Vite's `build.target` and the manifests' `minimum_chrome_version` and gecko
-`strict_min_version` from it. Raising a dependency can raise the floor without
-any error at build time, since nothing checks the bundles' APIs against it.
+Targets are `chrome >= 111` / `firefox >= 115` (#347). Below Chrome 110 / Firefox
+115 the options page and download manager don't load, because @vuetify/v0 calls
+`Array.prototype.toSorted` at startup. Chrome 110 loads them without Vuetify's
+`color-mix()` colours.
+
+Change them in `package.json`'s `browserslist`: autoprefixer reads it, and
+`scripts/build.mjs` derives Vite's `build.target` and the manifests' minimum
+versions from it. Nothing checks the bundles' APIs against it (#351), so a
+dependency bump can raise the real floor silently.
 
 ## Dependency `overrides`
 

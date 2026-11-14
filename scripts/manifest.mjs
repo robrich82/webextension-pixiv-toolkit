@@ -1,14 +1,17 @@
 /**
  * The minimum Chrome and Firefox versions in package.json's browserslist,
- * e.g. `{ chrome: '110', firefox: '115' }`. The build target and the
- * manifest's minimum versions are all derived from them.
+ * e.g. `{ chrome: '111', firefox: '115' }`.
  */
 export function browserFloors(browserslist) {
+  if (!Array.isArray(browserslist)) throw new Error('package.json needs a browserslist array');
+
   const floors = {};
 
   for (const query of browserslist) {
-    const match = /^(chrome|firefox) >= (\d+)$/.exec(query.trim());
+    const match = /^(chrome|firefox) >= ([1-9]\d*)$/.exec(query.trim());
     if (!match) throw new Error(`Unsupported browserslist query "${query}": use "chrome >= N" or "firefox >= N"`);
+    // browserslist would take the lowest of two, while this would keep the last.
+    if (floors[match[1]]) throw new Error(`browserslist has more than one "${match[1]}" query`);
     floors[match[1]] = match[2];
   }
 
