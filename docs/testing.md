@@ -207,10 +207,9 @@ codebase could suffer, and it needs no browser to catch.
 
 ## Component tests
 
-`test/components/*.spec.js` covers the `option-items` and
-`options_page/components/options` `.vue` components — the leaf option
-components with real logic, and the ones `docs/vue3-migration.md` migrates
-first. It's the `components` project (see above): the `jsdom` environment,
+`test/components/*.spec.js` covers the `.vue` components of the options page,
+the download manager and the content scripts' in-page UI. It's the `components`
+project (see above): the `jsdom` environment,
 `.vue` files compiled by `@vitejs/plugin-vue`, and `@vue/test-utils@2` (the
 Vue 3 major). Vuetify 3's components each import their own stylesheet, which
 Node can't load, so `server.deps.inline` has Vite transform Vuetify instead of
@@ -228,30 +227,24 @@ Every options-page component reads `this.browserItems` and calls
 supplies both:
 
 - `global: { plugins: [vuetify], mixins: [SuperMixin, browserItemsMixin] }` —
-  `@vue/test-utils@2` removed `createLocalVue`/`parentComponent` entirely, and
-  a component mounted with no parent is *not* its own `$root` the way it was
-  under `@vue/test-utils@1` (confirmed empirically, not documented by VTU).
-  A global mixin's `data()` does reach that internal root, though, so
+  a component mounted with no parent is *not* its own `$root` under
+  `@vue/test-utils@2`. A global mixin's `data()` does reach that internal root,
+  so
   `browserItemsMixin` (built fresh per `shallowMountOption()` call, closing
   over that call's `browserItems`) is what actually seeds it — see the
   comment in `mountOptionComponent.js` for the full reasoning.
 - `global.mocks: { $t: key => key }` — a passthrough, not a real vue-i18n
   instance, since these specs assert behaviour, not translated copy.
 - `createAppVuetify()` (the same factory the two production entry points use,
-  in `src/options_page/vuetify.js` — see `docs/vue3-migration.md`'s "Phase B
-  discovery") is built once at module load and reused for every mount in the
-  file, matching the old `localVue` pattern's intent — but for a different
-  reason: Vue 3's Vuetify doesn't warn on multiple instances the way Vue 2's
-  did, it's just wasteful to rebuild per mount. It's real Vuetify 3
-  component registration, not a no-op — see the next paragraph for what that
-  changed.
+  in `src/options_page/vuetify.js`) is built once at module load and reused for
+  every mount in the file. It registers Vuetify's real components, which is
+  why the stubbing below matters.
 
 `shallowMountOption` auto-stubs every Vuetify component except `v-text-field`
 and the `VInput`/`VField` it is built from. A stub renders its props as
 attributes, and Vue warns when one sets `prefix`, a read-only DOM property;
-`v-select` and `v-textarea` have that prop too. Since Phase B,
-Vuetify's real components are actually registered (`createAppVuetify()`), so
-this stubbing is what makes testing these components tractable at all — a
+`v-select` and `v-textarea` have that prop too. With the real components
+registered, this stubbing is what makes testing these components tractable — a
 real `v-select` needs a full DOM layout pass to open, and these specs only
 care about the surrounding component's own logic (`computed`, `watch`,
 `created`/`beforeMount`, methods), not Vuetify's rendering. It also sets
@@ -259,11 +252,10 @@ care about the surrounding component's own logic (`computed`, `watch`,
 otherwise swallow any descendant component nested inside a Vuetify layout tag
 (e.g. a custom component inside `<v-list>`), making it unreachable via
 `find`/`findComponent`. That option only reaches the default slot, though — a
-migrated component's `#title`/`#subtitle`/`#append` *named* slots (see
+component's `#title`/`#subtitle`/`#append` *named* slots (see
 `option-items/*.vue`) never render under `shallowMount`, stub or not, so a
 `shallowMount` spec cannot assert on that component's actual rendered markup.
-Prefer `wrapper.vm.*` state for behavior, as before, but pin a migrated
-template's slot names and prop mappings (e.g. `v-select`'s `item-title`) with
+Prefer `wrapper.vm.*` state for behavior, but pin a template's slot names and prop mappings (e.g. `v-select`'s `item-title`) with
 one real `mountOption()` (also exported by `mountOptionComponent.js`) per
 established pattern — see `DownloadSaveMode.spec.js` for the shape. One
 caveat of `renderStubDefaultSlot`: it also renders a stubbed dialog/menu's
@@ -277,47 +269,8 @@ as-is: a spec imports it directly and the component's own
 `@/modules/Extension/browser` import resolves to the same instance through
 the alias.
 
-### Two gotchas specific to these components
-
-*(Recorded against Vue 2's scheduler internals, pre-dating the Vue 3 migration's
-Phase A. The mounted components are still Vue 2-style Options API code running
-unmigrated, and the batching behaviour they describe is a Vue-level concern,
-not a `@vue/test-utils` one — but Vue 3's scheduler (`queueJob`/`flushJobs`)
-replaced Vue 2's `flushSchedulerQueue`, and `@vue/test-utils@2` no longer
-shares one `localVue`/scheduler across a whole file's mounts the way `@vue/
-test-utils@1` did. Re-verify before relying on the specifics below.)*
-
-**A watcher can echo its own `created()`/`beforeMount()` assignment.** Several
-components initialise a watched data property from `browserItems` in
-`created()` — `this.pageNumberLength = this.browserItems.globalTaskPageNumberLength`,
-say — which is itself a change the watcher is queued to persist on the next
-tick. A spec that changes that same property in the *same* tick as mount,
-before that queued flush runs, can see it cancel out: Vue's watcher only
-compares the value at flush time against the value before the whole batch, so
-mount-then-immediately-set-back-to-the-original-default never calls the
-callback at all. The fix is mechanical: `await wrapper.vm.$nextTick()` once
-right after mounting, before making the change under test, so the echo settles
-on its own. (`DownloadSaveMode`'s revert-on-invalid-input watcher relies on
-the same batching from the other direction: setting `this.value` back inside
-the watcher's own callback re-queues it, and the second run's write is the one
-that actually lands.)
-
-**A stale event-handler reference can wedge Vue's scheduler for the rest of
-the file.** A template `@event="someMethod"` naming a method the component
-doesn't actually define is a dead reference that only bites once that
-component re-renders: Vue's listener-patch throws (`Cannot read properties of
-undefined (reading '_wrapper')`) inside the *render* watcher — not a user
-watcher, so the exception isn't caught by Vue's `handleError` path and
-escapes `flushSchedulerQueue` before it resets. Because the scheduler is
-shared by every component on the same `localVue`, this leaves it wedged:
-later watchers (in this component or any other, for the rest of the test
-file) get queued but never flushed again, which reads as "reactivity silently
-stopped working" with no error at the call site that broke it. The
-workaround, if a spec hits this on a component you can't fix, is to mount it
-with a `methods:` override supplying a no-op handler for the dead reference.
-If a future spec's watcher assertions mysteriously stop firing with no thrown
-error, a stale `@event` handler reference recently triggered elsewhere in the
-same file is worth checking before anything else.
+jsdom does no layout and applies no real CSS, so a styling regression passes
+every spec here. Check options-page styling by loading the built extension.
 
 ## End-to-end tests
 

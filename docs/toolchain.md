@@ -15,10 +15,9 @@ mise, only the `engines` ranges apply.
 
 ## Toolchain pinning
 
-Every engine range carries a **lower and an upper bound**. Open-ended `>=` was
-the previous state and it was wrong in both directions: it admits an untested
-future major silently, and it makes the strict-engines check weaker than it
-looks, since the only thing an open range can enforce is a floor.
+Every engine range carries a **lower and an upper bound**. An open-ended `>=`
+would admit an untested future major silently, and the strict-engines check
+could then only enforce a floor.
 
 - **`engines.node`** — one major, the one `mise.toml` pins and CI runs. A
   wider range is a claim nothing tests, and dependencies narrow it without
@@ -64,10 +63,9 @@ It still refuses yarn and bun. pnpm ignores `engines.npm`.
 
 ## Lockfile
 
-`package-lock.json` and `yarn.lock` used to both be listed in `.gitignore`, so
-no lockfile was committed at all — every install silently re-resolved the whole
-tree, and CI built from a dependency set nobody had reviewed. `pnpm-lock.yaml`
-is now tracked. Do not add it to `.gitignore`; that was the original bug.
+`pnpm-lock.yaml` is committed. Keep it out of `.gitignore`: without it every
+install silently re-resolves the whole tree, and CI builds from a dependency set
+nobody reviewed.
 
 `pnpm install --frozen-lockfile` is the `npm ci` equivalent and what CI runs: it
 installs exactly the locked tree and fails when `package.json` and
@@ -113,9 +111,8 @@ denied.
 | `@parcel/watcher` | native file watching for `sass --watch`. Unreachable — Vite does the watching here. |
 | `fsevents` | macOS-only file watching for Vite's dev server, which `vitest run` never starts. The tarball ships a prebuilt binary, so its `node-gyp rebuild` is redundant anyway. Skipped on Windows and Linux, so only a Mac install would fail without the entry. |
 
-This replaces `npm ci --ignore-scripts`, which was correct but lived in one line
-of CI YAML and did nothing for a local install. Adding a `true` here is a
-security decision, not a way to clear a failed install — it means a dependency
+It applies to local installs and CI alike. Adding a `true` here is a security
+decision, not a way to clear a failed install — it means a dependency
 has started wanting to execute code on every machine that installs this project.
 
 **`blockExoticSubdeps: true`** — transitive dependencies must come from the
@@ -143,14 +140,6 @@ release on its own. The `0.x` pins are tighter still — caret on a `0.x`
 version locks the *minor*, so `@ffmpeg/core: ^0.12.10` resolves
 `>=0.12.10 <0.13.0`.
 
-Vue 2's tooling (`@vue/test-utils@1`, `@vue/vue2-jest`, `vue-template-compiler`)
-used to be exact-pinned here, since those were abandoned last-Vue-2-compatible
-releases and `vue-template-compiler` had to match `vue` exactly or it threw at
-require time (see `docs/vue3-migration.md`, done as of the Vue 3 migration's
-Phase A). Vue 3's equivalents (`vue`, `@vue/test-utils`) are
-both back on ordinary caret ranges — none of them are abandoned, and there is no
-version-matching constraint between them to protect.
-
 `typescript` is exact-pinned, and Renovate holds it below 7. It is there only
 for the editor's typescript-language-server, which needs its tsserver, and
 TypeScript 7 ships none.
@@ -163,10 +152,7 @@ resolution step in the first place.
 That leaves ordinary drift *inside* the ranges, which is what `pnpm update` is
 for: it moves the lockfile and nothing else. `pnpm audit --fix` is the
 advisory-driven equivalent; note it edits `overrides` in `pnpm-workspace.yaml`
-rather than bumping ranges, so read its diff before committing it. The security
-patches applied on 2026-08-27 needed no `package.json` change at all, because
-every fixed version was already admissible — including through the `overrides`
-floor below.
+rather than bumping ranges, so read its diff before committing it.
 
 The one thing to avoid is `pnpm add <pkg>` with no version specifier. That
 resolves to latest and rewrites `package.json` to the new major's caret,
@@ -178,11 +164,10 @@ decision.
 
 ## Build
 
-`scripts/build.mjs` builds each target with Vite; it replaced webpack and Babel
-(#197). Vite lowers syntax to its `build.target`, in dependencies too, but adds
-no language polyfills (only its own modulepreload one). Babel never polyfilled
-either, so Vuetify's `.at()` (Chrome 92+) and @vuetify/v0's `Object.hasOwn`
-(Chrome 93+) already broke Chrome 88–92.
+`scripts/build.mjs` builds each target with Vite. Vite lowers syntax to its
+`build.target`, in dependencies too, but adds no language polyfills (only its
+own modulepreload one). So Vuetify's `.at()` (Chrome 92+) and @vuetify/v0's
+`Object.hasOwn` (Chrome 93+) break Chrome 88–92, despite the targets below.
 
 ## browserslist
 
@@ -232,8 +217,10 @@ the same versions as local development. The pnpm store is cached with
 
 The job then runs `pnpm install --frozen-lockfile`,
 `pnpm audit --audit-level=moderate`, `pnpm test`, and the Chrome and Firefox
-builds, uploading each `dist/` directory as an artifact, and finally the
-Playwright E2E suite against `dist/chrome` (see `docs/testing.md`).
+builds, uploading each `dist/` directory as an artifact. Last come the
+Playwright E2E suite against `dist/chrome` and the Firefox E2E suite against
+`dist/firefox`, which runs even when the Chromium one fails (see
+`docs/testing.md`).
 
 The audit step reports at `moderate` but does not fail the job
 (`continue-on-error`). It audits dev dependencies too, so an advisory published
@@ -245,12 +232,5 @@ A red audit step still needs clearing: `pnpm update`, an `overrides` floor, or
 — when the package is abandoned and there is no fixed version —
 `auditConfig.ignoreGhsas` in `pnpm-workspace.yaml`, with the reason beside it.
 
-CircleCI (`.circleci/config.yml`) ran the identical job and was dropped as
-duplication.
-
 The `pnpm test` step is the Vitest suite; see `docs/testing.md` for how it is
 configured and for the extension API double the specs run against.
-
-## Known remaining issues
-
-None.

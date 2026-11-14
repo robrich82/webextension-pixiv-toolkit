@@ -13,11 +13,8 @@
  * than a real vue-i18n instance, since these specs assert behaviour, not
  * translated text.
  *
- * `@vue/test-utils` 2 removed `createLocalVue`/`parentComponent` entirely —
- * see docs/vue3-migration.md. Plugins/mixins/mocks now live under `global`,
- * and `createVuetify()` builds its own isolated instance per call (unlike
- * Vue 2's `Vue.use`, there's no global registration to collide across
- * tests), so this can be created once at module scope.
+ * Plugins, mixins and mocks go under `global`. The Vuetify instance is
+ * created once at module scope, since nothing registers globally.
  */
 import { mount, shallowMount } from '@vue/test-utils';
 import { createAppVuetify } from '@/options_page/vuetify';

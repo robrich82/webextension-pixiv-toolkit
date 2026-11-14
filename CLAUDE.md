@@ -79,4 +79,4 @@ UI strings are in `src/statics/_locales`. `src/statics/HISTORY_*` stops at upstr
 - Services are singletons that register listeners in their constructor. Clear `Service.instance = undefined` in `beforeEach` when a spec needs live listeners.
 - `coverage.thresholds` in `vitest.config.mjs` is a ratchet with per-directory floors. A new untested file can fail `pnpm test`, so either cover it or lower the floor in the same PR and say why.
 
-Other docs: `docs/toolchain.md` (build toolchain) and `docs/vue3-migration.md` (Vue 2 → 3 / Vuetify migration status).
+Other docs: `docs/toolchain.md` (build toolchain) and `docs/help.md` (user help, linked from the ugoira options; keep its ffmpeg presets in step with `src/config/default.js`). Track open work in GitHub issues, not in `docs/`.
