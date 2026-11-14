@@ -19,6 +19,14 @@ describe('UgoiraOptions', () => {
     expect(wrapper.text()).toContain('rename_ugoira_file.message');
   });
 
+  test("links the ffmpeg command's help to this fork's docs/help.md", () => {
+    const wrapper = mountOption(UgoiraOptions, { browserItems });
+
+    expect(wrapper.find('a[href*="help.md"]').attributes('href')).toBe(
+      'https://github.com/robrich82/webextension-pixiv-toolkit/blob/main/docs/help.md#about-ffmpeg-custom-convert-command-en_us'
+    );
+  });
+
   test('adopts every stored value on creation', () => {
     const wrapper = shallowMountOption(UgoiraOptions, { browserItems });
 
