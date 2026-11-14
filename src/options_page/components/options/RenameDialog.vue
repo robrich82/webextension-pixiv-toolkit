@@ -109,7 +109,7 @@ export default {
   methods: {
     pickMeta: function (meta) {
       this.updateFormat(meta.holder);
-      this.setInputCursor(this.$refs.renameInput.$refs.input, meta.holder);
+      this.setInputCursor(this.$refs.renameInput.$el.querySelector('input'), meta.holder);
     },
 
     updateRenameFormat() {

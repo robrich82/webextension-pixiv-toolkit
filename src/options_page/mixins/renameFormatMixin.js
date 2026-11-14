@@ -19,7 +19,10 @@ export default {
     },
 
     updateInputPos: function(event) {
-      this.inputPos = event.target.selectionStart;
+      // Vuetify binds click and keyup to the field's wrapper, so a click beside the text targets a div.
+      if (typeof event.target.selectionStart === 'number') {
+        this.inputPos = event.target.selectionStart;
+      }
     },
 
     updateFormat: function(holder) {
