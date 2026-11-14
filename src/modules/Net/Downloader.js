@@ -125,14 +125,6 @@ class Downloader extends Event {
   }
 
   /**
-   * @deprecated
-   * Initialize downloader, should call it after `appendFile`
-   */
-  initial() {
-    console.warn('This method will be deprecated later');
-  }
-
-  /**
    * @override
    * @param {'start'|'progress'|'item-finish'|'finish'|'failure'|'item-error'|'pause'|'abort'} eventName
    * @param {Function} listener
