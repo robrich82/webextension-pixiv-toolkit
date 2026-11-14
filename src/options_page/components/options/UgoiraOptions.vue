@@ -12,7 +12,7 @@
       </v-list-item>
 
       <v-list-item class="option-section__auto-height">
-        <template #title>{{ tl('_ffmpeg_custom_convert_command') }} (<a href="https://github.com/leoding86/webextension-pixiv-toolkit/blob/master/docs/help.md#about-ffmpeg-custom-convert-command-en_us" target="_blank"><strong>{{ tl('_more_info') }}</strong></a>)</template>
+        <template #title>{{ tl('_ffmpeg_custom_convert_command') }} (<a href="https://github.com/robrich82/webextension-pixiv-toolkit/blob/main/docs/help.md#about-ffmpeg-custom-convert-command-en_us" target="_blank"><strong>{{ tl('_more_info') }}</strong></a>)</template>
         <template #subtitle>
           <textarea class="option-section__input-text"
             v-model="ugoiraCustomFFmpegCommand"
