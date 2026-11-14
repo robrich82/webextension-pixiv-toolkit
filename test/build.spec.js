@@ -10,6 +10,7 @@ import { promisify } from 'util';
 import vm from 'vm';
 import { assertSafeOutDir, buildTarget, emptyDir } from '../scripts/build.mjs';
 import { browserFloors } from '../scripts/manifest.mjs';
+import { compatReports, newerApiUses } from './helpers/bundleApiFloor';
 
 const run = promisify(execFile);
 const ROOT = path.resolve(__dirname, '..');
@@ -41,6 +42,24 @@ function manifestPaths(manifest) {
     `_locales/${manifest.default_locale}/messages.json`
   ];
 }
+
+// Uses behind a feature check, which are fine below the floor.
+const GUARDED = [
+  // Dexie copies Promise.withResolvers only when it exists.
+  /(?<![\w$])([\w$]+)\.withResolvers&&\([\w$]+\.withResolvers=\1\.withResolvers\)/g
+];
+const GUARDED_COMPAT = [/^lib\/dexie\/dexie\.js:\d+ navigator\.userAgentData\(\) /];
+// Uses that degrade on the floor, accepted for now. Per file, so a new use elsewhere still fails.
+const ACCEPTED = {
+  chrome: [],
+  // Vuetify: rules Firefox 115 drops, and a focusable-elements selector it rejects (#354).
+  firefox: [
+    /^options_page\/static\/router-[\w-]+\.css: css\.at-rules\.property /,
+    /^options_page\/static\/router-[\w-]+\.css: css\.selectors\.has /,
+    /^options_page\/static\/router-[\w-]+\.css: css\.types\.length\.lh /,
+    /^options_page\/static\/router-[\w-]+\.js: css\.selectors\.has /
+  ]
+};
 
 const read = (out, file) => fs.readFileSync(path.join(out, file), 'utf8');
 
@@ -170,6 +189,21 @@ describe.each(['chrome', 'firefox'])('build for %s', platform => {
   it('leaves src/statics/remote out of the package', () => {
     expect(fs.existsSync(path.join(out, 'remote'))).toBe(false);
   });
+
+  // The E2E suites run current browsers, so they can't catch this (#347).
+  it('uses no listed JS or CSS API newer than the browserslist floor', () => {
+    const found = newerApiUses(out, { browser: platform, floor: floors[platform], guarded: GUARDED });
+
+    expect(found.filter(use => !ACCEPTED[platform].some(pattern => pattern.test(use)))).toEqual([]);
+    // An entry that matches nothing would quietly accept a later use.
+    expect(ACCEPTED[platform].filter(pattern => !found.some(use => pattern.test(use)))).toEqual([]);
+  });
+
+  it('calls no web API or builtin that eslint-plugin-compat finds newer than the floor', async () => {
+    const reports = await compatReports(out, { browser: platform, floor: floors[platform] });
+
+    expect(reports.filter(report => !GUARDED_COMPAT.some(pattern => pattern.test(report)))).toEqual([]);
+  }, 60000);
 });
 
 it('rejects an unknown platform', async () => {

@@ -177,8 +177,11 @@ Targets are `chrome >= 111` / `firefox >= 115` (#347). Below Chrome 110 / Firefo
 
 Change them in `package.json`'s `browserslist`: autoprefixer reads it, and
 `scripts/build.mjs` derives Vite's `build.target` and the manifests' minimum
-versions from it. Nothing checks the bundles' APIs against it (#351), so a
-dependency bump can raise the real floor silently.
+versions from it. `test/build.spec.js` checks the built JS and CSS against
+the floors (`test/helpers/bundleApiFloor.js`, whose header lists what it can't
+see), so a dependency bump that uses a newer API it knows fails `pnpm test`.
+Either raise the floor, or add the use to `GUARDED`/`GUARDED_COMPAT` (behind a
+feature check) or `ACCEPTED` (degrades acceptably, with an issue) in that spec.
 
 ## Dependency `overrides`
 
@@ -204,7 +207,7 @@ more explanation than fits in a comment:
   restores minimatch 3's separator handling on Windows. CI never runs web-ext
   (and is Linux), so a bump that breaks either passes CI. The same default
   import makes the ESM entries of `@eslint/eslintrc` and `@eslint/config-array`
-  fail to load; eslint itself `require()`s them, so only a future `FlatCompat`
+  fail to load; web-ext's eslint 9 `require()`s them, so only a future `FlatCompat`
   config would hit it.
 
 ## CI
