@@ -1,14 +1,40 @@
 /**
- * src/statics/manifest.json is written for Chrome. Stamps the package version
- * and, for Firefox, rewrites the keys Firefox handles differently.
+ * The minimum Chrome and Firefox versions in package.json's browserslist,
+ * e.g. `{ chrome: '111', firefox: '115' }`.
  */
-export function transformManifest(manifest, { platform, version }) {
+export function browserFloors(browserslist) {
+  if (!Array.isArray(browserslist)) throw new Error('package.json needs a browserslist array');
+
+  const floors = {};
+
+  for (const query of browserslist) {
+    const match = /^(chrome|firefox) >= ([1-9]\d*)$/.exec(query.trim());
+    if (!match) throw new Error(`Unsupported browserslist query "${query}": use "chrome >= N" or "firefox >= N"`);
+    // browserslist would take the lowest of two, while this would keep the last.
+    if (floors[match[1]]) throw new Error(`browserslist has more than one "${match[1]}" query`);
+    floors[match[1]] = match[2];
+  }
+
+  for (const browser of ['chrome', 'firefox']) {
+    if (!floors[browser]) throw new Error(`browserslist has no "${browser} >= N" query`);
+  }
+
+  return floors;
+}
+
+/**
+ * src/statics/manifest.json is written for Chrome. Stamps the package version
+ * and minimum browser version and, for Firefox, rewrites the keys Firefox
+ * handles differently.
+ */
+export function transformManifest(manifest, { platform, version, floors }) {
   const json = structuredClone(manifest);
 
   json.version = version;
 
   if (platform !== 'firefox') {
     json.version_name = version;
+    json.minimum_chrome_version = floors.chrome;
     return json;
   }
 
@@ -27,7 +53,8 @@ export function transformManifest(manifest, { platform, version }) {
   json.browser_specific_settings = {
     gecko: {
       id: 'webextension-pixiv-toolkit-fork@robrich82',
-      update_url: 'https://github.com/robrich82/webextension-pixiv-toolkit/releases/latest/download/updates.json'
+      update_url: 'https://github.com/robrich82/webextension-pixiv-toolkit/releases/latest/download/updates.json',
+      strict_min_version: `${floors.firefox}.0`
     }
   };
 

@@ -16,10 +16,12 @@ import vue from '@vitejs/plugin-vue';
 import autoprefixer from 'autoprefixer';
 import { build } from 'vite';
 import { localFFmpegCore } from './localFFmpegCore.mjs';
-import { transformManifest } from './manifest.mjs';
+import { browserFloors, transformManifest } from './manifest.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const fromRoot = p => path.join(root, p);
+const pkg = JSON.parse(fs.readFileSync(fromRoot('package.json'), 'utf8'));
+const floors = browserFloors(pkg.browserslist);
 
 /**
  * The pages and the manifest's content_scripts load these from lib/ as classic
@@ -75,8 +77,7 @@ function viteConfig({ platform, watch, globals = SHARED_GLOBALS, root: viteRoot 
     build: {
       outDir,
       emptyOutDir: false,
-      // package.json's browserslist, which autoprefixer reads. Change both together.
-      target: ['chrome88', 'firefox109'],
+      target: buildTarget(floors),
       assetsInlineLimit: 10000,
       assetsDir: 'static',
       minify: !watch,
@@ -195,6 +196,11 @@ const isEmpty = dir => fs.readdirSync(dir, { withFileTypes: true }).every(e => e
 const isPreviousBuild = dir => fs.lstatSync(path.join(dir, BUILD_MARKER), { throwIfNoEntry: false })?.isFile();
 const isDisposable = dir => !fs.existsSync(dir) || (fs.statSync(dir).isDirectory() && (isEmpty(dir) || isPreviousBuild(dir)));
 
+/** Vite's build.target for the browserslist floors autoprefixer also reads. */
+export function buildTarget(floors) {
+  return [`chrome${floors.chrome}`, `firefox${floors.firefox}`];
+}
+
 export class UnsafeOutDirError extends Error {}
 
 /**
@@ -261,9 +267,9 @@ function copyStatics(platform, out) {
     fs.writeFileSync(path.join(ffmpegOut, file), localFFmpegCore(fs.readFileSync(path.join(ffmpegDir, file))));
   }
 
-  const { version } = JSON.parse(fs.readFileSync(fromRoot('package.json'), 'utf8'));
   const manifest = JSON.parse(fs.readFileSync(path.join(statics, 'manifest.json'), 'utf8'));
-  fs.writeFileSync(path.join(out, 'manifest.json'), JSON.stringify(transformManifest(manifest, { platform, version })));
+  const json = transformManifest(manifest, { platform, version: pkg.version, floors });
+  fs.writeFileSync(path.join(out, 'manifest.json'), JSON.stringify(json));
 }
 
 // In watch mode build() returns as soon as the watcher starts. Resolves false if the first build failed.

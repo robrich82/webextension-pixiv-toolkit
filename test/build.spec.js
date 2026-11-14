@@ -8,12 +8,14 @@ import os from 'os';
 import path from 'path';
 import { promisify } from 'util';
 import vm from 'vm';
-import { assertSafeOutDir, emptyDir } from '../scripts/build.mjs';
+import { assertSafeOutDir, buildTarget, emptyDir } from '../scripts/build.mjs';
+import { browserFloors } from '../scripts/manifest.mjs';
 
 const run = promisify(execFile);
 const ROOT = path.resolve(__dirname, '..');
 const SCRIPT = path.join(ROOT, 'scripts/build.mjs');
-const { version } = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+const { version, browserslist } = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+const floors = browserFloors(browserslist);
 
 let tmp;
 
@@ -67,9 +69,11 @@ describe.each(['chrome', 'firefox'])('build for %s', platform => {
     if (platform === 'firefox') {
       expect(manifest.background).toEqual({ scripts: ['background/background.js'] });
       expect(manifest.options_ui.page).toBe('options_page/index.html');
+      expect(manifest.browser_specific_settings.gecko.strict_min_version).toBe(`${floors.firefox}.0`);
     } else {
       expect(manifest.background).toEqual({ service_worker: 'background/background.js' });
       expect(manifest.version_name).toBe(version);
+      expect(manifest.minimum_chrome_version).toBe(floors.chrome);
     }
   });
 
@@ -192,6 +196,12 @@ it('reads flags after the `--` that `pnpm run <script> -- <flags>` appends', asy
   await expect(run(process.execPath, [SCRIPT, '--platform=firefox', '--', `--out-dir=${dir}`], { cwd: ROOT }))
     .rejects.toMatchObject({ code: 1, stderr: expect.stringContaining(`Refusing to build into ${dir}`) });
 }, 30000);
+
+describe('buildTarget', () => {
+  it("targets the browserslist floors, so Vite lowers syntax to the manifest's minimum versions", () => {
+    expect(buildTarget({ chrome: '123', firefox: '456' })).toEqual(['chrome123', 'firefox456']);
+  });
+});
 
 describe('assertSafeOutDir', () => {
   const refuses = dir => expect(() => assertSafeOutDir(dir)).toThrow(/Refusing to build into/);

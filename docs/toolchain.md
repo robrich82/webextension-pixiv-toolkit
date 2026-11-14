@@ -166,14 +166,19 @@ decision.
 
 `scripts/build.mjs` builds each target with Vite. Vite lowers syntax to its
 `build.target`, in dependencies too, but adds no language polyfills (only its
-own modulepreload one). So Vuetify's `.at()` (Chrome 92+) and @vuetify/v0's
-`Object.hasOwn` (Chrome 93+) break Chrome 88–92, despite the targets below (#347).
+own modulepreload one).
 
 ## browserslist
 
-Targets are `chrome >= 88` / `firefox >= 109`, the floor for manifest v3.
-autoprefixer reads them from `package.json`; `scripts/build.mjs` repeats them as
-Vite's `build.target`, so change both together.
+Targets are `chrome >= 111` / `firefox >= 115` (#347). Below Chrome 110 / Firefox
+115 the options page and download manager don't load, because @vuetify/v0 calls
+`Array.prototype.toSorted` at startup. Chrome 110 loads them without Vuetify's
+`color-mix()` colours.
+
+Change them in `package.json`'s `browserslist`: autoprefixer reads it, and
+`scripts/build.mjs` derives Vite's `build.target` and the manifests' minimum
+versions from it. Nothing checks the bundles' APIs against it (#351), so a
+dependency bump can raise the real floor silently.
 
 ## Dependency `overrides`
 
