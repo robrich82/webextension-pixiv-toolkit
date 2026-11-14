@@ -695,6 +695,9 @@
    "_error_messages": {
        "message": "Error Messages"
    },
+   "_error_messages_unavailable": {
+       "message": "Could not read the error messages:"
+   },
    "_permissions": {
        "message": "Permissions"
    },
