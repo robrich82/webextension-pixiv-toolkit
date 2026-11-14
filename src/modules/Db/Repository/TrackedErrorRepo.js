@@ -41,6 +41,13 @@ class TrackedErrorRepo extends AbstractRepo {
   async addItem({ error, created_at }) {
     await super.addItem({ error, created_at });
   }
+
+  /**
+   * @returns {Promise<Object[]>} every entry, oldest first
+   */
+  getItems() {
+    return this.table.toArray();
+  }
 }
 
 export default TrackedErrorRepo;

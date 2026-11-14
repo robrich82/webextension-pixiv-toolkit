@@ -1,5 +1,5 @@
 import AbstractService from "./AbstractService";
-import Dexie from "dexie";
+import Db from "@/modules/Db/Db";
 
 /**
  * @class
@@ -9,21 +9,6 @@ class LogService extends AbstractService {
    * @type {LogService}
    */
   static instance;
-
-  /**
-   * @type {Dexie}
-   */
-  db;
-
-  /**
-   * @constructor
-   */
-  constructor() {
-    this.db = new Dexie('PixivToolkitDatabase');
-    this.db.version(1).stores({
-      'track_errors': "++id,error",
-    });
-  }
 
   /**
    *
@@ -38,23 +23,20 @@ class LogService extends AbstractService {
   }
 
   /**
-   *
-   * @param {{ error: string }} param0
+   * The errors the background recorded, oldest first, one line each.
+   * @returns {Promise<string[]>}
    */
-  async trackError({ error }) {
-    let count = await this.db.track_errors.count();
+  async getTrackedErrors() {
+    const items = await Db.getDb().trackedErrorRepo().getItems();
 
-    if (count > 500) {
-      await this.db.track_errors.sortBy('id')
-                                .limit(count - 500)
-                                .delete();
-    }
+    return items.map(({ error, created_at }) => {
+      const message = error && error.message !== undefined ? `${error.name}: ${error.message}` : String(error);
 
-    this.db.track_errors.add({ error });
-  }
+      // An invalid date would make toISOString() throw and lose the whole list.
+      const time = new Date(created_at);
 
-  getTrackedErrors() {
-
+      return Number.isNaN(time.getTime()) ? message : `${time.toISOString()} ${message}`;
+    });
   }
 }
 
