@@ -152,10 +152,6 @@ class DownloadService extends AbstractService {
     });
   }
 
-  async startDownload(id) {
-    this.downloadManager.startTask(id);
-  }
-
   async pauseDownload(id) {
     this.downloadManager.pauseTask(id);
   }

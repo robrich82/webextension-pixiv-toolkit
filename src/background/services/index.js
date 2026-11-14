@@ -3,7 +3,6 @@ import DownloadFileService from './DownloadFileService';
 import DownloadService from "./DownloadService";
 import FanboxService from "./FanboxService";
 import HistoryService from "./HistoryService";
-import LogService from "./LogService";
 import SettingService from "./SettingService";
 import TabService from "./TabService";
 
@@ -13,7 +12,6 @@ export default {
   DownloadService,
   FanboxService,
   HistoryService,
-  LogService,
   SettingService,
   TabService
 };

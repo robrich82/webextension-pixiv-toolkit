@@ -27,12 +27,6 @@ class SettingService extends AbstractService {
     return SettingService.instance;
   }
 
-  getSetting(keys) {
-    return new Promise(resolve => {
-      browser.storage.local.get(keys, items => { resolve(items) });
-    });
-  }
-
   getSettings() {
     return new Promise((resolve, reject) => {
       browser.storage.local.get(null, items => { resolve(items) });
