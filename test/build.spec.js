@@ -9,11 +9,13 @@ import path from 'path';
 import { promisify } from 'util';
 import vm from 'vm';
 import { assertSafeOutDir, emptyDir } from '../scripts/build.mjs';
+import { browserFloors } from '../scripts/manifest.mjs';
 
 const run = promisify(execFile);
 const ROOT = path.resolve(__dirname, '..');
 const SCRIPT = path.join(ROOT, 'scripts/build.mjs');
-const { version } = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+const { version, browserslist } = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+const floors = browserFloors(browserslist);
 
 let tmp;
 
@@ -67,9 +69,11 @@ describe.each(['chrome', 'firefox'])('build for %s', platform => {
     if (platform === 'firefox') {
       expect(manifest.background).toEqual({ scripts: ['background/background.js'] });
       expect(manifest.options_ui.page).toBe('options_page/index.html');
+      expect(manifest.browser_specific_settings.gecko.strict_min_version).toBe(`${floors.firefox}.0`);
     } else {
       expect(manifest.background).toEqual({ service_worker: 'background/background.js' });
       expect(manifest.version_name).toBe(version);
+      expect(manifest.minimum_chrome_version).toBe(floors.chrome);
     }
   });
 
