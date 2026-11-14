@@ -7,6 +7,9 @@
  * - eslint-plugin-compat, for web APIs and some static builtins
  *   (`Object.hasOwn`, `structuredClone`). It can't type a receiver, so it
  *   misses prototype methods such as `.toSorted()`, and it misses many statics.
+ *   Its API data is the `compat.json` that ast-metadata-inferer 0.8.1 generated
+ *   when it was published (December 2024), so it knows no web API added to
+ *   browser-compat-data since, and no dependency override can update it (#360).
  * - A list of those, of web-API statics and of CSS, matched by pattern.
  *   Versions come from MDN's browser-compat-data, so an entry drops out once
  *   the floor passes it.
