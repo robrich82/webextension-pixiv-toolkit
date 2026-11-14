@@ -167,7 +167,7 @@ decision.
 `scripts/build.mjs` builds each target with Vite. Vite lowers syntax to its
 `build.target`, in dependencies too, but adds no language polyfills (only its
 own modulepreload one). So Vuetify's `.at()` (Chrome 92+) and @vuetify/v0's
-`Object.hasOwn` (Chrome 93+) break Chrome 88–92, despite the targets below.
+`Object.hasOwn` (Chrome 93+) break Chrome 88–92, despite the targets below (#347).
 
 ## browserslist
 
