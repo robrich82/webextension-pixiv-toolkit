@@ -60,8 +60,8 @@ export function shallowMountOption(Component, options) {
   return shallowMount(Component, {
     ...built,
     global: {
-      // Vuetify layout components (v-card, v-list, ...) are now really
-      // registered, so shallowMount stubs them and their default slot would
+      // Vuetify layout components (v-card, v-list, ...) are registered, so
+      // shallowMount stubs them and their default slot would
       // otherwise swallow every descendant a spec needs to find. Caveat:
       // this also renders stubbed dialogs/menus regardless of visibility, so
       // a future "X is not visible" assertion needs a real mount, not this.

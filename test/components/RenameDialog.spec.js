@@ -73,7 +73,7 @@ describe('RenameDialog', () => {
   });
 
   // Skipped until #344: pickMeta reads `$refs.renameInput.$refs.input`, which
-  // Vuetify 3's v-text-field doesn't expose. A fake assigned to `$refs` doesn't
+  // Vuetify's v-text-field doesn't expose. A fake assigned to `$refs` doesn't
   // stick under Vue 3, so the fix needs a real mount here.
   test.skip('pickMeta inserts the holder at the cursor and moves the cursor past it', () => {
     vi.useFakeTimers();
