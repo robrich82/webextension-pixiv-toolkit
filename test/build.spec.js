@@ -46,7 +46,10 @@ function manifestPaths(manifest) {
 // Uses behind a feature check, which are fine below the floor.
 const GUARDED = [
   // Dexie copies Promise.withResolvers only when it exists.
-  /(?<![\w$])([\w$]+)\.withResolvers&&\([\w$]+\.withResolvers=\1\.withResolvers\)/g
+  /(?<![\w$])([\w$]+)\.withResolvers&&\([\w$]+\.withResolvers=\1\.withResolvers\)/g,
+  // Vue Router checks for view transitions inline, Vuetify returns early without them.
+  /[`'"]startViewTransition[`'"]\s*in\s*document\s*&&\s*document\.startViewTransition\(/g,
+  /!document\.startViewTransition\s*\|\|[^]{0,1500}?document\.startViewTransition\(/g
 ];
 const GUARDED_COMPAT = [/^lib\/dexie\/dexie\.js:\d+ navigator\.userAgentData\(\) /];
 // Uses that degrade on the floor, accepted for now. Per file, so a new use elsewhere still fails.

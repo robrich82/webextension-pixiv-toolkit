@@ -13,8 +13,8 @@
  * - A list of those, of web-API statics and of CSS, matched by pattern.
  *   Versions come from MDN's browser-compat-data, so an entry drops out once
  *   the floor passes it.
- * Neither sees an instance method of a web API, such as
- * `document.startViewTransition()`.
+ * Neither can type the receiver of a web-API instance method, so those are
+ * covered only for the hand-picked names in `JS_APIS` (#361).
  */
 import fs from 'fs';
 import path from 'path';
@@ -42,6 +42,21 @@ const JS_APIS = [
   ['javascript.builtins.Set.union', /\.(union|intersection|difference|symmetricDifference|isSubsetOf|isSupersetOf|isDisjointFrom)\(/],
   ['javascript.builtins.String.isWellFormed', /\.(isWellFormed|toWellFormed)\(/],
   ['javascript.builtins.Uint8Array.fromBase64', /\bUint8Array\.from(Base64|Hex)\b|\.(toBase64|setFromBase64|setFromHex)\(/],
+  // Web-API instance methods, picked for names no other code is likely to call.
+  ['api.Document.caretPositionFromPoint', /\.caretPositionFromPoint\(/],
+  ['api.Document.startViewTransition', /\.startViewTransition\(/],
+  ['api.Element.ariaNotify', /\.ariaNotify\(/],
+  ['api.Element.computedStyleMap', /\.computedStyleMap\(/],
+  ['api.Element.getHTML', /\.getHTML\(/],
+  ['api.Element.moveBefore', /\.moveBefore\(/],
+  ['api.Element.scrollIntoViewIfNeeded', /\.scrollIntoViewIfNeeded\(/],
+  ['api.Element.setHTMLUnsafe', /\.setHTMLUnsafe\(/],
+  ['api.HTMLDialogElement.requestClose', /\.requestClose\(/],
+  ['api.HTMLElement.showPopover', /\.(showPopover|hidePopover|togglePopover)\(/],
+  ['api.Navigator.getBattery', /\.getBattery\(/],
+  ['api.Selection.getComposedRanges', /\.getComposedRanges\(/],
+  ['api.Window.queryLocalFonts', /\bqueryLocalFonts\(/],
+  ['api.Window.showOpenFilePicker', /\bshow(OpenFile|SaveFile|Directory)Picker\(/],
   // A selector passed to querySelector(): one unsupported part makes it throw.
   ['css.selectors.has', /:has\(/],
   // Web-API statics such as `URL.canParse` and `AbortSignal.any`.
