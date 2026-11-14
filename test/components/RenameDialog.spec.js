@@ -1,4 +1,5 @@
-import { shallowMountOption } from '../helpers/mountOptionComponent';
+import { flushPromises } from '@vue/test-utils';
+import { mountOption, shallowMountOption } from '../helpers/mountOptionComponent';
 import RenameDialog from '@/options_page/components/options/RenameDialog.vue';
 
 const metas = [
@@ -14,10 +15,6 @@ const baseProps = {
 };
 
 describe('RenameDialog', () => {
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
   test('adopts the value prop as the rename format on creation', () => {
     const wrapper = shallowMountOption(RenameDialog, { propsData: baseProps });
 
@@ -72,26 +69,63 @@ describe('RenameDialog', () => {
     expect(wrapper.emitted('update:modelValue')).toEqual([['custom_{id}']]);
   });
 
-  // Skipped until #344: pickMeta reads `$refs.renameInput.$refs.input`, which
-  // Vuetify's v-text-field doesn't expose. A fake assigned to `$refs` doesn't
-  // stick under Vue 3, so the fix needs a real mount here.
-  test.skip('pickMeta inserts the holder at the cursor and moves the cursor past it', () => {
-    vi.useFakeTimers();
+  describe('quick picks, on a real mount (#344)', () => {
+    let wrapper;
 
-    const wrapper = shallowMountOption(RenameDialog, { propsData: baseProps });
-    const fakeInput = { focus: vi.fn(), setSelectionRange: vi.fn() };
-    wrapper.vm.$refs.renameInput = { $refs: { input: fakeInput } };
-    wrapper.vm.inputPos = 3;
-    wrapper.vm.renameFormat = 'foo_bar';
+    // The dialog renders its content only once open, teleported into the document.
+    async function openDialog() {
+      wrapper = mountOption(RenameDialog, { props: baseProps, attachTo: document.body });
+      wrapper.vm.showDialog = true;
+      await flushPromises();
 
-    wrapper.vm.pickMeta({ holder: '{id}' });
+      return document.body.querySelector('.v-overlay input');
+    }
 
-    expect(wrapper.vm.renameFormat).toBe('foo{id}_bar');
+    function placeCursor(input, pos) {
+      input.setSelectionRange(pos, pos);
+      input.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true }));
+    }
 
-    vi.runAllTimers();
+    function pickButton(title) {
+      return [...document.body.querySelectorAll('.v-overlay button')].find(b => b.textContent.trim() === title);
+    }
 
-    expect(fakeInput.focus).toHaveBeenCalled();
-    expect(fakeInput.setSelectionRange).toHaveBeenCalledWith(7, 7);
-    expect(wrapper.vm.inputPos).toBe(7);
+    // setInputCursor moves the cursor in a timeout.
+    async function pick(title) {
+      pickButton(title).click();
+      await new Promise(resolve => setTimeout(resolve));
+      await flushPromises();
+    }
+
+    afterEach(() => {
+      wrapper.unmount();
+    });
+
+    test('inserts each pick at the cursor and moves the cursor past it', async () => {
+      const input = await openDialog();
+      placeCursor(input, 3);
+
+      await pick('Id');
+
+      expect(input.value).toBe('foo{id}_bar');
+      expect(document.activeElement).toBe(input);
+      expect(input.selectionStart).toBe(7);
+
+      await pick('Title');
+
+      expect(input.value).toBe('foo{id}{title}_bar');
+      expect(input.selectionStart).toBe(14);
+    });
+
+    test('keeps the cursor when the field is clicked outside its text', async () => {
+      const input = await openDialog();
+      placeCursor(input, 3);
+
+      // The click lands on Vuetify's wrapper, which has no selectionStart.
+      document.body.querySelector('.v-overlay .v-field').click();
+      await pick('Id');
+
+      expect(input.value).toBe('foo{id}_bar');
+    });
   });
 });
