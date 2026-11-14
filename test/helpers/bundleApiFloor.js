@@ -34,6 +34,8 @@ const JS_APIS = [
   ['javascript.builtins.Promise.try', /\bPromise\.try\b/],
   ['javascript.builtins.Promise.withResolvers', /\.withResolvers\b/],
   ['javascript.builtins.RegExp.escape', /\bRegExp\.escape\b/],
+  // Vite lowers a /…/v literal to this, which throws below Chrome 112 / Firefox 116.
+  ['javascript.builtins.RegExp.unicodeSets', /\bRegExp\([^;]{0,1000}?,\s*(["'`])[dgimsuy]*v[dgimsuy]*\1\s*\)/],
   ['javascript.builtins.Set.union', /\.(union|intersection|difference|symmetricDifference|isSubsetOf|isSupersetOf|isDisjointFrom)\(/],
   ['javascript.builtins.String.isWellFormed', /\.(isWellFormed|toWellFormed)\(/],
   ['javascript.builtins.Uint8Array.fromBase64', /\bUint8Array\.from(Base64|Hex)\b|\.(toBase64|setFromBase64|setFromHex)\(/],
@@ -63,8 +65,10 @@ const CSS_APIS = [
 ];
 
 /**
- * The first version that supports `feature` unflagged, unprefixed, in full
- * and still, or Infinity if none does.
+ * The first version that supports `feature` unflagged, unprefixed and still,
+ * or Infinity if none does. A language feature must be supported in full. A
+ * web-API static only has to exist, so a partial implementation counts, back
+ * through any earlier statement the current one continues.
  */
 export function versionAdded(feature, browser) {
   const compatData = feature.split('.').reduce((node, key) => node?.[key], bcd)?.__compat;
@@ -73,9 +77,14 @@ export function versionAdded(feature, browser) {
     throw new Error(`browser-compat-data has no ${feature}`);
   }
 
-  const statement = [].concat(compatData.support[browser] ?? [])
-    .find(s => !s.flags && !s.prefix && !s.alternative_name && !s.partial_implementation && !s.version_removed);
-  const added = statement?.version_added;
+  const callable = feature.startsWith('api.');
+  const statements = [].concat(compatData.support[browser] ?? [])
+    .filter(s => !s.flags && !s.prefix && !s.alternative_name && (callable || !s.partial_implementation));
+  let added = statements.find(s => !s.version_removed)?.version_added;
+
+  for (let earlier; callable && added && (earlier = statements.find(s => s.version_removed === added));) {
+    added = earlier.version_added;
+  }
 
   if (added === true) {
     return 0;

@@ -34,6 +34,11 @@ describe('versionAdded', () => {
     expect(versionAdded('css.selectors.nesting', 'chrome')).toBe(120);
   });
 
+  it('counts a callable web-API static from its earliest partial version', () => {
+    // Chrome 103-123 aborted with the wrong error type, but the method was there.
+    expect(versionAdded('api.AbortSignal.timeout_static', 'chrome')).toBe(103);
+  });
+
   it('is Infinity where the browser has no support', () => {
     expect(versionAdded('css.properties.interpolate-size', 'firefox')).toBe(Infinity);
   });
@@ -71,6 +76,12 @@ describe('newerApiUses', () => {
     write('a.mjs', 'URL.canParse(u);');
 
     expect(newerApiUses(out, { browser: 'chrome', floor: 111 })).toEqual(['a.mjs: api.URL.canParse_static (needs chrome 120)']);
+  });
+
+  it('reports a v-flag regex that Vite lowered to a RegExp call', () => {
+    write('a.js', 'const r=new RegExp("[\\\\p{L}--(a)]","v"),s=new RegExp("a","gu");f(x,"v");');
+
+    expect(newerApiUses(out, { browser: 'chrome', floor: 111 })).toEqual(['a.js: javascript.builtins.RegExp.unicodeSets (needs chrome 112)']);
   });
 
   it('reports a selector in a JS string', () => {

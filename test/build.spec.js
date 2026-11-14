@@ -54,7 +54,9 @@ const ACCEPTED = {
   chrome: [],
   // Vuetify: rules Firefox 115 drops, and a focusable-elements selector it rejects (#354).
   firefox: [
-    /^options_page\/static\/router-[\w-]+\.css: css\.(at-rules\.property|selectors\.has|types\.length\.lh) /,
+    /^options_page\/static\/router-[\w-]+\.css: css\.at-rules\.property /,
+    /^options_page\/static\/router-[\w-]+\.css: css\.selectors\.has /,
+    /^options_page\/static\/router-[\w-]+\.css: css\.types\.length\.lh /,
     /^options_page\/static\/router-[\w-]+\.js: css\.selectors\.has /
   ]
 };
@@ -193,6 +195,8 @@ describe.each(['chrome', 'firefox'])('build for %s', platform => {
     const found = newerApiUses(out, { browser: platform, floor: floors[platform], guarded: GUARDED });
 
     expect(found.filter(use => !ACCEPTED[platform].some(pattern => pattern.test(use)))).toEqual([]);
+    // An entry that matches nothing would quietly accept a later use.
+    expect(ACCEPTED[platform].filter(pattern => !found.some(use => pattern.test(use)))).toEqual([]);
   });
 
   it('calls no web API or builtin that eslint-plugin-compat finds newer than the floor', async () => {
