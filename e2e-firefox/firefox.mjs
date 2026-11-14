@@ -40,6 +40,7 @@ const launches = new Set();
 
 /** Close every launch still open, reporting how far each got. */
 export async function closeAll() {
+  closeAllCalls++;
   await cleanUp(...Array.from(launches, launch => () => {
     console.error(`Closing a Firefox left running; its launch got as far as: ${launch.process?.steps.join(' > ') ?? 'not spawned'}`);
 
@@ -61,8 +62,8 @@ async function poll(fn, message, limit = 20000) {
 
   for (;;) {
     const value = await fn().catch(error => {
-      // Firefox has gone (closed, or crashed): nothing to wait for.
-      if (/BiDi connection (is )?closed/.test(error.message)) {
+      // Firefox has gone (closed, or crashed), or can't recover: nothing to wait for.
+      if (error.fatal || /BiDi connection (is )?closed/.test(error.message)) {
         throw error;
       }
 
@@ -208,6 +209,9 @@ class FirefoxProcess {
     // Kept for error messages: a crash or a refused BiDi port says why here.
     child.stderr.setEncoding('utf8').on('data', chunk => {
       this.stderr = (this.stderr + chunk).slice(-4000);
+      // Now and then a Windows Firefox can't start any sandboxed child process,
+      // so every tab it opens is discarded (#365).
+      this.cannotSpawn ||= /Failed to launch tab subprocess/.test(this.stderr);
 
       if (process.env.E2E_DEBUG) {
         process.stderr.write(chunk);
@@ -292,13 +296,33 @@ class FirefoxProcess {
   }
 }
 
+/** Counts `closeAll()` calls, so a launch can tell its test has ended. */
+let closeAllCalls = 0;
+
 /**
  * Start Firefox with dist/firefox as a temporary add-on, pixiv served from
  * test/fixtures (see fakePixiv.mjs) and downloads saved to a temp folder.
+ * A Firefox that can't start child processes is replaced, once.
  *
  * @param {Parameters<typeof startFakePixiv>[0]} routes
  */
 export async function launch(routes) {
+  const calls = closeAllCalls;
+
+  try {
+    return await launchOnce(routes);
+  } catch (error) {
+    if (!error.relaunch || calls !== closeAllCalls) {
+      throw error;
+    }
+
+    console.error(`${error.message.split('\n')[0]}; relaunching it once.`);
+
+    return launchOnce(routes);
+  }
+}
+
+async function launchOnce(routes) {
   const extension = extensionId();
   const pixiv = await startFakePixiv(routes);
   // The real path: Firefox reports downloads under it, and %TEMP% can be an
@@ -358,8 +382,15 @@ export async function launch(routes) {
 
     // The fresh install writes the default settings asynchronously; a page
     // opened before then misses them (#241).
-    await poll(() => firefox.inExtension(() => browser.storage.local.get('version').then(items => items.version)),
-      'the install never wrote the default settings');
+    await poll(() => firefox.inExtension(() => browser.storage.local.get('version').then(items => items.version))
+      .catch(error => {
+        if (browserProcess.cannotSpawn) {
+          throw Object.assign(browserProcess.withStderr(new Error("Firefox can't start a child process for the extension's tab (#365)")),
+            { fatal: true, relaunch: true });
+        }
+
+        throw error;
+      }), 'the install never wrote the default settings');
     browserProcess.step('settings written');
 
     // Finished after its test timed out: don't hand a closed Firefox to the next test.
