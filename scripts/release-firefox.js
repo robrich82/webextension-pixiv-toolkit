@@ -234,28 +234,37 @@ function assertSignedXpi(filePath) {
 }
 
 /**
- * The gecko `strict_min_version` in the .xpi's own manifest, which may be older
- * than `dist/firefox` when a previously signed .xpi is published.
+ * The .xpi's own manifest, which may differ from `dist/firefox` when a
+ * previously signed .xpi is published.
  */
-function xpiMinVersion(xpiPath) {
+function xpiManifest(xpiPath) {
   let files = unzipSync(fs.readFileSync(xpiPath), { filter: file => file.name === 'manifest.json' });
 
   if (!files['manifest.json']) {
     throw new Error(`${path.basename(xpiPath)} has no manifest.json.`);
   }
 
-  let manifest = JSON.parse(strFromU8(files['manifest.json']));
-
-  return manifest.browser_specific_settings?.gecko?.strict_min_version;
+  return JSON.parse(strFromU8(files['manifest.json']));
 }
 
 /**
- * Without `strict_min_version`, Firefox offers the update to every version
- * that runs WebExtensions, and below the floor the install then fails on
- * every update check.
+ * Refuses an .xpi built from another version, such as the wrong AMO download
+ * saved under this version's name: its release and update entry would lie.
  */
-function updateEntry({ version, updateLink, hash, strictMinVersion }) {
+function assertXpiVersion(manifest, version, xpiPath) {
+  if (manifest.version !== version) {
+    throw new Error(`${path.basename(xpiPath)} is version ${manifest.version}, not ${version}. Replace it with the signed .xpi for ${version}, then rerun.`);
+  }
+}
+
+/**
+ * Carries the .xpi manifest's `strict_min_version`. Without it, Firefox offers
+ * the update to every version that runs WebExtensions, and below the floor the
+ * install then fails on every update check.
+ */
+function updateEntry({ version, updateLink, hash, manifest }) {
   let entry = { version, update_link: updateLink, update_hash: `sha256:${hash}` };
+  let strictMinVersion = manifest.browser_specific_settings?.gecko?.strict_min_version;
 
   if (strictMinVersion) {
     entry.applications = { gecko: { strict_min_version: strictMinVersion } };
@@ -297,6 +306,9 @@ async function main() {
 
   assertSignedXpi(signedPath);
 
+  let manifest = xpiManifest(signedPath);
+  assertXpiVersion(manifest, version, signedPath);
+
   // web-ext names the file after a hash of the extension id, which means
   // nothing on the release page. Renaming leaves the signature intact.
   let xpiName = `pixiv-toolkit-firefox-${version}.xpi`;
@@ -333,7 +345,7 @@ async function main() {
   updates.addons[EXTENSION_ID].updates = updates.addons[EXTENSION_ID].updates
     .filter(entry => entry.version !== version);
   updates.addons[EXTENSION_ID].updates.push(
-    updateEntry({ version, updateLink, hash, strictMinVersion: xpiMinVersion(xpiPath) })
+    updateEntry({ version, updateLink, hash, manifest })
   );
 
   let updatesPath = path.join(ARTIFACTS_DIR, 'updates.json');
@@ -359,4 +371,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { updateEntry, xpiMinVersion };
+module.exports = { assertXpiVersion, updateEntry, xpiManifest };
