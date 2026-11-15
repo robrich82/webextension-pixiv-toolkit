@@ -68,7 +68,7 @@ Cross-origin fetches (for example Fanbox) are made from the background, not from
 
 Default settings live in `src/config/default.js`, and `SettingService` (one on each side) mirrors `storage.local` through `onChanged`. Renaming, removing or re-shaping a stored setting needs a versioned migration in `src/background/updates/`. The `add-settings-migration` skill has the rules.
 
-UI strings are in `src/statics/_locales`. `src/statics/HISTORY_*` stops at upstream's v6.4.2. Fork releases use GitHub-generated notes instead.
+UI strings are in `src/statics/_locales`. `src/statics/HISTORY_<locale>` (one per locale in `histories.json`) is the Change History page. Each release adds its user-facing entries to every locale in the version bump PR, and `test/components/ChangeLog.spec.js` fails while the newest entry isn't `package.json`'s version.
 
 ## Testing
 

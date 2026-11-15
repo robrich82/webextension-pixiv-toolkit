@@ -1,4 +1,8 @@
+import fs from 'fs';
+import path from 'path';
 import { flushPromises } from '@vue/test-utils';
+import pkg from '../../package.json';
+import histories from '@/statics/histories.json';
 import { installFakeXhr } from '../doubles/xhr';
 import { shallowMountOption } from '../helpers/mountOptionComponent';
 import ChangeLog from '@/options_page/components/ChangeLog.vue';
@@ -59,5 +63,27 @@ describe('ChangeLog', () => {
     await flushPromises();
 
     expect(xhr.urls).toEqual([expect.stringMatching(new RegExp(`/${file}$`))]);
+  });
+});
+
+// The shipped files, parsed by the component: a version bump without its entries fails here.
+describe('shipped change history', () => {
+  const read = file => fs.readFileSync(path.resolve(__dirname, '../../src/statics', file), 'utf8');
+
+  const versions = async file => {
+    const xhr = installFakeXhr(() => read(file));
+
+    try {
+      const wrapper = shallowMountOption(ChangeLog, { mocks: { $i18n: { locale: 'en' } } });
+      await flushPromises();
+
+      return wrapper.vm.updateList.map(update => update.version);
+    } finally {
+      xhr.restore();
+    }
+  };
+
+  test.each(histories.map(locale => `HISTORY_${locale}`))('%s starts with the package.json version', async file => {
+    expect((await versions(file))[0]).toBe(`v${pkg.version}`);
   });
 });

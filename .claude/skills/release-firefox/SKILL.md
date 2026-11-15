@@ -14,7 +14,7 @@ Run these from the **main checkout**, not a worktree. Releases are cut from `mai
 
 1. **The tree is clean and up to date with `origin/main`.**
    `git fetch origin && git status -sb` shows `## main...origin/main` with no changes. If it doesn't, stop.
-2. **The version has been bumped.** Releases so far have been a `chore/release-X.Y.Z` PR that changes only `package.json` `version`, merged before releasing. Compare it with the latest release:
+2. **The version has been bumped.** Releases are a `chore/release-X.Y.Z` PR, merged before releasing, that changes `package.json` `version` and adds the release's user-facing entries to every `src/statics/HISTORY_<locale>` (see CLAUDE.md, "Settings and migrations"). Compare it with the latest release:
    `node -p "require('./package.json').version"` and `gh release list --repo robrich82/webextension-pixiv-toolkit --limit 1`
    If the version is not higher than the latest release, stop and offer to open the bump PR.
 3. **Settings migrations are covered.** Every key in `src/background/updates/index.js` must be `<=` the new version (see `add-settings-migration`).
