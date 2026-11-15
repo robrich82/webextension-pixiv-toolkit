@@ -119,8 +119,9 @@ function extensionId() {
 }
 
 /**
- * Limits on reaching a BiDi session. A normal launch takes about 2s (10s on a
- * cold CI runner), and these are short enough for a relaunch to fit in a test.
+ * Limits on reaching a BiDi session. A launch reaches one in about 2s, and a
+ * cold CI runner's first whole test takes 10s; these leave a relaunch room to
+ * fit in a test.
  */
 const STARTUP_LIMIT = 30000;
 const SESSION_LIMIT = 15000;
