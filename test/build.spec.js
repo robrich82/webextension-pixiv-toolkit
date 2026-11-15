@@ -150,6 +150,17 @@ describe.each(['chrome', 'firefox'])('build for %s', platform => {
     expect(read(out, 'background/background.js')).not.toMatch(/globalThis\.(Dexie|Vue|VueI18n|locales)\b/);
   });
 
+  // OptionsPageLayouts.spec.js runs against vitest.config.mjs's define, not this build's.
+  it('substitutes the Third Party versions into the options pages', () => {
+    const options = fs.readdirSync(path.join(out, 'options_page/static'))
+      .filter(f => f.endsWith('.js'))
+      .map(f => read(out, `options_page/static/${f}`))
+      .join('\n');
+
+    expect(options).not.toContain('__THIRD_PARTY_VERSIONS__');
+    expect(options).toContain(JSON.parse(read(ROOT, 'node_modules/vuetify/package.json')).version);
+  });
+
   it('compiles the Vue components for production, whatever NODE_ENV the build inherits', () => {
     // The build inherits Vitest's NODE_ENV=test. A dev build embeds each
     // component's absolute source path as `__file`.

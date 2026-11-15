@@ -36,7 +36,7 @@ export default {
     return {
       thirdPartList: [{
         name: 'ffmpeg.wasm',
-        version: npm['@ffmpeg/core'],
+        version: npm['@ffmpeg/ffmpeg'],
         desc: 'ffmpeg.wasm is a pure WebAssembly / JavaScript port of FFmpeg. It enables video & audio record, convert and stream right inside browsers.',
         url: 'https://github.com/ffmpegwasm/ffmpeg.wasm'
       }, {

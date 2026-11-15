@@ -65,7 +65,7 @@ describe('ThirdParty', () => {
       .map(item => [item.find('.third-party__name').text(), item.find('.third-party__version').text()]));
 
     expect(versions).toMatchObject({
-      'ffmpeg.wasm': installed('@ffmpeg/core'),
+      'ffmpeg.wasm': installed('@ffmpeg/ffmpeg'),
       'Dexie.js': `${installed('dexie')}, 3.2.2`,
       'Vue.js': installed('vue'),
       'Vue Router': installed('vue-router'),
