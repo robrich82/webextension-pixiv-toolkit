@@ -245,6 +245,12 @@ export default Object.assign({}, {
     downloadSaveMode: 0, // 0: pack in zip; 1: save in folder
 
     /**
+     * @since 6.4.7
+     * Existing installs read it as undefined, which Index.vue treats as not dismissed.
+     */
+    appSuggestDismissed: false,
+
+    /**
      * @since 1.0.0
      * @deprecated since version 6.0.0
      */

@@ -10,11 +10,24 @@
         <a :href="link" target="_blank">MORE</a>
       </div>
     </div>
+    <v-btn
+      class="app-suggest__close"
+      icon
+      size="x-small"
+      variant="text"
+      :aria-label="tl('_close')"
+      :title="tl('_close')"
+      @click="$emit('close')"
+    >
+      <v-icon>mdi-close</v-icon>
+    </v-btn>
   </div>
 </template>
 
 <script>
 export default {
+  emits: ['close'],
+
   props: {
     icon: {
       required: true,
@@ -41,10 +54,18 @@ export default {
 
 <style lang="scss">
 .app-suggest {
+  position: relative;
   display: flex;
   height: 80px;
-  padding: 12px;
+  padding: 12px 32px 12px 12px;
   box-sizing: border-box;
+}
+
+.app-suggest__close {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  color: #999;
 }
 
 .app-suggest__icon {
