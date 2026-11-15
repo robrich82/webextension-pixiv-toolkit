@@ -236,6 +236,7 @@ describe('App page lifecycle', () => {
   test.each([
     ['queued', '_download 0.00%', 1],
     ['downloading', '_download 0.00%', 2],
+    ['processing', '_download 0.00%', 99],
     ['paused', '_download', 3],
     ['failed', '_download', -1]
   ])('a %s task at 0%% shows as %s', async (_, label, state) => {
@@ -251,7 +252,10 @@ describe('App page lifecycle', () => {
     const wrapper = await mountWithPage(ugoira);
 
     observerPort().peer.postMessage({
-      downloadTasksStatus: [{ type: 'PIXIV_UGOIRA', convertType: 'webm', progress: 0, processProgress: 0, state: 1 }]
+      downloadTasksStatus: [
+        { type: 'PIXIV_UGOIRA', convertType: 'webm', progress: 0, processProgress: 0, state: 1 },
+        { type: 'PIXIV_UGOIRA', convertType: 'gif', progress: 0, processProgress: 0, state: 3 }
+      ]
     });
     await flushPromises();
 
@@ -387,6 +391,7 @@ describe('App download', () => {
     expect(sentMessages('history:itemDownload')).toHaveLength(0);
     expect(wrapper.find('.ptk__download-added-notice').isVisible()).toBe(true);
     expect(wrapper.find('.ptk__download-added-notice').text()).toBe('_download_added');
+    expect(actionLabels(wrapper)).toEqual(['_download 0.00%']);
   });
 
   test('the notice hides itself after three seconds', async () => {
@@ -507,6 +512,119 @@ describe('App download', () => {
     await clickAndFlush(actionButtons(wrapper)[0]);
 
     expect(actionLabels(wrapper)).toEqual(['_download ✔']);
+  });
+
+  test('re-downloading a task that is still running leaves its progress alone', async () => {
+    const alert = vi.spyOn(window, 'alert').mockImplementation(() => {});
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    respondTo({
+      'download:getDownloadManagerTab': true,
+      'download:ensureDownloadManagerOpen': true,
+      'download:addDownload': { result: false, errorName: 'DownloadTaskExistsError' }
+    });
+    const wrapper = await mountWithPage();
+
+    observerPort().peer.postMessage({ downloadTasksStatus: [{ type: 'PIXIV_ILLUST', progress: 0.4, state: 3 }] });
+    await flushPromises();
+    await clickAndFlush(actionButtons(wrapper)[0]);
+
+    expect(sentMessages('download:addDownload').map(message => message.args.options.redownload))
+      .toEqual([false, true]);
+    expect(actionLabels(wrapper)).toEqual(['_download 40.00%']);
+    expect(wrapper.find('.ptk__download-added-notice').isVisible()).toBe(false);
+    expect(alert).not.toHaveBeenCalled();
+  });
+
+  test('a re-download that fails alerts and leaves the button', async () => {
+    const alert = vi.spyOn(window, 'alert').mockImplementation(() => {});
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    respondTo({
+      'download:getDownloadManagerTab': true,
+      'download:ensureDownloadManagerOpen': true,
+      'download:addDownload': message => (message.args.options.redownload
+        ? { result: false, errorName: 'DownloadTaskNotFoundError' }
+        : { result: false, errorName: 'DownloadTaskExistsError' })
+    });
+    const wrapper = await mountWithPage();
+
+    observerPort().peer.postMessage({ downloadTasksStatus: [{ type: 'PIXIV_ILLUST', progress: 1, state: 4 }] });
+    await flushPromises();
+    await clickAndFlush(actionButtons(wrapper)[0]);
+
+    expect(alert).toHaveBeenCalledWith('_unknown_error: DownloadTaskNotFoundError');
+    expect(actionLabels(wrapper)).toEqual(['_download ✔']);
+    expect(wrapper.find('.ptk__download-added-notice').isVisible()).toBe(false);
+  });
+
+  // The custom format's task reports its convert type as 'CUSTOM'.
+  test('the custom ugoira button follows its task', async () => {
+    respondTo(addsDownloads);
+    const wrapper = await mountWithPage(ugoira);
+    const custom = () => actionLabels(wrapper).at(-1);
+
+    await clickAndFlush(actionButtons(wrapper).find(a => a.text() === '_download_custom'));
+    expect(custom()).toBe('_download_custom (D:0.00%)');
+
+    observerPort().peer.postMessage({
+      downloadTasksStatus: [{ type: 'PIXIV_UGOIRA', convertType: 'CUSTOM', progress: 1, processProgress: 1, state: 4 }]
+    });
+    await flushPromises();
+
+    expect(custom()).toBe('_download_custom ✔');
+  });
+
+  test('a stopped task clears the queued 0%', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    respondTo(existsUntilRedownload);
+    const wrapper = await mountWithPage();
+
+    await clickAndFlush(actionButtons(wrapper)[0]);
+    expect(actionLabels(wrapper)).toEqual(['_download 0.00%']);
+
+    observerPort().peer.postMessage({ downloadTasksStatus: [{ type: 'PIXIV_ILLUST', progress: 0, state: -1 }] });
+    await flushPromises();
+
+    expect(actionLabels(wrapper)).toEqual(['_download']);
+  });
+
+  const showNextPage = async resourceOptions => {
+    window.$app = { resource: fakeResource(resourceOptions) };
+    window.$eventBus.$emit('pagechange', { url: window.$app.resource.getUrl(), type: 'illust' });
+    await flushPromises();
+  };
+
+  test.each([
+    ['an illust', {}, ['_download 0.00%']],
+    ['an ugoira', ugoira, ['_download_apng', '_download_gif', '_download_webm', '_download_mp4', '_download_custom (D:0.00%)']]
+  ])("a queued 0%% on %s doesn't follow it to the next page", async (_, resourceOptions, queuedLabels) => {
+    respondTo(addsDownloads);
+    const wrapper = await mountWithPage(resourceOptions);
+
+    await clickAndFlush(actionButtons(wrapper).at(-1));
+    expect(actionLabels(wrapper)).toEqual(queuedLabels);
+
+    await showNextPage();
+
+    expect(actionLabels(wrapper)).toEqual(['_download']);
+  });
+
+  test('a page change while the add is in flight leaves the next page alone', async () => {
+    let respond;
+    respondTo({ 'download:ensureDownloadManagerOpen': true });
+    browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+      if (message.action === 'download:addDownload') {
+        respond = sendResponse;
+        return true;
+      }
+    });
+    const wrapper = await mountWithPage(ugoira);
+
+    await clickAndFlush(actionButtons(wrapper)[1]);
+    await showNextPage();
+    respond({ result: true });
+    await flushPromises();
+
+    expect(actionLabels(wrapper)).toEqual(['_download']);
   });
 
   test('declining the re-add prompt sends nothing more', async () => {

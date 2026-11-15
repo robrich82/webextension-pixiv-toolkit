@@ -126,7 +126,7 @@ export default {
       generalTaskProgress: 0,
 
       /**
-       * The task is queued or downloading, so its progress shows even at 0%
+       * The task is queued or under way, so its progress shows even at 0%
        * @type {boolean}
        */
       generalTaskActive: false
@@ -203,7 +203,8 @@ export default {
       if (downloadTasksStatus && downloadTasksStatus.length > 0) {
         downloadTasksStatus.forEach(task => {
           if (task.type === 'PIXIV_UGOIRA') {
-            this.ugoiraTaskProgresses[task.convertType] = {
+            // The custom format's task reports 'CUSTOM'; its task id and button use 'custom'.
+            this.ugoiraTaskProgresses[(task.convertType || 'custom').toLowerCase()] = {
               d: task.progress, p: task.processProgress, active: ACTIVE_TASK_STATES.includes(task.state)
             };
           } else {
@@ -444,6 +445,8 @@ export default {
     },
 
     async downloadWithDownloadManager({ ugoiraConvertType, redownload = false }) {
+      const pageChangeToken = this.pageChangeToken;
+
       await this.ensureDownloadManagerOpen(async () => {
         const args = this.getDownloadArgs({ ugoiraConvertType });
         args.options.redownload = redownload;
@@ -453,21 +456,21 @@ export default {
           args
         }).catch(() => undefined);
 
-        if (!(response && response.result) && redownload === false) {
-          if (response && response.errorName === 'DownloadTaskExistsError') {
-            if (window.confirm(this.tl(`_the_resource_is_already_in_download_manager`))) {
-              this.downloadWithDownloadManager({ ugoiraConvertType, redownload: true })
-            }
-
-            return;
-          } else {
-            alert(this.tl('_unknown_error') + ': ' + (response && response.errorName));
-          }
-          return;
-        } else {
+        if (response && response.result) {
           // The download manager records the download history once the task completes.
-          this.markTaskQueued(ugoiraConvertType);
+          // After a page change, the buttons belong to another work.
+          if (pageChangeToken === this.pageChangeToken) {
+            this.markTaskQueued(ugoiraConvertType);
+          }
+
           this.displayNotice(this.tl('_download_added'));
+        } else if (response && response.errorName === 'DownloadTaskExistsError') {
+          // On a re-download, the task is still running: the download manager keeps it, and so does the button.
+          if (!redownload && window.confirm(this.tl(`_the_resource_is_already_in_download_manager`))) {
+            this.downloadWithDownloadManager({ ugoiraConvertType, redownload: true })
+          }
+        } else {
+          alert(this.tl('_unknown_error') + ': ' + (response && response.errorName));
         }
       });
     },
