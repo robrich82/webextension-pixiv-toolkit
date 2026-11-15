@@ -119,6 +119,17 @@ function extensionId() {
 }
 
 /**
+ * Limits on reaching a BiDi session. A launch reaches one in about 2s, and a
+ * cold CI runner's first whole test takes 10s; these leave a relaunch room to
+ * fit in a test.
+ */
+const STARTUP_LIMIT = 30000;
+const SESSION_LIMIT = 15000;
+
+/** Now and then a Windows Firefox hangs at startup and never answers BiDi (#374). */
+const stalled = error => Object.assign(error, { relaunch: true });
+
+/**
  * A Firefox on a throwaway profile, driven over WebDriver BiDi. Started here
  * rather than through web-ext, whose launcher leaves Firefox running when it
  * gives up connecting, which keeps the test process alive.
@@ -159,7 +170,7 @@ class FirefoxProcess {
 
     const firefox = new FirefoxProcess({ child, profile });
     onSpawn(firefox);
-    const deadline = Date.now() + 60000;
+    const deadline = Date.now() + STARTUP_LIMIT;
     let lastError;
 
     firefox.step('spawned');
@@ -168,7 +179,7 @@ class FirefoxProcess {
     // refused connection is retried; a session Firefox turns down is not.
     while (!firefox.bidi) {
       const failure = firefox.closed ? new Error('Firefox was closed while it started') : firefox.failure ??
-        (Date.now() > deadline ? new Error(`No WebDriver BiDi on port ${port}: ${lastError?.message}`) : undefined);
+        (Date.now() > deadline ? stalled(new Error(`No WebDriver BiDi on port ${port}: ${lastError?.message}`)) : undefined);
 
       if (failure) {
         await firefox.close();
@@ -176,7 +187,7 @@ class FirefoxProcess {
       }
 
       try {
-        const bidi = await Bidi.connect(port);
+        const bidi = await Bidi.connect(port, SESSION_LIMIT);
 
         if (firefox.closed) {
           bidi.socket.close();
@@ -186,7 +197,7 @@ class FirefoxProcess {
       } catch (error) {
         if (!error.retryable) {
           await firefox.close();
-          throw firefox.withStderr(error);
+          throw firefox.withStderr(error.timedOut ? stalled(error) : error);
         }
 
         lastError = error;
@@ -302,7 +313,8 @@ let closeAllCalls = 0;
 /**
  * Start Firefox with dist/firefox as a temporary add-on, pixiv served from
  * test/fixtures (see fakePixiv.mjs) and downloads saved to a temp folder.
- * A Firefox that can't start child processes is replaced, once.
+ * A Firefox that can't start child processes, or never answers BiDi, is
+ * replaced, once.
  *
  * @param {Parameters<typeof startFakePixiv>[0]} routes
  */
