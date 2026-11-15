@@ -13,7 +13,7 @@
               item-value="value"
               v-model="language"
               @update:model-value="onLanguageChangeHandler"
-              style="width:150px"
+              style="width:220px"
             >
             </v-select>
           </template>
@@ -39,7 +39,7 @@
               item-value="value"
               v-model="downloadPanelPosition"
               @update:model-value="onDownloadPanelPositionChangeHandler"
-              style="width:150px"
+              style="width:220px"
             ></v-select>
           </template>
         </v-list-item>
@@ -54,7 +54,7 @@
               item-value="value"
               v-model="downloadPanelStyle"
               @update:model-value="onDownloadPanelStyleChangeHandler"
-              style="width:150px"
+              style="width:220px"
             ></v-select>
           </template>
         </v-list-item>

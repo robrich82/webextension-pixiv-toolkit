@@ -46,7 +46,7 @@
             item-title="text"
             item-value="value"
             v-model="animationJsonFormat"
-            style="width:150px"
+            style="width:220px"
           >
           </v-select>
         </template>
