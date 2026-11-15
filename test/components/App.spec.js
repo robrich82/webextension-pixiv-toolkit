@@ -233,6 +233,33 @@ describe('App page lifecycle', () => {
     expect(actionLabels(wrapper)).toEqual(['_download 50.00%']);
   });
 
+  test.each([
+    ['queued', '_download 0.00%', 1],
+    ['downloading', '_download 0.00%', 2],
+    ['paused', '_download', 3],
+    ['failed', '_download', -1]
+  ])('a %s task at 0%% shows as %s', async (_, label, state) => {
+    const wrapper = await mountWithPage();
+
+    observerPort().peer.postMessage({ downloadTasksStatus: [{ type: 'PIXIV_ILLUST', progress: 0, state }] });
+    await flushPromises();
+
+    expect(actionLabels(wrapper)).toEqual([label]);
+  });
+
+  test('a queued ugoira format shows 0% on its own button', async () => {
+    const wrapper = await mountWithPage(ugoira);
+
+    observerPort().peer.postMessage({
+      downloadTasksStatus: [{ type: 'PIXIV_UGOIRA', convertType: 'webm', progress: 0, processProgress: 0, state: 1 }]
+    });
+    await flushPromises();
+
+    expect(actionLabels(wrapper)).toEqual([
+      '_download_apng', '_download_gif', '_download_webm (D:0.00%)', '_download_mp4', '_download_custom'
+    ]);
+  });
+
   test('ugoira task status updates the matching format button', async () => {
     const wrapper = await mountWithPage(ugoira);
 
@@ -426,6 +453,60 @@ describe('App download', () => {
     expect(confirm).toHaveBeenCalledWith('_the_resource_is_already_in_download_manager');
     expect(sentMessages('download:addDownload').map(message => message.args.options.redownload))
       .toEqual([false, true]);
+  });
+
+  // A cached re-download can finish between two status updates, which kept the old tick on the button throughout.
+  test('a re-download replaces the finished tick with 0% straight away', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    respondTo(existsUntilRedownload);
+    const wrapper = await mountWithPage();
+
+    observerPort().peer.postMessage({ downloadTasksStatus: [{ type: 'PIXIV_ILLUST', progress: 1, state: 4 }] });
+    await flushPromises();
+    expect(actionLabels(wrapper)).toEqual(['_download ✔']);
+
+    await clickAndFlush(actionButtons(wrapper)[0]);
+
+    expect(actionLabels(wrapper)).toEqual(['_download 0.00%']);
+
+    observerPort().peer.postMessage({ downloadTasksStatus: [{ type: 'PIXIV_ILLUST', progress: 1, state: 4 }] });
+    await flushPromises();
+    expect(actionLabels(wrapper)).toEqual(['_download ✔']);
+  });
+
+  test('a re-download of one ugoira format resets only that button', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    respondTo(existsUntilRedownload);
+    const wrapper = await mountWithPage(ugoira);
+
+    observerPort().peer.postMessage({
+      downloadTasksStatus: [
+        { type: 'PIXIV_UGOIRA', convertType: 'gif', progress: 1, processProgress: 1, state: 4 },
+        { type: 'PIXIV_UGOIRA', convertType: 'mp4', progress: 1, processProgress: 1, state: 4 }
+      ]
+    });
+    await flushPromises();
+
+    await clickAndFlush(actionButtons(wrapper).find(a => a.text() === '_download_gif ✔'));
+
+    expect(actionLabels(wrapper)).toEqual([
+      '_download_apng', '_download_gif (D:0.00%)', '_download_webm', '_download_mp4 ✔', '_download_custom'
+    ]);
+  });
+
+  test('a failed add leaves the button as it was', async () => {
+    vi.spyOn(window, 'alert').mockImplementation(() => {});
+    respondTo({
+      'download:ensureDownloadManagerOpen': true,
+      'download:addDownload': { result: false, errorName: 'SomethingElse' }
+    });
+    const wrapper = await mountWithPage();
+
+    observerPort().peer.postMessage({ downloadTasksStatus: [{ type: 'PIXIV_ILLUST', progress: 1, state: 4 }] });
+    await flushPromises();
+    await clickAndFlush(actionButtons(wrapper)[0]);
+
+    expect(actionLabels(wrapper)).toEqual(['_download ✔']);
   });
 
   test('declining the re-add prompt sends nothing more', async () => {
