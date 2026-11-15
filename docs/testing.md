@@ -10,7 +10,8 @@ specs and sources, so everything is ESM.
 `resolve.alias` mirrors the build's aliases (`scripts/build.mjs`), so a spec can
 import source files by the same `@/` and `@@/` paths the source itself uses. It
 also stands in for the build's `locales` global, and `define` sets
-`PRESET_BROWSER` to `chrome`.
+`PRESET_BROWSER` to `chrome` and, as the build does, `__THIRD_PARTY_VERSIONS__`
+from `scripts/thirdPartyVersions.mjs`.
 
 To run a subset, use `pnpm exec vitest run <spec>` or `--project components`.
 Coverage is always on, and a subset run fails the floors below, so add

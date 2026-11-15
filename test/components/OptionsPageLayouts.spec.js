@@ -1,3 +1,5 @@
+import fs from 'fs';
+import path from 'path';
 import { mountOption, shallowMountOption } from '../helpers/mountOptionComponent';
 import ChangeLogs from '@/options_page/components/ChangeLogs.vue';
 import NewSettings from '@/options_page/components/NewSettings.vue';
@@ -47,12 +49,51 @@ describe('ThirdParty', () => {
     const wrapper = mountOption(ThirdParty);
     const items = wrapper.findAll('.v-list-item');
 
-    expect(items.map(item => item.find('.v-list-item-title').text().split(' ')[0]))
-      .toEqual(['ffmpeg.wasm', 'jszip', 'vuejs', 'vuetify', 'vue-i18n']);
+    expect(items.map(item => item.find('.third-party__name').text())).toEqual([
+      'ffmpeg.wasm', 'JSZip', 'Dexie.js', 'js-epub-maker', 'Handlebars', 'Vue.js', 'Vue Router', 'Vuetify',
+      'vue-i18n', 'vue-virtual-scroller', 'Material Design Icons', 'Moment.js', 'mitt', 'md5'
+    ]);
 
     await items[0].trigger('click');
 
     expect(open).toHaveBeenCalledWith('https://github.com/ffmpegwasm/ffmpeg.wasm', '_blank');
+  });
+
+  test("shows each npm package's installed version", () => {
+    const installed = name => JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../node_modules', name, 'package.json'), 'utf8')).version;
+    const versions = Object.fromEntries(mountOption(ThirdParty).findAll('.v-list-item')
+      .map(item => [item.find('.third-party__name').text(), item.find('.third-party__version').text()]));
+
+    expect(versions).toMatchObject({
+      'ffmpeg.wasm': installed('@ffmpeg/ffmpeg'),
+      'Dexie.js': `${installed('dexie')}, 3.2.2`,
+      'Vue.js': installed('vue'),
+      'Vue Router': installed('vue-router'),
+      Vuetify: installed('vuetify'),
+      'vue-i18n': installed('vue-i18n'),
+      'vue-virtual-scroller': installed('vue-virtual-scroller'),
+      'Material Design Icons': installed('@mdi/font'),
+      'Moment.js': installed('moment'),
+      mitt: installed('mitt'),
+      md5: installed('md5')
+    });
+  });
+
+  // The vendored copies' versions are hardcoded, so pin them to the files that ship.
+  test.each([
+    ['JSZip', 'jszip/jszip.js', /JSZip v(\S+)/],
+    ['Handlebars', 'handlebars-latest.js', /handlebars v(\S+)/]
+  ])('shows the vendored %s version', (name, file, pattern) => {
+    const header = fs.readFileSync(path.resolve(__dirname, '../../src/statics/lib', file), 'utf8');
+    const item = mountOption(ThirdParty).findAll('.v-list-item').find(i => i.find('.third-party__name').text() === name);
+
+    expect(item.find('.third-party__version').text()).toBe(header.match(pattern)[1]);
+  });
+
+  test('shows the vendored Dexie version used by the pages', () => {
+    const dexie = fs.readFileSync(path.resolve(__dirname, '../../src/statics/lib/dexie/dexie.js'), 'utf8');
+
+    expect(mountOption(ThirdParty).text()).toContain(`, ${dexie.match(/DEXIE_VERSION = '([^']+)'/)[1]}`);
   });
 
   test('titles the page through the extension i18n API', () => {

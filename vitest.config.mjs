@@ -1,13 +1,14 @@
 import { fileURLToPath } from 'node:url';
 import vue from '@vitejs/plugin-vue';
 import { defineConfig } from 'vitest/config';
+import { thirdPartyVersionsDefine } from './scripts/thirdPartyVersions.mjs';
 
 const here = path => fileURLToPath(new URL(path, import.meta.url));
 
 export default defineConfig({
   plugins: [vue()],
-  // scripts/build.mjs defines it per platform.
-  define: { PRESET_BROWSER: JSON.stringify('chrome') },
+  // scripts/build.mjs defines PRESET_BROWSER per platform.
+  define: { PRESET_BROWSER: JSON.stringify('chrome'), ...thirdPartyVersionsDefine(here('.')) },
   resolve: {
     // Extensionless .vue imports, as in scripts/build.mjs.
     extensions: ['.mjs', '.js', '.json', '.vue'],
