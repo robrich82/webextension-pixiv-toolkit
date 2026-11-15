@@ -314,8 +314,9 @@ profile, so use the deb or a tarball. Set `HEADED=1` to watch, or
 - `firefox.mjs` `launch()` starts Firefox on a throwaway profile, installs the
   build as a temporary add-on over WebDriver BiDi (`bidi.mjs`, no geckodriver
   or web-ext) and drives it. A test that times out mid-launch still has its
-  Firefox closed, by `closeAll()`. A Firefox that can't start child processes,
-  which happens now and then on Windows, is replaced once (#365).
+  Firefox closed, by `closeAll()`. A Firefox that can't start child processes
+  (#365) or hangs before answering BiDi (#374), both of which happen now and
+  then on Windows, is replaced once.
 - `fakePixiv.mjs` is an HTTPS proxy that Firefox sends every request through.
   It answers `www.pixiv.net` and `i.pximg.net` from `e2e/fakePixivRoutes.js`,
   with a throwaway self-signed certificate that `acceptInsecureCerts` lets

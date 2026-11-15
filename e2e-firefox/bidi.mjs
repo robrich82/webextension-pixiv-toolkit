@@ -14,8 +14,9 @@ export class Bidi {
 
   /**
    * @param {number} port Firefox's --remote-debugging-port
+   * @param {number} sessionTimeout How long `session.new` may take
    */
-  static async connect(port) {
+  static async connect(port, sessionTimeout = COMMAND_TIMEOUT) {
     const bidi = new Bidi();
     bidi.socket = new WebSocket(`ws://127.0.0.1:${port}/session`);
 
@@ -37,7 +38,7 @@ export class Bidi {
       bidi.socket.addEventListener('close', () => bidi.failPending(new Error('the BiDi connection closed')));
 
       // pixiv is served by a proxy with a self-signed certificate.
-      await bidi.send('session.new', { capabilities: { alwaysMatch: { acceptInsecureCerts: true } } });
+      await bidi.send('session.new', { capabilities: { alwaysMatch: { acceptInsecureCerts: true } } }, sessionTimeout);
     } catch (error) {
       bidi.socket.close();
       throw error;
@@ -79,7 +80,7 @@ export class Bidi {
 
       const timer = setTimeout(() => {
         this.pending.delete(id);
-        reject(new Error(`${method}: no answer in ${timeout}ms`));
+        reject(Object.assign(new Error(`${method}: no answer in ${timeout}ms`), { timedOut: true }));
       }, timeout);
 
       this.pending.set(id, { method, resolve, reject, timer });
