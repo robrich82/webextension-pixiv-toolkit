@@ -61,6 +61,17 @@ import DownloadTaskObserver from '../modules/DownloadTaskObserver';
 import { RuntimeError } from '@/errors';
 import moment from 'moment';
 
+// AbstractDownloadTask's pending, downloading and processing states: queued or under way.
+const ACTIVE_TASK_STATES = [1, 2, 99];
+
+const emptyUgoiraTaskProgresses = () => ({
+  'gif': { d: 0, p: 0, active: false },
+  'apng': { d: 0, p: 0, active: false },
+  'webm': { d: 0, p: 0, active: false },
+  'mp4': { d: 0, p: 0, active: false },
+  'custom': { d: 0, p: 0, active: false }
+});
+
 export default {
   components: {
     'control-panel': ControlPanel,
@@ -110,15 +121,15 @@ export default {
 
       noticeMessage: '',
 
-      ugoiraTaskProgresses: {
-        'gif': { d: 0, p: 0 },
-        'apng': { d: 0, p: 0 },
-        'webm': { d: 0, p: 0 },
-        'mp4': { d: 0, p: 0 },
-        'custom': { d: 0, p: 0 }
-      },
+      ugoiraTaskProgresses: emptyUgoiraTaskProgresses(),
 
-      generalTaskProgress: 0
+      generalTaskProgress: 0,
+
+      /**
+       * The task is queued or under way, so its progress shows even at 0%
+       * @type {boolean}
+       */
+      generalTaskActive: false
     };
   },
 
@@ -166,7 +177,7 @@ export default {
     generalTaskProgressText() {
       if (this.generalTaskProgress === 1) {
         return ' ✔';
-      } else if (this.generalTaskProgress > 0) {
+      } else if (this.generalTaskProgress > 0 || this.generalTaskActive) {
         return ' ' + (this.generalTaskProgress * 100).toFixed(2) + '%';
       } else {
         return '';
@@ -192,11 +203,13 @@ export default {
       if (downloadTasksStatus && downloadTasksStatus.length > 0) {
         downloadTasksStatus.forEach(task => {
           if (task.type === 'PIXIV_UGOIRA') {
-            this.ugoiraTaskProgresses[task.convertType] = Object.assign(
-              {}, this.ugoiraTaskProgresses[task.convertType], { d: task.progress, p: task.processProgress }
-            );
+            // The custom format's task reports 'CUSTOM'; its task id and button use 'custom'.
+            this.ugoiraTaskProgresses[(task.convertType || 'custom').toLowerCase()] = {
+              d: task.progress, p: task.processProgress, active: ACTIVE_TASK_STATES.includes(task.state)
+            };
           } else {
             this.generalTaskProgress = task.progress;
+            this.generalTaskActive = ACTIVE_TASK_STATES.includes(task.state);
           }
         });
       }
@@ -315,13 +328,22 @@ export default {
 
     initialProgress() {
       this.generalTaskProgress = 0;
-      this.ugoiraTaskProgresses = {
-        'gif': { d: 0, p: 0 },
-        'apng': { d: 0, p: 0 },
-        'webm': { d: 0, p: 0 },
-        'mp4': { d: 0, p: 0 },
-        'custom': { d: 0, p: 0 }
-      };
+      this.generalTaskActive = false;
+      this.ugoiraTaskProgresses = emptyUgoiraTaskProgresses();
+    },
+
+    /**
+     * Show a task the download manager just accepted as queued, rather than
+     * keeping a finished run's tick until the next status arrives.
+     * @param {string} [ugoiraConvertType]
+     */
+    markTaskQueued(ugoiraConvertType) {
+      if (this.isUgoira) {
+        this.ugoiraTaskProgresses[ugoiraConvertType || 'custom'] = { d: 0, p: 0, active: true };
+      } else {
+        this.generalTaskProgress = 0;
+        this.generalTaskActive = true;
+      }
     },
 
     ugoiraProgress(type) {
@@ -332,7 +354,7 @@ export default {
           return ' ✔';
         } else if (progress.p > 0) {
           return ` (P:${(progress.p * 100).toFixed(2)}%)`;
-        } else if (progress.d > 0) {
+        } else if (progress.d > 0 || progress.active) {
           return ` (D:${(progress.d * 100).toFixed(2)}%)`;
         }
       }
@@ -423,6 +445,8 @@ export default {
     },
 
     async downloadWithDownloadManager({ ugoiraConvertType, redownload = false }) {
+      const pageChangeToken = this.pageChangeToken;
+
       await this.ensureDownloadManagerOpen(async () => {
         const args = this.getDownloadArgs({ ugoiraConvertType });
         args.options.redownload = redownload;
@@ -432,20 +456,21 @@ export default {
           args
         }).catch(() => undefined);
 
-        if (!(response && response.result) && redownload === false) {
-          if (response && response.errorName === 'DownloadTaskExistsError') {
-            if (window.confirm(this.tl(`_the_resource_is_already_in_download_manager`))) {
-              this.downloadWithDownloadManager({ ugoiraConvertType, redownload: true })
-            }
-
-            return;
-          } else {
-            alert(this.tl('_unknown_error') + ': ' + (response && response.errorName));
-          }
-          return;
-        } else {
+        if (response && response.result) {
           // The download manager records the download history once the task completes.
+          // After a page change, the buttons belong to another work.
+          if (pageChangeToken === this.pageChangeToken) {
+            this.markTaskQueued(ugoiraConvertType);
+          }
+
           this.displayNotice(this.tl('_download_added'));
+        } else if (response && response.errorName === 'DownloadTaskExistsError') {
+          // On a re-download, the task is still running: the download manager keeps it, and so does the button.
+          if (!redownload && window.confirm(this.tl(`_the_resource_is_already_in_download_manager`))) {
+            this.downloadWithDownloadManager({ ugoiraConvertType, redownload: true })
+          }
+        } else {
+          alert(this.tl('_unknown_error') + ': ' + (response && response.errorName));
         }
       });
     },
