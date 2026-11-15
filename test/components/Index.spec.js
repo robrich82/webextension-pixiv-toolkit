@@ -59,6 +59,24 @@ describe('Index', () => {
     expect(menuButton().exists()).toBe(false);
   });
 
+  // Vuetify 4 stacks layout items in template order; a drawer before the app bar covers the menu button.
+  test('the drawer opens below the app bar', async () => {
+    const { wrapper } = mountMenu();
+    await flushPromises();
+
+    expect(wrapper.find('.v-navigation-drawer').attributes('style')).toMatch(/top: 56px/);
+  });
+
+  test('on a narrow window, a click outside the open drawer closes it', async () => {
+    window.innerWidth = 1000;
+    const { wrapper } = mountMenu();
+    await wrapper.setData({ drawer: true });
+
+    await wrapper.find('.v-navigation-drawer__scrim').trigger('click');
+
+    expect(wrapper.vm.drawer).toBe(false);
+  });
+
   test('unmounting stops listening for resizes', () => {
     const { wrapper } = mountIndex();
     wrapper.unmount();

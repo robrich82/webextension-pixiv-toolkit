@@ -1,10 +1,27 @@
 <template>
   <div id="app">
     <v-app>
+      <v-app-bar class="v-primary" height="56">
+        <v-btn variant="text" icon
+          @click="drawer = !drawer" v-if="drawerTemporary">
+          <v-icon>mdi-menu</v-icon>
+        </v-btn>
+        <span class="text-h6 v-primary header-title">
+          Pixiv<strong>Toolkit</strong>
+          <span style="font-size:12px">Next</span>
+        </span>
+
+        <v-spacer></v-spacer>
+
+        <supports style="margin-bottom:0"
+          :show-sponsors-link="false"
+          :show-inline-sponsors-link="true"
+          :open-sponsors-in-new="true"></supports>
+      </v-app-bar>
       <v-navigation-drawer
         v-model="drawer"
         :temporary="drawerTemporary"
-        :scrim="false">
+        scrim="transparent">
 
         <v-toolbar flat>
           <v-list>
@@ -34,23 +51,6 @@
           </v-list-item>
         </v-list>
       </v-navigation-drawer>
-      <v-app-bar class="v-primary" height="56">
-        <v-btn variant="text" icon
-          @click="drawer = !drawer" v-if="drawerTemporary">
-          <v-icon>mdi-menu</v-icon>
-        </v-btn>
-        <span class="text-h6 v-primary header-title">
-          Pixiv<strong>Toolkit</strong>
-          <span style="font-size:12px">Next</span>
-        </span>
-
-        <v-spacer></v-spacer>
-
-        <supports style="margin-bottom:0"
-          :show-sponsors-link="false"
-          :show-inline-sponsors-link="true"
-          :open-sponsors-in-new="true"></supports>
-      </v-app-bar>
       <v-main>
         <download-manager v-if="openedTabId <= 0"
           class="container conatiner-small" style="max-width:800px;"

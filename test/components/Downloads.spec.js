@@ -32,6 +32,23 @@ describe('Downloads', () => {
     expect(wrapper.text()).not.toContain('_download_manager_is_already_opened.message');
   });
 
+  test('the drawer opens below the app bar', async () => {
+    const wrapper = mountDownloads({}, mountOption);
+    await flushPromises();
+
+    expect(wrapper.find('.v-navigation-drawer').attributes('style')).toMatch(/top: 56px/);
+  });
+
+  test('on a narrow window, a click outside the open drawer closes it', async () => {
+    window.innerWidth = 1000;
+    const wrapper = mountDownloads({}, mountOption);
+    await wrapper.setData({ drawer: true });
+
+    await wrapper.find('.v-navigation-drawer__scrim').trigger('click');
+
+    expect(wrapper.vm.drawer).toBe(false);
+  });
+
   test('another open manager tab gets a warning instead', () => {
     const wrapper = mountDownloads({ openedTabId: 7, openedWindowId: 3 });
 
