@@ -50,6 +50,13 @@ describe('ChangeLog', () => {
     expect(wrapper.vm.updateList).toEqual([{ version: 'v1.0.0', list: ['Support a | b.'] }]);
   });
 
+  test('reads the history as UTF-8 text, so Firefox does not try to parse it as XML', async () => {
+    mountChangeLog('en');
+    await flushPromises();
+
+    expect(xhr.mimeTypes).toEqual(['text/plain; charset=utf-8']);
+  });
+
   test.each([
     ['zh_CN', 'HISTORY_zh-CN'],
     ['en', 'HISTORY_en-US'],

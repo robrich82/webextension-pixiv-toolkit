@@ -65,6 +65,8 @@ export default {
         let xhr = new XMLHttpRequest();
 
         xhr.open('GET', browser.runtime.getURL(`HISTORY_${history}`));
+        // The file has no extension, so Firefox would otherwise guess XML and log a parse error.
+        xhr.overrideMimeType('text/plain; charset=utf-8');
 
         xhr.onload = event => {
           resolve(this.formatResult(xhr.responseText));
