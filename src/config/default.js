@@ -251,6 +251,12 @@ export default Object.assign({}, {
     appSuggestDismissed: false,
 
     /**
+     * @since 6.4.7
+     * The History page's eye toggle. Existing installs read it as undefined: covers stay blurred.
+     */
+    historyDisableBlurOnR: false,
+
+    /**
      * @since 1.0.0
      * @deprecated since version 6.0.0
      */

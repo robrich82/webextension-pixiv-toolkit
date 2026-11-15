@@ -146,6 +146,7 @@ export default {
      * Init some data
      */
     this.enableSaveVisitHistory = this.browserItems.enableSaveVisitHistory;
+    this.disableBlurOnR = !!this.browserItems.historyDisableBlurOnR;
     this.latestListDate = null;
     // Bumped whenever the list is reset, so pages still in flight are discarded
     this.listGeneration = 0;
@@ -363,6 +364,7 @@ export default {
 
     disableBlurOnRClicked() {
       this.disableBlurOnR = !this.disableBlurOnR;
+      browser.storage.local.set({ historyDisableBlurOnR: this.disableBlurOnR });
     },
 
     formatDate(time) {

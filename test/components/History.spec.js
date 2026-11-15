@@ -274,6 +274,29 @@ describe('History', () => {
     expect(blurred()).toBe(0);
   });
 
+  test('the eye toggle is saved, and the next visit opens with it', async () => {
+    servePages(mockRepo.getItems, [item(1, { r: true })], [item(1, { r: true })]);
+
+    const first = mountHistory();
+    await flushPromises();
+    await first.find('.history__header-action v-btn-stub').trigger('click');
+
+    expect(browser.storage.local.items.historyDisableBlurOnR).toBe(true);
+
+    first.unmount();
+    mounted = [];
+
+    const second = mountHistory({ ...browser.storage.local.items });
+    await flushPromises();
+
+    expect(second.findAll('.history-item__thumb-body--blur')).toHaveLength(0);
+
+    await second.find('.history__header-action v-btn-stub').trigger('click');
+
+    expect(browser.storage.local.items.historyDisableBlurOnR).toBe(false);
+    expect(second.findAll('.history-item__thumb-body--blur')).toHaveLength(1);
+  });
+
   test('clicking a cover opens the work in a new tab', async () => {
     const open = vi.spyOn(window, 'open').mockImplementation(() => null);
     servePages(mockRepo.getItems, [item(1)]);
