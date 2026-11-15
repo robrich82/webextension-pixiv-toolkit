@@ -1,3 +1,25 @@
+v6.4.6
+Fixed the background script crashing on startup in 6.4.5, which broke downloads, Fanbox posts, visit history and messaging;
+Clearing and importing visit history in the settings now works;
+Fixed downloads that showed as complete but were never saved;
+Fixed works whose title contains an emoji failing to save on Firefox; emoji are now removed from file names.
+
+v6.4.5
+Pixiv Comic page number and image rename settings are now saved;
+Importing settings no longer drops options that are turned off;
+Fixed Fanbox zip attachments not being saved when the server sends no content type.
+
+v6.4.4
+First release of this fork (robrich82/webextension-pixiv-toolkit), with its own Firefox add-on id and updates from its GitHub releases;
+Fixed the download panel not appearing on Fanbox posts;
+Removed the legacy download mode, downloads now always go through the download manager;
+Fixed works whose title ends in "..." failing to download;
+Fixed Fanbox zip downloads being saved inside an extra folder;
+Fixed a crash when the language setting is missing.
+
+v6.4.3
+Fixed a delay before the browser's Save As dialog appears.
+
 v6.4.2
 Remove the listener for event onDeterminingFilename;
 Fixed issues（#271, #284, #288）。
