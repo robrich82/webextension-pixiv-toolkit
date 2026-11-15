@@ -62,6 +62,12 @@ export default {
 
   created() {
     window.onbeforeunload = event => {
+      if (!this.hasActiveDownloads()) {
+        return;
+      }
+
+      // preventDefault for current browsers; a non-empty returnValue for Chrome < 119.
+      event.preventDefault();
       return event.returnValue = 'Close the tab will lose all download process. Close it ?';
     };
 
@@ -94,6 +100,14 @@ export default {
   },
 
   methods: {
+    /**
+     * Whether closing the tab would lose work: any task that isn't complete or failed.
+     * Asks the service rather than `downloads`, which can be up to one poll behind.
+     */
+    hasActiveDownloads() {
+      return this.downloadService.getAvaliableDownloads().some(download => download.state !== 4 && download.state !== -1);
+    },
+
     getDownloadTaskTag(download) {
       if (download.type === 'PIXIV_UGOIRA') {
         return 'Pixiv Ugoira ' + (download.convertType || 'Custom');

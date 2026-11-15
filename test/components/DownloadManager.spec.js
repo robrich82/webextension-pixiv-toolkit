@@ -3,7 +3,9 @@ import DownloadManager from '@/options_page/components/DownloadManager.vue';
 
 const mockDownloadService = {
   changed: [],
+  available: [],
   flushChangedTasks: vi.fn(() => mockDownloadService.changed.splice(0)),
+  getAvaliableDownloads: vi.fn(() => mockDownloadService.available),
   deleteDownload: vi.fn(),
   showInFolder: vi.fn()
 };
@@ -23,6 +25,7 @@ describe('DownloadManager', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     mockDownloadService.changed = [];
+    mockDownloadService.available = [];
     wrapper = shallowMountOption(DownloadManager, {
       global: { stubs: { 'recycle-scroller': false, DownloadTask: false } }
     });
@@ -132,11 +135,36 @@ describe('DownloadManager', () => {
     expect(mockDownloadService.showInFolder).toHaveBeenCalledWith(42);
   });
 
-  test('warns before the tab closes', () => {
-    const event = {};
+  const closeTab = () => {
+    const event = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(event);
+    return event;
+  };
 
-    expect(window.onbeforeunload(event)).toBe(event.returnValue);
-    expect(event.returnValue).toMatch(/lose all download process/);
+  // States: 1 pending, 2 downloading, 3 paused, 99 processing, 4 complete, -1 failure.
+  test.each([1, 2, 3, 99])('warns before the tab closes while a task is in state %s', state => {
+    mockDownloadService.available = [task(1, { state: 4 }), task(2, { state })];
+
+    expect(closeTab().defaultPrevented).toBe(true);
+  });
+
+  test.each([
+    ['no tasks', []],
+    ['only complete and failed tasks', [task(1, { state: 4 }), task(2, { state: -1 })]]
+  ])('closes without a warning with %s', (_, tasks) => {
+    mockDownloadService.available = tasks;
+
+    expect(closeTab().defaultPrevented).toBe(false);
+    // A returned string is the legacy way to ask, so it must not return one either.
+    expect(window.onbeforeunload(new Event('beforeunload', { cancelable: true }))).toBeUndefined();
+  });
+
+  // The list only catches up on the next poll; a task added just before closing still counts.
+  test('asks the service, not the polled list, at close time', () => {
+    mockDownloadService.available = [task(1, { state: 1 })];
+
+    expect(wrapper.findAll('.download-task__title')).toHaveLength(0);
+    expect(closeTab().defaultPrevented).toBe(true);
   });
 
   test('unmounting stops polling and the close-tab warning', () => {
