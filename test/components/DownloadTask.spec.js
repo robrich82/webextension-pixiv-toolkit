@@ -60,6 +60,20 @@ describe('DownloadTask', () => {
     expect(wrapper.find('.download-task__progress').attributes('title')).toBe('25%');
   });
 
+  // v-card-title is 1.375rem in Vuetify 4, which blew up the state and action links.
+  test('renders its body as card text, not a card title', () => {
+    const wrapper = mountOption(DownloadTask, { props: { data: task() } });
+
+    expect(wrapper.find('.v-card-title').exists()).toBe(false);
+    expect(wrapper.find('.v-card-text .download-task__section').exists()).toBe(true);
+  });
+
+  test('draws the progress bar in the primary colour', () => {
+    const wrapper = mountOption(DownloadTask, { props: { data: task() } });
+
+    expect(wrapper.find('.download-task__progress .v-progress-linear__determinate').classes()).toContain('bg-primary');
+  });
+
   test('a well-formed task passes the data validator', () => {
     expect(DownloadTask.props.data.validator(task())).toBe(true);
   });

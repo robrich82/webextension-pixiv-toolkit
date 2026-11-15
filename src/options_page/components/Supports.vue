@@ -131,6 +131,7 @@ export default {
 
   .support-btn {
     height: 32px;
+    margin: 0 8px; // Vuetify 1.5's v-btn margin, which Vuetify 4 dropped
     font-size: 14px;
 
     img {
