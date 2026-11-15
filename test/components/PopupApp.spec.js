@@ -31,4 +31,17 @@ describe('popup App', () => {
 
     expect(browser.tabs.create).toHaveBeenLastCalledWith({ url: `${FORK}/issues` });
   });
+
+  test.each([
+    [0, 'works'],
+    [1, 'work'],
+    [2, 'works']
+  ])('%i downloaded reads as "%s"', async (downloaded, noun) => {
+    const counted = mountOption(PopupApp, {
+      browserItems: { statIllustDownloaded: downloaded, statUgoiraDownloaded: 0, statMangaDownloaded: 0, statNovelDownloaded: 0 }
+    });
+    await flushPromises();
+
+    expect(counted.vm.totalDownloaded).toBe(`<strong>${downloaded}</strong> ${noun}.message`);
+  });
 });

@@ -7,7 +7,6 @@
     <div class="history__header">
       <!-- Searchbar -->
       <v-text-field class="search-panel"
-        label="Solo"
         single-line
         variant="solo"
         flat

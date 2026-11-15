@@ -79,7 +79,7 @@ export default {
         parseInt(this.browserItems.statComicEpisodeDownloaded || 0) +
         parseInt(this.browserItems.statUnkownDownloaded || 0);
 
-      return `<strong>${count}</strong> ` + this.tl('work' + (count > 1 ? 's' : ''));
+      return `<strong>${count}</strong> ` + this.tl(count === 1 ? 'work' : 'works');
     }
   },
 

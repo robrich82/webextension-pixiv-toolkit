@@ -1,5 +1,6 @@
 import { flushPromises } from '@vue/test-utils';
 import moment from 'moment';
+import { VTextField } from 'vuetify/components';
 import browser from '../doubles/browser';
 import { shallowMountOption } from '../helpers/mountOptionComponent';
 import History from '@/options_page/components/History.vue';
@@ -61,6 +62,16 @@ describe('History', () => {
     expect(mockRepo.getItems).toHaveBeenCalledWith({ page: 1 });
     expect(titles(wrapper)).toEqual(['Work 1', 'Work 2']);
     expect(wrapper.find('.history__status-notice').exists()).toBe(false);
+  });
+
+  // A label would show over the placeholder in Vuetify 4.
+  test('the search field shows only the search placeholder', async () => {
+    servePages(mockRepo.getItems);
+
+    const search = mountHistory().findComponent(VTextField);
+
+    expect(search.props('placeholder')).toBe('_search_history.message');
+    expect(search.props('label')).toBeUndefined();
   });
 
   test('says so when there is no history, and warns when saving is off', async () => {
