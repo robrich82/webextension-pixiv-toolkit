@@ -1,13 +1,13 @@
 <template>
   <v-card class="download-task">
-    <v-card-title style="display:block;">
+    <v-card-text>
       <div class="download-task__title">{{ data.title }}</div>
       <div class="download-task__url">
         <a :href="data.url" target="_blank">{{ data.url }}</a> <v-icon size="small">mdi-open-in-new</v-icon>
       </div>
       <div class="download-task__progress" :title="(processProgress > 0 ? processProgress : downloadProgress) + '%'">
-        <v-progress-linear v-if="processProgress == 0" v-model="downloadProgress" height="5"></v-progress-linear>
-        <v-progress-linear v-else v-model="processProgress" height="5"></v-progress-linear>
+        <v-progress-linear v-if="processProgress == 0" v-model="downloadProgress" color="primary" height="5"></v-progress-linear>
+        <v-progress-linear v-else v-model="processProgress" color="primary" height="5"></v-progress-linear>
       </div>
       <div class="download-task__section">
         <div class="download-task__state" :title="failureReason || undefined">
@@ -17,7 +17,7 @@
           <slot name="actions"></slot>
         </div>
       </div>
-    </v-card-title>
+    </v-card-text>
     <div class="download-task__type-tag">{{ tag }}</div>
   </v-card>
 </template>
