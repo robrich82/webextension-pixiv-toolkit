@@ -17,6 +17,7 @@ import autoprefixer from 'autoprefixer';
 import { build } from 'vite';
 import { localFFmpegCore } from './localFFmpegCore.mjs';
 import { browserFloors, transformManifest } from './manifest.mjs';
+import { thirdPartyVersionsDefine } from './thirdPartyVersions.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const fromRoot = p => path.join(root, p);
@@ -67,7 +68,8 @@ function viteConfig({ platform, watch, globals = SHARED_GLOBALS, root: viteRoot 
       __VUE_PROD_DEVTOOLS__: 'false',
       __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: 'false',
       // @vuetify/v0 reads this at module load, and there is no `process` here.
-      'process.env.VITE_LOGGER_ENABLED': 'undefined'
+      'process.env.VITE_LOGGER_ENABLED': 'undefined',
+      ...thirdPartyVersionsDefine(root)
     },
     resolve: {
       alias: { '@@': fromRoot('src/options_page'), '@': fromRoot('src') },
