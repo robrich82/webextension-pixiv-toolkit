@@ -83,11 +83,12 @@
         'app-suggest_container': true,
         'app-suggest_container--show': showAppSuggest
       }"
-      v-if="displayAppSuggest"
+      v-if="displayAppSuggest && browserItems.appSuggestDismissed !== true"
       icon="https://raw.githubusercontent.com/leoding86/webextension-pixiv-toolkit/master/src/statics/remote/img/pixiv-omina.png"
       title="Pixiv Omina"
       subTitle="A more powerful Pixiv downloader"
       link="https://github.com/leoding86/pixiv-omina"
+      @close="dismissAppSuggest"
     ></app-suggest>
   </div>
 </template>
@@ -161,6 +162,11 @@ export default {
           this.drawer = true
         }
       }
+    },
+
+    dismissAppSuggest() {
+      this.displayAppSuggest = false;
+      browser.storage.local.set({ appSuggestDismissed: true });
     },
 
     goToHistory() {

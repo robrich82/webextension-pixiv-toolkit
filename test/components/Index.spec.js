@@ -110,6 +110,28 @@ describe('Index', () => {
     expect(suggest().classes()).toContain('app-suggest_container--show');
   });
 
+  test('closing the Pixiv Omina suggestion hides it and remembers the dismissal', async () => {
+    browser._fake.state.platformInfo = { os: 'win', arch: 'x86-64' };
+
+    const { wrapper } = mountIndex();
+    await flushPromises();
+
+    wrapper.findComponent({ name: 'app-suggest' }).vm.$emit('close');
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.find('app-suggest-stub').exists()).toBe(false);
+    expect(browser.storage.local.items).toMatchObject({ appSuggestDismissed: true });
+  });
+
+  test('does not suggest Pixiv Omina once dismissed', async () => {
+    browser._fake.state.platformInfo = { os: 'win', arch: 'x86-64' };
+
+    const { wrapper } = mountIndex({ appSuggestDismissed: true });
+    await flushPromises();
+
+    expect(wrapper.find('app-suggest-stub').exists()).toBe(false);
+  });
+
   test.each([
     [{ os: 'win', arch: 'arm' }],
     [{ os: 'mac', arch: 'x86-64' }]
