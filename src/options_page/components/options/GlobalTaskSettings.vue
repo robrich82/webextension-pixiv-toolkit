@@ -9,7 +9,7 @@
             item-title="text"
             item-value="value"
             v-model="pageNumberStartWithOne"
-            style="width:150px;"
+            style="width:220px;"
           ></v-select>
         </template>
       </v-list-item>
@@ -22,7 +22,7 @@
             item-title="text"
             item-value="value"
             v-model="pageNumberLength"
-            style="width:150px;"
+            style="width:220px;"
           ></v-select>
         </template>
       </v-list-item>
