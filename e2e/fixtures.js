@@ -146,6 +146,32 @@ async function decodeMedia(context, file, mime) {
 
 const isExtensionWorker = worker => worker.url().startsWith('chrome-extension://');
 
+// Each setup step's own limit, well under the 30s test timeout, so a hang names its step (#400).
+const SETUP_TIMEOUT = 10000;
+
+/**
+ * The extension's service worker, waiting for it to start if it hasn't yet.
+ * @param {import('@playwright/test').BrowserContext} context
+ */
+async function extensionWorker(context) {
+  const started = Date.now();
+  // Listen before looking, so a worker that registers in between isn't missed.
+  const registered = context.waitForEvent('serviceworker', { predicate: isExtensionWorker, timeout: SETUP_TIMEOUT });
+  const running = context.serviceWorkers().find(isExtensionWorker);
+
+  if (running) {
+    registered.catch(() => {});
+
+    return running;
+  }
+
+  try {
+    return await registered;
+  } catch (error) {
+    throw new Error(`the extension's service worker never started (waited ${Date.now() - started}ms)`, { cause: error });
+  }
+}
+
 const test = base.extend({
   context: async ({}, use) => {
     if (!fs.existsSync(path.join(EXTENSION_PATH, 'manifest.json'))) {
@@ -163,17 +189,14 @@ const test = base.extend({
 
     // The serviceWorker fixture reads the worker synchronously, so make sure
     // it exists before any test runs.
-    if (!context.serviceWorkers().some(isExtensionWorker)) {
-      await context.waitForEvent('serviceworker', isExtensionWorker);
-    }
+    const worker = await extensionWorker(context);
 
     // The fresh install writes the default settings asynchronously (stamping
     // `version`). A page opened before then misses them, and they can land on
     // top of settings a test seeds (#241).
-    const worker = context.serviceWorkers().find(isExtensionWorker);
     await expect.poll(() => worker.evaluate(() =>
       chrome.storage.local.get('version').then(items => items.version)
-    ), { message: 'the install never wrote the default settings' }).toBeTruthy();
+    ), { message: 'the install never wrote the default settings', timeout: SETUP_TIMEOUT }).toBeTruthy();
 
     await use(context);
     await context.close();
