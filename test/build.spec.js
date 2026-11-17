@@ -159,6 +159,14 @@ describe.each(['chrome', 'firefox'])('build for %s', platform => {
     expect(fs.existsSync(path.join(out, 'lib/dexie/dexie.min.js.map'))).toBe(true);
   });
 
+  it('gives the download manager the JSZip global from the npm package', () => {
+    const context = vm.createContext({});
+
+    vm.runInContext(read(out, 'lib/jszip/jszip.min.js'), context);
+
+    expect(context.JSZip.version).toBe(JSON.parse(read(ROOT, 'node_modules/jszip/package.json')).version);
+  });
+
   // OptionsPageLayouts.spec.js runs against vitest.config.mjs's define, not this build's.
   it('substitutes the Third Party versions into the options pages', () => {
     const options = fs.readdirSync(path.join(out, 'options_page/static'))

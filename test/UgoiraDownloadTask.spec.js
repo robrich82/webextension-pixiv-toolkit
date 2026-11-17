@@ -4,7 +4,7 @@
  * network stand-in, and FFmpeg.wasm is a fake that records what it is asked to
  * do; e2e/ugoira.e2e.js runs the real conversion.
  */
-import RealJSZip from '../src/statics/lib/jszip/jszip.js';
+import RealJSZip from 'jszip';
 import browser from './doubles/browser';
 import { fakeDownloadFileBackground } from './helpers/downloadFileBackground';
 import UgoiraDownloadTask, { ZipRepo } from '@/options_page/modules/DownloadTasks/Pixiv/UgoiraDownloadTask';

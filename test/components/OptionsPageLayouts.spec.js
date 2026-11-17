@@ -74,6 +74,7 @@ describe('ThirdParty', () => {
       'vue-virtual-scroller': installed('vue-virtual-scroller'),
       'Material Design Icons': installed('@mdi/font'),
       'Moment.js': installed('moment'),
+      JSZip: installed('jszip'),
       mitt: installed('mitt'),
       md5: installed('md5')
     });
@@ -81,7 +82,6 @@ describe('ThirdParty', () => {
 
   // The vendored copies' versions are hardcoded, so pin them to the files that ship.
   test.each([
-    ['JSZip', 'jszip/jszip.js', /JSZip v(\S+)/],
     ['Handlebars', 'handlebars-latest.js', /handlebars v(\S+)/]
   ])('shows the vendored %s version', (name, file, pattern) => {
     const header = fs.readFileSync(path.resolve(__dirname, '../../src/statics/lib', file), 'utf8');

@@ -41,7 +41,7 @@ export default {
         url: 'https://github.com/ffmpegwasm/ffmpeg.wasm'
       }, {
         name: 'JSZip',
-        version: '3.1.5',
+        version: npm.jszip,
         desc: 'Create, read and edit .zip files with JavaScript',
         url: 'https://github.com/Stuk/jszip'
       }, {
