@@ -140,9 +140,9 @@ release on its own. The `0.x` pins are tighter still — caret on a `0.x`
 version locks the *minor*, so `@ffmpeg/core: ^0.12.10` resolves
 `>=0.12.10 <0.13.0`.
 
-`typescript` is exact-pinned, and Renovate holds it below 7. It is there only
-for the editor's typescript-language-server, which needs its tsserver, and
-TypeScript 7 ships none.
+`typescript` is exact-pinned. It is there only for the editor's language
+server, which TypeScript 7 serves itself (`tsc --lsp`); TypeScript 7 ships no
+tsserver, so a typescript-language-server setup needs a 6.x of its own.
 
 The committed lockfile is the second layer, and `minimumReleaseAge` is the
 third: caret bounds *which* versions are admissible, the lockfile fixes which
