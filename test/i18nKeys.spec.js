@@ -10,7 +10,7 @@ import path from 'path';
 const SRC = path.resolve(__dirname, '../src');
 const LOCALES = ['en', 'zh_CN'];
 
-// src/statics holds vendored third-party libraries, not components.
+// src/statics holds files copied into the build as they are (manifest, locales, lib/global.js), not components.
 const files = fs.readdirSync(SRC, { recursive: true })
   .filter(file => /\.(vue|js)$/.test(file) && !file.startsWith(`statics${path.sep}`));
 

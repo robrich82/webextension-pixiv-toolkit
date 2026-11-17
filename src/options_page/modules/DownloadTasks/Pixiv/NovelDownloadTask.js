@@ -71,7 +71,7 @@ class NovelDownloadTask extends AbstractDownloadTask {
 
   /**
    * @param {Blob} blob
-   * @param {'txt'} extension
+   * @param {string} extension
    */
   async saveBook(blob, extension) {
     let url = URL.createObjectURL(blob);
