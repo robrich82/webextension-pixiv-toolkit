@@ -1,4 +1,5 @@
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { test: base, expect, chromium } = require('@playwright/test');
 const { pixivResponse } = require('./fakePixivRoutes');
@@ -146,34 +147,70 @@ async function decodeMedia(context, file, mime) {
 
 const isExtensionWorker = worker => worker.url().startsWith('chrome-extension://');
 
+// Each setup step's own limit, well under the 30s test timeout, so a hang names its step (#400).
+const SETUP_TIMEOUT = 10000;
+
+/**
+ * The extension's service worker, waiting for it to start if it hasn't yet.
+ * @param {import('@playwright/test').BrowserContext} context
+ */
+async function extensionWorker(context) {
+  const started = Date.now();
+  // Listen before looking, so a worker that registers in between isn't missed.
+  const registered = context.waitForEvent('serviceworker', { predicate: isExtensionWorker, timeout: SETUP_TIMEOUT });
+  const running = context.serviceWorkers().find(isExtensionWorker);
+
+  if (running) {
+    registered.catch(() => {});
+
+    return running;
+  }
+
+  try {
+    return await registered;
+  } catch (error) {
+    throw new Error(`the extension's service worker never started (waited ${Date.now() - started}ms)`, { cause: error });
+  }
+}
+
 const test = base.extend({
-  context: async ({}, use) => {
+  // Chromium writes its indexed ruleset into the unpacked extension's _metadata on load. Workers sharing one
+  // build race on it, and the loser runs without the extension (#400), so each worker loads its own copy.
+  extensionPath: [async ({}, use) => {
     if (!fs.existsSync(path.join(EXTENSION_PATH, 'manifest.json'))) {
       throw new Error(`No extension build at ${EXTENSION_PATH}; run \`pnpm run build\` first.`);
     }
 
+    const copy = fs.mkdtempSync(path.join(os.tmpdir(), 'ptk-e2e-extension-'));
+    fs.cpSync(EXTENSION_PATH, copy, {
+      recursive: true,
+      filter: source => path.relative(EXTENSION_PATH, source) !== '_metadata'
+    });
+
+    await use(copy);
+    fs.rmSync(copy, { recursive: true, force: true });
+  }, { scope: 'worker' }],
+
+  context: async ({ extensionPath }, use) => {
     const context = await chromium.launchPersistentContext('', {
       // Full Chromium: the default headless shell can't load extensions.
       channel: 'chromium',
       args: [
-        `--disable-extensions-except=${EXTENSION_PATH}`,
-        `--load-extension=${EXTENSION_PATH}`
+        `--disable-extensions-except=${extensionPath}`,
+        `--load-extension=${extensionPath}`
       ]
     });
 
     // The serviceWorker fixture reads the worker synchronously, so make sure
     // it exists before any test runs.
-    if (!context.serviceWorkers().some(isExtensionWorker)) {
-      await context.waitForEvent('serviceworker', isExtensionWorker);
-    }
+    const worker = await extensionWorker(context);
 
     // The fresh install writes the default settings asynchronously (stamping
     // `version`). A page opened before then misses them, and they can land on
     // top of settings a test seeds (#241).
-    const worker = context.serviceWorkers().find(isExtensionWorker);
     await expect.poll(() => worker.evaluate(() =>
       chrome.storage.local.get('version').then(items => items.version)
-    ), { message: 'the install never wrote the default settings' }).toBeTruthy();
+    ), { message: 'the install never wrote the default settings', timeout: SETUP_TIMEOUT }).toBeTruthy();
 
     await use(context);
     await context.close();
