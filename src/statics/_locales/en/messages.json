@@ -701,6 +701,12 @@
    "_permissions": {
        "message": "Permissions"
    },
+   "_host_permissions_missing": {
+       "message": "Pixiv Toolkit doesn't have access to pixiv and Fanbox, so it can't add its download buttons or download from them."
+   },
+   "_grant_access": {
+       "message": "Grant access"
+   },
    "_open": {
        "message": "Open"
    },

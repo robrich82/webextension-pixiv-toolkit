@@ -351,6 +351,36 @@ describe('i18n', () => {
   });
 });
 
+describe('permissions', () => {
+  test('a request grants what was asked and fires onAdded with only what is new', async () => {
+    const added = vi.fn();
+    browser.permissions.onAdded.addListener(added);
+    browser._fake.state.grantedPermissions.origins = ['*://a.test/*'];
+
+    expect(await browser.permissions.request({ origins: ['*://a.test/*', '*://b.test/*'] })).toBe(true);
+
+    expect(await browser.permissions.contains({ origins: ['*://a.test/*', '*://b.test/*'] })).toBe(true);
+    expect(added).toHaveBeenCalledWith({ permissions: [], origins: ['*://b.test/*'] });
+
+    await browser.permissions.request({ origins: ['*://b.test/*'] });
+    expect(added).toHaveBeenCalledTimes(1);
+  });
+
+  test('a remove revokes what was asked and fires onRemoved with only what was granted', async () => {
+    const removed = vi.fn();
+    browser.permissions.onRemoved.addListener(removed);
+    browser._fake.state.grantedPermissions.origins = ['*://a.test/*'];
+
+    await browser.permissions.remove({ origins: ['*://a.test/*', '*://b.test/*'] });
+
+    expect(await browser.permissions.contains({ origins: ['*://a.test/*'] })).toBe(false);
+    expect(removed).toHaveBeenCalledWith({ permissions: [], origins: ['*://a.test/*'] });
+
+    await browser.permissions.remove({ origins: ['*://a.test/*'] });
+    expect(removed).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('reset between tests', () => {
   test('leaves nothing behind', async () => {
     expect(await browser.storage.local.get(null)).toEqual({});

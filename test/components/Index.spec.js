@@ -2,6 +2,7 @@ import { flushPromises } from '@vue/test-utils';
 import browser from '../doubles/browser';
 import { mountOption, shallowMountOption } from '../helpers/mountOptionComponent';
 import Index from '@/options_page/Index.vue';
+import manifest from '@/statics/manifest.json';
 
 const mountIndex = (browserItems = {}, mount = shallowMountOption) => {
   const push = vi.fn(() => Promise.resolve());
@@ -214,6 +215,65 @@ describe('Index', () => {
       await flushPromises();
 
       expect(browser.tabs.create).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('site access notice', () => {
+    const notice = wrapper => wrapper.find('.host-permissions-notice');
+
+    beforeEach(() => {
+      browser._fake.setManifest(manifest);
+    });
+
+    test('asks for the manifest origins while any is missing, and hides once granted', async () => {
+      browser._fake.state.grantedPermissions.origins = manifest.host_permissions.slice(1);
+      const { wrapper } = mountMenu();
+      await flushPromises();
+
+      expect(notice(wrapper).text()).toContain('_host_permissions_missing.message');
+
+      await notice(wrapper).find('button').trigger('click');
+      await flushPromises();
+
+      expect(browser.permissions.request).toHaveBeenCalledWith({ origins: manifest.host_permissions });
+      expect(notice(wrapper).exists()).toBe(false);
+    });
+
+    test('stays up when the user declines', async () => {
+      browser.permissions.request.mockResolvedValueOnce(false);
+      const { wrapper } = mountMenu();
+      await flushPromises();
+
+      await notice(wrapper).find('button').trigger('click');
+      await flushPromises();
+
+      expect(notice(wrapper).exists()).toBe(true);
+    });
+
+    test('is not shown when every origin is granted', async () => {
+      browser._fake.state.grantedPermissions.origins = manifest.host_permissions.slice();
+      const { wrapper } = mountMenu();
+      await flushPromises();
+
+      expect(notice(wrapper).exists()).toBe(false);
+    });
+
+    test('follows grants and revokes made elsewhere until unmounted', async () => {
+      browser._fake.state.grantedPermissions.origins = manifest.host_permissions.slice();
+      const { wrapper } = mountMenu();
+      await flushPromises();
+
+      await browser.permissions.remove({ origins: [manifest.host_permissions[0]] });
+      await flushPromises();
+      expect(notice(wrapper).exists()).toBe(true);
+
+      await browser.permissions.request({ origins: manifest.host_permissions });
+      await flushPromises();
+      expect(notice(wrapper).exists()).toBe(false);
+
+      wrapper.unmount();
+      expect(browser.permissions.onAdded.hasListeners()).toBe(false);
+      expect(browser.permissions.onRemoved.hasListeners()).toBe(false);
     });
   });
 });

@@ -273,6 +273,8 @@ function createBrowserFake() {
   const downloadsOnDeterminingFilename = event();
   const downloadsOnChanged = event();
   const downloadsOnErased = event();
+  const permissionsOnAdded = event();
+  const permissionsOnRemoved = event();
 
   /** Matches on the query's fields by equality; enough for `{ id }` and `{ state }`. */
   const findDownloads = query => Array.from(browser.downloads.items.values())
@@ -363,6 +365,7 @@ function createBrowserFake() {
       getURL: syncApi(path => `chrome-extension://${browser.runtime.id}/${String(path).replace(/^\//, '')}`),
       getManifest: syncApi(() => clone(state.manifest)),
       getPlatformInfo: api(() => clone(state.platformInfo)),
+      openOptionsPage: api(() => undefined),
       reload: syncApi(() => undefined)
     },
 
@@ -492,27 +495,40 @@ function createBrowserFake() {
         permissions.every(name => state.grantedPermissions.permissions.includes(name)) &&
         origins.every(origin => state.grantedPermissions.origins.includes(origin))),
 
-      request: api(({ permissions = [], origins = [] }) => {
-        permissions.forEach(name => {
-          if (!state.grantedPermissions.permissions.includes(name)) {
-            state.grantedPermissions.permissions.push(name);
-          }
-        });
+      onAdded: permissionsOnAdded,
+      onRemoved: permissionsOnRemoved,
 
-        origins.forEach(origin => {
-          if (!state.grantedPermissions.origins.includes(origin)) {
-            state.grantedPermissions.origins.push(origin);
-          }
-        });
+      /** Grants everything asked for, firing `onAdded` with what was new. */
+      request: api(({ permissions = [], origins = [] }) => {
+        const added = {
+          permissions: permissions.filter(name => !state.grantedPermissions.permissions.includes(name)),
+          origins: origins.filter(origin => !state.grantedPermissions.origins.includes(origin))
+        };
+
+        state.grantedPermissions.permissions.push(...added.permissions);
+        state.grantedPermissions.origins.push(...added.origins);
+
+        if (added.permissions.length || added.origins.length) {
+          permissionsOnAdded.emit(added);
+        }
 
         return true;
       }),
 
       remove: api(({ permissions = [], origins = [] }) => {
+        const removed = {
+          permissions: state.grantedPermissions.permissions.filter(name => permissions.includes(name)),
+          origins: state.grantedPermissions.origins.filter(origin => origins.includes(origin))
+        };
+
         state.grantedPermissions.permissions = state.grantedPermissions.permissions
           .filter(name => !permissions.includes(name));
         state.grantedPermissions.origins = state.grantedPermissions.origins
           .filter(origin => !origins.includes(origin));
+
+        if (removed.permissions.length || removed.origins.length) {
+          permissionsOnRemoved.emit(removed);
+        }
 
         return true;
       })

@@ -707,6 +707,12 @@
    "_permissions": {
        "message": "权限"
    },
+   "_host_permissions_missing": {
+       "message": "Pixiv Toolkit 没有访问 pixiv 和 Fanbox 的权限，因此无法在这些网站上显示下载按钮或进行下载。"
+   },
+   "_grant_access": {
+       "message": "授予权限"
+   },
    "_open": {
        "message": "打开"
    },
