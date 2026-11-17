@@ -70,6 +70,13 @@
         </v-list>
       </v-navigation-drawer>
       <v-main>
+        <v-container v-if="hostPermissionsMissing" class="host-permissions-notice pb-0" style="max-width: 800px;">
+          <v-alert type="warning" :text="tl('_host_permissions_missing')">
+            <template #append>
+              <v-btn variant="outlined" @click="grantHostPermissions">{{ tl('_grant_access') }}</v-btn>
+            </template>
+          </v-alert>
+        </v-container>
         <router-view style="max-width: 800px;" />
       </v-main>
 
@@ -98,9 +105,12 @@ import Supports from '@@/components/Supports';
 import AppSuggest from '@@/components/AppSuggest';
 import UpdateNotice from '@@/components/UpdateNotice';
 import browser from '@/modules/Extension/browser';
+import HostPermissionsMixin from '@/mixins/HostPermissionsMixin';
 
 export default {
   name: 'App',
+
+  mixins: [HostPermissionsMixin],
 
   components: {
     'supports': Supports,

@@ -7,6 +7,7 @@ import updates from './updates';
 import updateSettings from '@/config/update';
 import versionCompare from '@/modules/Util/versionCompare';
 import AbstractPortService from './services/AbstractPortService';
+import { hasHostPermissions } from '@/modules/Extension/hostPermissions';
 
 class Application {
   /**
@@ -151,6 +152,11 @@ class Application {
         browser.action.setBadgeText({ text: 'NEW' });
         browser.action.setBadgeBackgroundColor({ color: '#FF0000' });
       }
+    }
+
+    // Firefox can install without site access (#390); the options page asks for it.
+    if (reason === 'install' && !(await hasHostPermissions())) {
+      await browser.runtime.openOptionsPage();
     }
   }
 

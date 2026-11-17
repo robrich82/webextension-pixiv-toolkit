@@ -13,6 +13,7 @@ import SettingService from '../src/background/services/SettingService';
 import Updater from '../src/background/modules/Updater';
 import updates from '../src/background/updates';
 import versionCompare from '../src/modules/Util/versionCompare';
+import manifest from '../src/statics/manifest.json';
 
 beforeEach(() => {
   Application.instance = undefined;
@@ -95,8 +96,8 @@ describe('the registered updates', () => {
 });
 
 describe('Application.onInstalled', () => {
-  const install = ({ reason, manifestVersion, settings }) => {
-    browser._fake.setManifest({ version: manifestVersion, manifest_version: 3 });
+  const install = ({ reason, manifestVersion, settings, hostPermissions }) => {
+    browser._fake.setManifest({ version: manifestVersion, manifest_version: 3, host_permissions: hostPermissions });
 
     return browser.storage.local.set(settings)
       .then(() => Application.app().onInstalled({ reason }));
@@ -146,5 +147,32 @@ describe('Application.onInstalled', () => {
     await install({ reason: 'chrome_update', manifestVersion: '6.4.3', settings: { version: '5.5.3' } });
 
     expect(browser.storage.local.items.version).toBe('5.5.3');
+  });
+
+  describe('without site access', () => {
+    const installWithOrigins = (reason, granted, settings = {}) => {
+      browser._fake.state.grantedPermissions.origins = granted;
+
+      return install({ reason, manifestVersion: '6.4.3', settings, hostPermissions: manifest.host_permissions });
+    };
+
+    test('opens the options page on a fresh install with an origin missing', async () => {
+      await installWithOrigins('install', manifest.host_permissions.slice(1));
+
+      expect(browser.permissions.contains).toHaveBeenCalledWith({ origins: manifest.host_permissions });
+      expect(browser.runtime.openOptionsPage).toHaveBeenCalledTimes(1);
+    });
+
+    test('does not open it on a fresh install with every origin granted', async () => {
+      await installWithOrigins('install', manifest.host_permissions.slice());
+
+      expect(browser.runtime.openOptionsPage).not.toHaveBeenCalled();
+    });
+
+    test('does not open it on an update', async () => {
+      await installWithOrigins('update', [], { version: '5.5.3' });
+
+      expect(browser.runtime.openOptionsPage).not.toHaveBeenCalled();
+    });
   });
 });

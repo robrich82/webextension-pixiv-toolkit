@@ -4,6 +4,10 @@
       <h1><span>Pixiv</span>Toolkit</h1>
       <a href="#" @click="openGithub" class="starit"><img src="../options_page/assets/github.svg">{{ tl('_star_it') }} !</a>
     </div>
+    <div class="host-permissions-notice" v-if="hostPermissionsMissing">
+      <p>{{ tl('_host_permissions_missing') }}</p>
+      <a href="#" @click="grantHostPermissions" class="button">{{ tl('_grant_access') }}</a>
+    </div>
     <div class="entries">
       <div class="entry">
         <a href="#" @click="openHistory" class="button">{{ tl('_history') }}</a>
@@ -50,11 +54,13 @@
 
 <script>
 import SuperMixin from "@/mixins/SuperMixin";
+import HostPermissionsMixin from "@/mixins/HostPermissionsMixin";
 import browser from "@/modules/Extension/browser";
 
 export default {
   mixins: [
-    SuperMixin
+    SuperMixin,
+    HostPermissionsMixin
   ],
 
   data() {
@@ -223,6 +229,29 @@ body {
         width: 15px;
         vertical-align: middle;
       }
+    }
+  }
+
+  .host-permissions-notice {
+    margin: auto -20px;
+    padding: 10px 20px;
+    font-size: 12px;
+    background: #fff3cd;
+    color: #664d03;
+
+    p {
+      margin: 0 0 8px;
+    }
+
+    a {
+      display: block;
+      padding: 6px 0;
+      text-align: center;
+      border-radius: 3px;
+      background: #fff;
+      text-decoration: none;
+      color: #000;
+      box-shadow: 0 0 2px rgba(0, 0, 0, 0.3);
     }
   }
 
