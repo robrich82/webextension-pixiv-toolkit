@@ -484,6 +484,12 @@ class Firefox {
     }, label), `no "${label}" button`);
   }
 
+  /** Wait for a panel button whose text is exactly `label`. */
+  async waitForButton(tab, label) {
+    await poll(() => this.bidi.evaluate(tab, text => [...document.querySelectorAll('.ptk__action__wrapper__body a')]
+      .some(a => a.textContent.trim() === text), label), `no "${label}" button`);
+  }
+
   /** What the extension logged and which pixiv hosts the proxy turned away, for a failure message. */
   diagnostics() {
     const refused = this.pixiv.refused.filter(host => /pixiv\.net|pximg\.net/.test(host));

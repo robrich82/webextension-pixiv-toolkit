@@ -48,6 +48,8 @@ test('an illust is downloaded and saved in a zip', { timeout: TIMEOUT }, async (
   assert.equal(entries.length, 1);
   assert.equal(marker(Buffer.from(entries[0].base64, 'base64')), 'page 0');
   assert.ok(firefox.pixiv.requests.includes(`https://i.pximg.net${original}`));
+  // #391: the button follows the task's progress through to the tick.
+  await firefox.waitForButton(tab, 'Download ✔');
   assertNoErrors();
 });
 

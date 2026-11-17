@@ -394,6 +394,40 @@ describe('App download', () => {
     expect(actionLabels(wrapper)).toEqual(['_download 0.00%']);
   });
 
+  // #391: the port the page opened on load predates a download manager the click opened.
+  test('observes the task again over a new port once the download manager is open', async () => {
+    respondTo(addsDownloads);
+    const wrapper = await mountWithPage();
+    const loadPort = observerPort();
+
+    await clickAndFlush(actionButtons(wrapper)[0]);
+
+    expect(observerPort()).not.toBe(loadPort);
+    expect(loadPort.disconnected).toBe(true);
+    expect(observerPort().postedMessages).toEqual([{ args: { downloadTaskIds: ['task'] } }]);
+
+    observerPort().peer.postMessage({ downloadTasksStatus: [{ type: 'PIXIV_ILLUST', progress: 1, state: 4 }] });
+    await flushPromises();
+    expect(actionLabels(wrapper)).toEqual(['_download ✔']);
+  });
+
+  test('observes again even when the task already exists and the re-add is declined', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(false);
+    respondTo({
+      'download:ensureDownloadManagerOpen': true,
+      'download:addDownload': { result: false, errorName: 'DownloadTaskExistsError' }
+    });
+    const wrapper = await mountWithPage();
+    const loadPort = observerPort();
+
+    await clickAndFlush(actionButtons(wrapper)[0]);
+
+    expect(observerPort()).not.toBe(loadPort);
+    observerPort().peer.postMessage({ downloadTasksStatus: [{ type: 'PIXIV_ILLUST', progress: 0.5, state: 3 }] });
+    await flushPromises();
+    expect(actionLabels(wrapper)).toEqual(['_download 50.00%']);
+  });
+
   test('the notice hides itself after three seconds', async () => {
     vi.useFakeTimers();
     try {

@@ -58,6 +58,15 @@ test('download opens the download manager and saves the image', async ({ context
   expect(errors).toEqual([]);
 });
 
+// #391: the page was observing before the download manager existed.
+test("the Download button follows the task the download manager opened for", async ({ context }) => {
+  const { page } = await openIllustPanel(context);
+
+  await page.getByText('Download', { exact: true }).click();
+
+  await expect(page.getByText('Download ✔', { exact: true })).toBeVisible({ timeout: 20000 });
+});
+
 for (const entry of ['options_page/index.html', 'popup_page/index.html']) {
   test(`${entry} mounts without errors`, async ({ context, extensionId }) => {
     const errors = collectErrors(context);
