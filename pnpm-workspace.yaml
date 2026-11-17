@@ -57,9 +57,15 @@ trustPolicy: no-downgrade
 # 2023, is the latest), and addons-linter still depends on it, so neither an
 # update nor an `overrides` floor can clear it. It is dev-only: web-ext pulls
 # it in, and nothing in dist/ ships it.
+#
+# GHSA-fc5q-39xc-vjpf (high): picomatch <=4.0.7 has a ReDoS through repeated
+# extglobs. There is no patched release. It is build-time only: tinyglobby pulls
+# it in for vite and for vue-router's file-based routing unplugin, which this
+# repo doesn't use, and nothing in dist/ ships it.
 auditConfig:
   ignoreGhsas:
     - GHSA-gcqx-w48m-w2h4
+    - GHSA-fc5q-39xc-vjpf
 
 # --- Overrides --------------------------------------------------------------
 # An advisory floor stays only while resolving without it (no lockfile) lands
