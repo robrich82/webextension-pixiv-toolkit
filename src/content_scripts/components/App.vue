@@ -411,6 +411,11 @@ export default {
       });
 
       if (response) {
+        // The page's observer port may predate this download manager tab, which then never hears it (#391).
+        if (this.resource) {
+          this.observeDownloadTask();
+        }
+
         if (fnAfterOpen) {
           await fnAfterOpen();
         }
