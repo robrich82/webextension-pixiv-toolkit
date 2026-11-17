@@ -45,13 +45,13 @@ function manifestPaths(manifest) {
 
 // Uses behind a feature check, which are fine below the floor.
 const GUARDED = [
-  // Dexie copies Promise.withResolvers only when it exists.
-  /(?<![\w$])([\w$]+)\.withResolvers&&\([\w$]+\.withResolvers=\1\.withResolvers\)/g,
+  // Dexie copies Promise.withResolvers only when it exists. Its own minified build ends a comma expression there.
+  /(?<![\w$])([\w$]+)\.withResolvers\)?&&\([\w$]+\.withResolvers=\1\.withResolvers\)/g,
   // Vue Router checks for view transitions inline, Vuetify returns early without them.
   /[`'"]startViewTransition[`'"]\s*in\s*document\s*&&\s*document\.startViewTransition\(/g,
   /!document\.startViewTransition\s*\|\|[^]{0,1500}?document\.startViewTransition\(/g
 ];
-const GUARDED_COMPAT = [/^lib\/dexie\/dexie\.js:\d+ navigator\.userAgentData\(\) /];
+const GUARDED_COMPAT = [/^lib\/dexie\/dexie\.min\.js:\d+ navigator\.userAgentData\(\) /];
 // Uses that degrade on the floor, accepted for now. Per file, so a new use elsewhere still fails.
 const ACCEPTED = { chrome: [], firefox: [] };
 
@@ -148,6 +148,15 @@ describe.each(['chrome', 'firefox'])('build for %s', platform => {
 
     expect(options).toMatch(/globalThis\.Dexie\b/);
     expect(read(out, 'background/background.js')).not.toMatch(/globalThis\.(Dexie|Vue|VueI18n|locales)\b/);
+  });
+
+  it('gives the options pages the Dexie global from the npm package the background bundles', () => {
+    const context = vm.createContext({});
+
+    vm.runInContext(read(out, 'lib/dexie/dexie.min.js'), context);
+
+    expect(context.Dexie.semVer).toBe(JSON.parse(read(ROOT, 'node_modules/dexie/package.json')).version);
+    expect(fs.existsSync(path.join(out, 'lib/dexie/dexie.min.js.map'))).toBe(true);
   });
 
   // OptionsPageLayouts.spec.js runs against vitest.config.mjs's define, not this build's.

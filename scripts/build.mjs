@@ -256,6 +256,13 @@ function copyStatics(platform, out) {
   fs.copyFileSync(fromRoot('node_modules/vue/dist/vue.global.prod.js'), path.join(out, 'lib/vue.global.prod.js'));
   fs.copyFileSync(fromRoot('node_modules/vue-i18n/dist/vue-i18n.global.prod.js'), path.join(out, 'lib/vue-i18n.global.prod.js'));
 
+  // The same Dexie the background bundles, so both sides open the database with one version.
+  const dexieOut = path.join(out, 'lib/dexie');
+  fs.mkdirSync(dexieOut, { recursive: true });
+  for (const file of ['dexie.min.js', 'dexie.min.js.map']) {
+    fs.copyFileSync(fromRoot(`node_modules/dexie/dist/${file}`), path.join(dexieOut, file));
+  }
+
   /**
    * @ffmpeg/core also ships an esm/ build of the same ~32MB core+wasm pair.
    * Only umd/ is loaded (importScripts in a classic worker), so copy only that.

@@ -66,7 +66,7 @@ describe('ThirdParty', () => {
 
     expect(versions).toMatchObject({
       'ffmpeg.wasm': installed('@ffmpeg/ffmpeg'),
-      'Dexie.js': `${installed('dexie')}, 3.2.2`,
+      'Dexie.js': installed('dexie'),
       'Vue.js': installed('vue'),
       'Vue Router': installed('vue-router'),
       Vuetify: installed('vuetify'),
@@ -88,12 +88,6 @@ describe('ThirdParty', () => {
     const item = mountOption(ThirdParty).findAll('.v-list-item').find(i => i.find('.third-party__name').text() === name);
 
     expect(item.find('.third-party__version').text()).toBe(header.match(pattern)[1]);
-  });
-
-  test('shows the vendored Dexie version used by the pages', () => {
-    const dexie = fs.readFileSync(path.resolve(__dirname, '../../src/statics/lib/dexie/dexie.js'), 'utf8');
-
-    expect(mountOption(ThirdParty).text()).toContain(`, ${dexie.match(/DEXIE_VERSION = '([^']+)'/)[1]}`);
   });
 
   test('titles the page through the extension i18n API', () => {

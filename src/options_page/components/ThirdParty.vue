@@ -46,8 +46,7 @@ export default {
         url: 'https://github.com/Stuk/jszip'
       }, {
         name: 'Dexie.js',
-        // The background bundles the npm package; the pages load the vendored copy.
-        version: `${npm.dexie}, 3.2.2`,
+        version: npm.dexie,
         desc: 'A minimalistic wrapper for IndexedDB',
         url: 'https://github.com/dexie/Dexie.js'
       }, {
