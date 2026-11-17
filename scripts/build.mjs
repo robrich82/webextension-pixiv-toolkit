@@ -263,7 +263,7 @@ function copyStatics(platform, out) {
     fs.copyFileSync(fromRoot(`node_modules/dexie/dist/${file}`), path.join(dexieOut, file));
   }
 
-  fs.copyFileSync(fromRoot('node_modules/jszip/dist/jszip.min.js'), path.join(out, 'lib/jszip/jszip.min.js'));
+  fs.copyFileSync(fromRoot('node_modules/jszip/dist/jszip.min.js'), path.join(out, 'lib/jszip.min.js'));
 
   /**
    * @ffmpeg/core also ships an esm/ build of the same ~32MB core+wasm pair.

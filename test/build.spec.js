@@ -162,7 +162,7 @@ describe.each(['chrome', 'firefox'])('build for %s', platform => {
   it('gives the download manager the JSZip global from the npm package', () => {
     const context = vm.createContext({});
 
-    vm.runInContext(read(out, 'lib/jszip/jszip.min.js'), context);
+    vm.runInContext(read(out, 'lib/jszip.min.js'), context);
 
     expect(context.JSZip.version).toBe(JSON.parse(read(ROOT, 'node_modules/jszip/package.json')).version);
   });

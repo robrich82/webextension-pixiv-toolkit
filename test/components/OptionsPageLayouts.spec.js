@@ -66,6 +66,7 @@ describe('ThirdParty', () => {
 
     expect(versions).toMatchObject({
       'ffmpeg.wasm': installed('@ffmpeg/ffmpeg'),
+      JSZip: installed('jszip'),
       'Dexie.js': installed('dexie'),
       'Vue.js': installed('vue'),
       'Vue Router': installed('vue-router'),
@@ -74,7 +75,6 @@ describe('ThirdParty', () => {
       'vue-virtual-scroller': installed('vue-virtual-scroller'),
       'Material Design Icons': installed('@mdi/font'),
       'Moment.js': installed('moment'),
-      JSZip: installed('jszip'),
       mitt: installed('mitt'),
       md5: installed('md5')
     });
