@@ -239,6 +239,16 @@ describe('Index', () => {
       expect(notice(wrapper).exists()).toBe(false);
     });
 
+    // Firefox and Chrome only allow the request inside the click's own task.
+    test('asks in the same tick as the click', async () => {
+      const { wrapper } = mountMenu();
+      await flushPromises();
+
+      notice(wrapper).find('button').element.click();
+
+      expect(browser.permissions.request).toHaveBeenCalledWith({ origins: manifest.host_permissions });
+    });
+
     test('stays up when the user declines', async () => {
       browser.permissions.request.mockResolvedValueOnce(false);
       const { wrapper } = mountMenu();
