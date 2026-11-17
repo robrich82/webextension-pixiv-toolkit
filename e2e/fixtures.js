@@ -1,4 +1,5 @@
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { test: base, expect, chromium } = require('@playwright/test');
 const { pixivResponse } = require('./fakePixivRoutes');
@@ -173,17 +174,30 @@ async function extensionWorker(context) {
 }
 
 const test = base.extend({
-  context: async ({}, use) => {
+  // Chromium writes its indexed ruleset into the unpacked extension's _metadata on load. Workers sharing one
+  // build race on it, and the loser runs without the extension (#400), so each worker loads its own copy.
+  extensionPath: [async ({}, use) => {
     if (!fs.existsSync(path.join(EXTENSION_PATH, 'manifest.json'))) {
       throw new Error(`No extension build at ${EXTENSION_PATH}; run \`pnpm run build\` first.`);
     }
 
+    const copy = fs.mkdtempSync(path.join(os.tmpdir(), 'ptk-e2e-extension-'));
+    fs.cpSync(EXTENSION_PATH, copy, {
+      recursive: true,
+      filter: source => path.relative(EXTENSION_PATH, source) !== '_metadata'
+    });
+
+    await use(copy);
+    fs.rmSync(copy, { recursive: true, force: true });
+  }, { scope: 'worker' }],
+
+  context: async ({ extensionPath }, use) => {
     const context = await chromium.launchPersistentContext('', {
       // Full Chromium: the default headless shell can't load extensions.
       channel: 'chromium',
       args: [
-        `--disable-extensions-except=${EXTENSION_PATH}`,
-        `--load-extension=${EXTENSION_PATH}`
+        `--disable-extensions-except=${extensionPath}`,
+        `--load-extension=${extensionPath}`
       ]
     });
 
