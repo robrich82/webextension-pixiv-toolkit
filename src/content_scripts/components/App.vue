@@ -412,7 +412,7 @@ export default {
 
       if (response) {
         if (fnAfterOpen) {
-          fnAfterOpen();
+          await fnAfterOpen();
         }
       } else {
         this.displayNotice(this.tl('_cant_open_download_manager'))
@@ -444,35 +444,40 @@ export default {
       }));
     },
 
-    async downloadWithDownloadManager({ ugoiraConvertType, redownload = false }) {
-      const pageChangeToken = this.pageChangeToken;
+    async downloadWithDownloadManager({ ugoiraConvertType }) {
+      // Taken at the click: Pixiv can move to another work while the download manager opens or the confirm is up.
+      const download = {
+        ugoiraConvertType,
+        args: this.getDownloadArgs({ ugoiraConvertType }),
+        pageChangeToken: this.pageChangeToken
+      };
 
-      await this.ensureDownloadManagerOpen(async () => {
-        const args = this.getDownloadArgs({ ugoiraConvertType });
-        args.options.redownload = redownload;
+      await this.ensureDownloadManagerOpen(() => this.addDownload(download));
+    },
 
-        let response = await browser.runtime.sendMessage({
-          action: 'download:addDownload',
-          args
-        }).catch(() => undefined);
+    async addDownload({ ugoiraConvertType, args, pageChangeToken, redownload = false }) {
+      let response = await browser.runtime.sendMessage({
+        action: 'download:addDownload',
+        args: { ...args, options: { ...args.options, redownload } }
+      }).catch(() => undefined);
 
-        if (response && response.result) {
-          // The download manager records the download history once the task completes.
-          // After a page change, the buttons belong to another work.
-          if (pageChangeToken === this.pageChangeToken) {
-            this.markTaskQueued(ugoiraConvertType);
-          }
-
-          this.displayNotice(this.tl('_download_added'));
-        } else if (response && response.errorName === 'DownloadTaskExistsError') {
-          // On a re-download, the task is still running: the download manager keeps it, and so does the button.
-          if (!redownload && window.confirm(this.tl(`_the_resource_is_already_in_download_manager`))) {
-            this.downloadWithDownloadManager({ ugoiraConvertType, redownload: true })
-          }
-        } else {
-          alert(this.tl('_unknown_error') + ': ' + (response && response.errorName));
+      if (response && response.result) {
+        // The download manager records the download history once the task completes.
+        // After a page change, the buttons belong to another work.
+        if (pageChangeToken === this.pageChangeToken) {
+          this.markTaskQueued(ugoiraConvertType);
         }
-      });
+
+        this.displayNotice(this.tl('_download_added'));
+      } else if (response && response.errorName === 'DownloadTaskExistsError') {
+        // On a re-download, the task is still running: the download manager keeps it, and so does the button.
+        if (!redownload && window.confirm(this.tl(`_the_resource_is_already_in_download_manager`))) {
+          await this.ensureDownloadManagerOpen(() =>
+            this.addDownload({ ugoiraConvertType, args, pageChangeToken, redownload: true }));
+        }
+      } else {
+        alert(this.tl('_unknown_error') + ': ' + (response && response.errorName));
+      }
     },
 
     download({ ugoiraConvertType } = {}) {

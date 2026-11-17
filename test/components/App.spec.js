@@ -627,6 +627,60 @@ describe('App download', () => {
     expect(actionLabels(wrapper)).toEqual(['_download']);
   });
 
+  // #403: Pixiv is a SPA, so the next work can load while the download manager tab opens.
+  const showWork = async id => {
+    const resource = fakeResource();
+    resource.unpack = () => ({ type: 'Illust', id });
+    window.$app = { resource };
+    window.$eventBus.$emit('pagechange', { url: resource.getUrl(), type: 'illust' });
+    await flushPromises();
+  };
+
+  const holdResponse = action => {
+    const held = {};
+    browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+      if (message.action === action) {
+        held.respond = sendResponse;
+        return true;
+      }
+    });
+    return held;
+  };
+
+  test('sends the clicked work when the next one loads while the download manager opens', async () => {
+    const opening = holdResponse('download:ensureDownloadManagerOpen');
+    respondTo({ 'download:addDownload': { result: true } });
+    const wrapper = mountLive();
+    await showWork('A');
+
+    await clickAndFlush(actionButtons(wrapper)[0]);
+    await showWork('B');
+    opening.respond(true);
+    await flushPromises();
+
+    expect(sentMessages('download:addDownload').map(message => message.args.unpackedResource.id)).toEqual(['A']);
+    expect(actionLabels(wrapper)).toEqual(['_download']);
+  });
+
+  test('a re-download confirmed after the next work loads re-sends the clicked one', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    respondTo({ 'download:ensureDownloadManagerOpen': true });
+    const adding = holdResponse('download:addDownload');
+    const wrapper = mountLive();
+    await showWork('A');
+
+    await clickAndFlush(actionButtons(wrapper)[0]);
+    await showWork('B');
+    adding.respond({ result: false, errorName: 'DownloadTaskExistsError' });
+    await flushPromises();
+    adding.respond({ result: true });
+    await flushPromises();
+
+    expect(sentMessages('download:addDownload').map(({ args }) => [args.unpackedResource.id, args.options.redownload]))
+      .toEqual([['A', false], ['A', true]]);
+    expect(actionLabels(wrapper)).toEqual(['_download']);
+  });
+
   test('declining the re-add prompt sends nothing more', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(false);
     respondTo(existsUntilRedownload);
