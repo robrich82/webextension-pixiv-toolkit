@@ -7,7 +7,7 @@ import os from 'os';
 import path from 'path';
 import { compatReports, newerApiUses, versionAdded } from './helpers/bundleApiFloor';
 
-const DEXIE_GUARD = /(?<![\w$])([\w$]+)\.withResolvers&&\([\w$]+\.withResolvers=\1\.withResolvers\)/g;
+const DEXIE_GUARD = /(?<![\w$])([\w$]+)\.withResolvers\)?&&\([\w$]+\.withResolvers=\1\.withResolvers\)/g;
 
 let out;
 
@@ -66,8 +66,12 @@ describe('newerApiUses', () => {
     expect(newerApiUses(out, { browser: 'firefox', floor: 121 })).toEqual([]);
   });
 
-  it('leaves out guarded uses', () => {
-    write('a.js', 'j.withResolvers&&(F.withResolvers=j.withResolvers);');
+  it.each([
+    'j.withResolvers&&(F.withResolvers=j.withResolvers);',
+    // Dexie's minified build, where the check ends a comma expression.
+    'K=(f(),Ae.withResolvers)&&(K.withResolvers=Ae.withResolvers);'
+  ])('leaves out guarded uses: %s', source => {
+    write('a.js', source);
 
     expect(newerApiUses(out, { browser: 'firefox', floor: 115, guarded: [DEXIE_GUARD] })).toEqual([]);
   });
