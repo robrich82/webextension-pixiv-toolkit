@@ -3,9 +3,11 @@
 ## Requirements
 
 - Node and pnpm within the `engines` ranges in `package.json`
-- `mise.toml` pins the exact Node version, for local development and CI
-- `packageManager` pins the exact pnpm version, integrity hash included;
-  `mise.toml` tells mise to install pnpm from it, so there is one pnpm pin
+- `mise.toml` pins the exact Node and pnpm versions, for local development and
+  CI, and `mise.lock` pins their downloads by checksum
+- `packageManager` pins the same pnpm, integrity hash included; Renovate bumps
+  both pnpm pins in one PR and relocks `mise.lock` there, and
+  `test/toolchainPins.spec.js` fails if the pins and the lock disagree
 - `pnpm install --frozen-lockfile` to install — `pnpm-lock.yaml` is committed
   and CI installs from it
 
@@ -222,8 +224,12 @@ workflow itself) changes, and validates the config with the digest-pinned
 Renovate image.
 
 `jdx/mise-action` installs Node and pnpm exactly as local mise does, so CI runs
-the same versions as local development. The pnpm store is cached with
+the same versions as local development. Because `mise.lock` exists it installs
+with `--locked`, failing on a version or checksum the lock doesn't have. CI
+caches mise's downloads, keyed on `mise.lock`. The pnpm store is cached with
 `actions/cache`, keyed on `pnpm-lock.yaml`.
+
+To relock by hand, run `mise lock`; it keeps the platforms already in the lock.
 
 The job then runs `pnpm install --frozen-lockfile`,
 `pnpm audit --audit-level=moderate`, `pnpm test`, and the Chrome and Firefox

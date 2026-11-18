@@ -1,8 +1,14 @@
-# 2026.8.11 reads pnpm from `packageManager` and verifies its hash.
-min_version = "2026.8.11"
+# The oldest release tested with this mise.lock; 2026.8.11 can't read it.
+min_version = "2026.11.8"
 
 [settings]
-idiomatic_version_file_enable_tools = ["pnpm"]
+# Stops the per-install download ping to mise-versions.jdx.dev.
+use_versions_host_track = false
+# Overrides any global list naming pnpm: reading `packageManager` as well would
+# add a second, npm:pnpm entry to mise.lock.
+idiomatic_version_file_enable_tools = []
 
 [tools]
 node = "26.13.1"
+# Must match `packageManager` in package.json; test/toolchainPins.spec.js checks.
+pnpm = "12.21.0"
