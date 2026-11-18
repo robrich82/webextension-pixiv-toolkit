@@ -145,6 +145,33 @@ async function decodeMedia(context, file, mime) {
   }
 }
 
+/**
+ * Seed one visit into the options page's Dexie history, the way the
+ * download manager would.
+ * @param {import('@playwright/test').Page} page  an extension page, for its Dexie global
+ * @param {object} [fields]  overrides for the seeded row
+ */
+async function seedHistory(page, fields = {}) {
+  await page.evaluate(async fields => {
+    const db = new Dexie('PixivToolkitDatabase');
+    db.version(1).stores({
+      histories: '++id,&uid,title,userName,cover,url,type,r,downloaded_at,visited_at',
+      tracked_errors: '++id,error,created_at'
+    });
+    await db.histories.add({
+      uid: 'illust:10000001',
+      title: 'seeded',
+      cover: '',
+      url: 'https://www.pixiv.net/en/artworks/10000001',
+      type: 0,
+      r: false,
+      visited_at: Math.floor(Date.now() / 1000),
+      ...fields
+    });
+    db.close();
+  }, fields);
+}
+
 const isExtensionWorker = worker => worker.url().startsWith('chrome-extension://');
 
 // Each setup step's own limit, well under the 30s test timeout, so a hang names its step (#400).
@@ -227,5 +254,5 @@ const test = base.extend({
 
 module.exports = {
   test, expect, mockPixiv, collectErrors, openPanel, waitForDownloads,
-  seedSettings, recordSaveNames, savedFiles, decodeMedia
+  seedSettings, seedHistory, recordSaveNames, savedFiles, decodeMedia
 };

@@ -187,7 +187,8 @@ $primary-blue-text-color: #fff;
       left: 10px;
       border-radius: 5px;
       box-shadow: 0 0 5px rgba(0, 0, 0, 0.3);
-      background: rgb(255, 255, 255);
+      background: rgb(var(--v-theme-surface));
+      color: rgb(var(--v-theme-on-surface));
       transform: translateX(-300px);
       transition: 800ms ease all;
     }

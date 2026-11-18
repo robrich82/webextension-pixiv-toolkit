@@ -176,7 +176,7 @@ export default {
 .option-section__input-text {
   width: 100%;
   padding: 5px 5px;
-  background: #efefef;
+  background: rgb(var(--v-theme-surface-light));
   border-radius: 5px;
 }
 

@@ -429,7 +429,7 @@ export default {
       box-sizing: border-box;
 
       &:hover {
-        background: #f6f6f6;
+        background: rgba(var(--v-theme-on-surface), var(--v-hover-opacity));
 
         .history-item__actions {
           width: 120px;
@@ -476,7 +476,7 @@ export default {
 
       a {
         text-decoration: none;
-        color:#555;
+        color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
 
         &:hover {
           text-decoration: underline;
@@ -489,7 +489,7 @@ export default {
     }
 
     .history-item__info-entity--sub {
-      color: #999;
+      color: rgba(var(--v-theme-on-surface), var(--v-disabled-opacity));
     }
 
     .history-item__info-tag {
@@ -515,7 +515,7 @@ export default {
     }
 
     .history-item__actions-btn {
-      color: rgb(88, 88, 88);
+      color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
     }
   }
 
@@ -523,7 +523,7 @@ export default {
     font-size: 14px;
     text-align: center;
     line-height: 4;
-    color: #999;
+    color: rgba(var(--v-theme-on-surface), var(--v-disabled-opacity));
   }
 }
 
@@ -533,7 +533,7 @@ export default {
 
   .v-field {
     box-shadow: none !important;
-    border: 1px solid #dedede;
+    border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
     border-radius: 100px !important;
   }
 }

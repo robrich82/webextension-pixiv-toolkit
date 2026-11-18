@@ -1,29 +1,4 @@
-const { test, expect, collectErrors } = require('./fixtures');
-
-/**
- * Seed one visit into the options page's Dexie history, the way the
- * download manager would.
- * @param {import('@playwright/test').Page} page
- */
-async function seedHistory(page) {
-  await page.evaluate(async () => {
-    const db = new Dexie('PixivToolkitDatabase');
-    db.version(1).stores({
-      histories: '++id,&uid,title,userName,cover,url,type,r,downloaded_at,visited_at',
-      tracked_errors: '++id,error,created_at'
-    });
-    await db.histories.add({
-      uid: 'illust:10000001',
-      title: 'seeded',
-      cover: '',
-      url: 'https://www.pixiv.net/en/artworks/10000001',
-      type: 0,
-      r: false,
-      visited_at: Math.floor(Date.now() / 1000)
-    });
-    db.close();
-  });
-}
+const { test, expect, collectErrors, seedHistory } = require('./fixtures');
 
 // moment's own locales aren't bundled (#184): en is built in and zh_CN is the
 // app's own locale. Had zh_CN fallen back to en, the time would end in AM/PM.
