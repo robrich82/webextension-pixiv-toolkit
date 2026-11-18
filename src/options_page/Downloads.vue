@@ -180,20 +180,5 @@ $primary-blue-text-color: #fff;
         font-weight: 700;
       }
     }
-
-    .app-suggest_container {
-      position: fixed;
-      bottom: 10px;
-      left: 10px;
-      border-radius: 5px;
-      box-shadow: 0 0 5px rgba(0, 0, 0, 0.3);
-      background: rgb(255, 255, 255);
-      transform: translateX(-300px);
-      transition: 800ms ease all;
-    }
-
-    .app-suggest_container--show {
-      transform: translateX(0px);
-    }
 }
 </style>
