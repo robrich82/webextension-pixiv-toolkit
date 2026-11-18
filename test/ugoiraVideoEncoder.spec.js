@@ -34,13 +34,16 @@ describe('chooseCodec', () => {
   });
 
   it('falls back to the first codec it can encode, in the offered order', async () => {
+    vi.spyOn(console, 'info').mockImplementation(() => {});
     encodable('vp8');
 
     expect(await chooseCodec('webm', 'vp9', { width: 16, height: 16 })).toBe('vp8');
     expect(canEncodeVideo.mock.calls.map(([codec]) => codec)).toEqual(['vp9', 'av1', 'vp8']);
+    expect(console.info).toHaveBeenCalledWith("Encoding webm as vp8: this browser can't encode vp9 at 16x16");
   });
 
   it('ignores a preferred codec the container cannot hold', async () => {
+    vi.spyOn(console, 'info').mockImplementation(() => {});
     encodable('avc', 'av1');
 
     expect(await chooseCodec('webm', 'avc', { width: 16, height: 16 })).toBe('av1');
@@ -59,7 +62,7 @@ describe('chooseCodec', () => {
     encodable();
 
     await expect(chooseCodec('webm', 'vp9', { width: 1920, height: 1080 }))
-      .rejects.toThrow("This browser can't encode WEBM video at 1920x1080");
+      .rejects.toThrow("This browser can't encode WEBM video at 1920x1080 (tried vp9, av1, vp8)");
   });
 });
 

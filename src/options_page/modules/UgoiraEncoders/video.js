@@ -66,11 +66,17 @@ export async function chooseCodec(container, preferred, size) {
   // One at a time: odd sizes encode at a different size per codec (encodedSize).
   for (const codec of candidates) {
     if (await canEncodeVideo(codec, { ...encodedSize(codec, size), quality: QUALITY })) {
+      if (codec !== preferred) {
+        console.info(`Encoding ${container} as ${codec}: this browser can't encode ${preferred} at ${size.width}x${size.height}`);
+      }
+
       return codec;
     }
   }
 
-  throw new Error(`This browser can't encode ${container.toUpperCase()} video at ${size.width}x${size.height}`);
+  // Mediabunny remembers a failed check until the download manager is reloaded.
+  throw new Error(`This browser can't encode ${container.toUpperCase()} video at ${size.width}x${size.height} ` +
+    `(tried ${candidates.join(', ')}). Reload the download manager and retry, or download another format.`);
 }
 
 /**
@@ -106,25 +112,25 @@ export async function encodeVideo({ frames, container, codec, onProgress, signal
   const times = frameTimes(frames);
   let bitmap = await createImageBitmap(frames[0].image);
   const size = { width: bitmap.width, height: bitmap.height };
-  let chosen;
+  let chosen, width, height, context, format, output, source;
 
   try {
     chosen = await chooseCodec(container, codec || defaultCodec, size);
+    ({ width, height } = encodedSize(chosen, size));
+    const canvas = new OffscreenCanvas(width, height);
+    context = canvas.getContext('2d');
+    format = createFormat();
+    output = new Output({ format, target: new BufferTarget() });
+    source = new CanvasSource(canvas, { codec: chosen, quality: QUALITY });
+    output.addVideoTrack(source);
   } catch (error) {
     bitmap.close();
     throw error;
   }
 
-  const { width, height } = encodedSize(chosen, size);
-  const canvas = new OffscreenCanvas(width, height);
-  const context = canvas.getContext('2d');
-  const format = createFormat();
-  const output = new Output({ format, target: new BufferTarget() });
-  const source = new CanvasSource(canvas, { codec: chosen, quality: QUALITY });
   // A pending add() then rejects; a finalize() under way finishes, so the abort is checked after it.
   const cancel = () => output.cancel().catch(() => {});
 
-  output.addVideoTrack(source);
   signal?.addEventListener('abort', cancel);
 
   try {
