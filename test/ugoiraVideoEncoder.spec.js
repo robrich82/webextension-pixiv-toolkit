@@ -259,6 +259,16 @@ describe('encodeVideo', () => {
     expect(output().format).toBeInstanceOf(Mp4OutputFormat);
   });
 
+  it('keeps an MP4 without H.264 at the frame size, in MP4', async () => {
+    vi.spyOn(console, 'info').mockImplementation(() => {});
+    encodable('vp9');
+
+    const result = await encodeVideo({ frames: FRAMES, container: 'mp4' });
+
+    expect(result).toMatchObject({ mimeType: 'video/mp4', extension: 'mp4', codec: 'vp9' });
+    expect(source().canvas).toMatchObject({ width: 17, height: 17 });
+  });
+
   it('closes the first frame when no codec encodes', async () => {
     encodable();
 

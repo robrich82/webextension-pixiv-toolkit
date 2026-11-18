@@ -112,7 +112,7 @@ test('DL WEBM keeps an odd frame size and every frame of a longer PNG ugoira', a
   expect(errors).toEqual([]);
 });
 
-// On the odd fixture: Firefox's H.264 encoder refuses the 16x16 one (see e2e-firefox/downloads.test.mjs).
+// The odd fixture, as in e2e-firefox/downloads.test.mjs, where 16x16 is too small for Firefox's H.264 encoder.
 test('DL MP4 encodes H.264 through WebCodecs, padded to an even size, each frame for its own delay', async ({ context, serviceWorker }) => {
   const errors = collectErrors(context);
   await context.unrouteAll();
