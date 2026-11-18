@@ -17,20 +17,6 @@ async function settle(page) {
 }
 
 /**
- * Switch the page's Vuetify theme. The pages are pinned light (#386), so the
- * test switches the instance itself rather than the OS preference.
- * @param {import('@playwright/test').Page} page
- * @param {'light'|'dark'} name
- */
-async function useTheme(page, name) {
-  await page.evaluate(name => {
-    document.querySelector('#app-mount').__vue_app__._context.provides[Symbol.for('vuetify:theme')].change(name);
-  }, name);
-  await expect(page.locator('.v-application')).toHaveClass(new RegExp(`v-theme--${name}`));
-  await settle(page);
-}
-
-/**
  * Every visible piece of text, form value, placeholder and SVG icon whose contrast with what is
  * painted behind it is under `minContrast`, as `selector "text" ratio`.
  * @param {import('@playwright/test').Page} page
@@ -230,13 +216,16 @@ for (const theme of ['dark', 'light']) {
       await seeder.close();
 
       const page = await context.newPage();
+      // The pages follow the OS preference.
+      await page.emulateMedia({ colorScheme: theme });
       await page.goto(`chrome-extension://${extensionId}/${path}`);
+      await expect(page.locator('.v-application')).toHaveClass(new RegExp(`v-theme--${theme}`));
 
       for (const selector of ready) {
         await expect(page.locator(selector).first()).toBeVisible();
       }
 
-      await useTheme(page, theme);
+      await settle(page);
 
       const unreadable = [];
       const measure = async state => {
@@ -257,3 +246,16 @@ for (const theme of ['dark', 'light']) {
     });
   }
 }
+
+test('the settings page follows the OS preference as it changes', async ({ context, extensionId }) => {
+  const errors = collectErrors(context);
+  const page = await context.newPage();
+  await page.emulateMedia({ colorScheme: 'light' });
+  await page.goto(`chrome-extension://${extensionId}/options_page/index.html#/`);
+  await expect(page.locator('.v-application')).toHaveClass(/v-theme--light/);
+
+  await page.emulateMedia({ colorScheme: 'dark' });
+
+  await expect(page.locator('.v-application')).toHaveClass(/v-theme--dark/);
+  expect(errors).toEqual([]);
+});
