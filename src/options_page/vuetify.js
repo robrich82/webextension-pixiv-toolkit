@@ -67,7 +67,7 @@ const components = {
   VTooltip
 };
 
-// Light only: Vuetify 4 defaults to 'system', and the pages hardcode light-theme colours.
+// Light only, until the pages' dark theme is turned on (#386). Vuetify 4 defaults to 'system'.
 export function createAppVuetify(options) {
   return createVuetify({ components, theme: { defaultTheme: 'light' }, ...options });
 }

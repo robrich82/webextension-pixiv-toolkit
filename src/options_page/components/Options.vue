@@ -47,7 +47,7 @@ export default {
       font-size: 20px;
       font-weight: 700;
       margin-bottom: 10px;
-      color: #262626;
+      color: rgb(var(--v-theme-on-background));
     }
   }
 }

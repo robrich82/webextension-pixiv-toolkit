@@ -4,6 +4,7 @@
       size="small"
       rounded="pill"
       variant="flat"
+      theme="light"
       class="support-btn" @click="openInNewTab('https://github.com/leoding86/webextension-pixiv-toolkit')">
       <img src="../assets/github.svg">
       <span class="button-text" v-show="largeWindow">{{ tl('_star_it') }}</span>
@@ -15,6 +16,7 @@
       size="small"
       rounded="pill"
       variant="flat"
+      theme="light"
       class="support-btn"
       @click="openInNewTab(reviewInfo.url)"
     >
@@ -36,8 +38,9 @@
     <v-btn v-if="showInlineSponsorsLink"
       size="small"
       variant="flat"
-      rounded="pill" class="support-btn" @click="openSponsorsInNew ? openInNewTab(sponsorsURL) : routeTo('Sponsors')"
-      style="background:#fff;">
+      rounded="pill"
+      theme="light"
+      class="support-btn" @click="openSponsorsInNew ? openInNewTab(sponsorsURL) : routeTo('Sponsors')">
       😍<span class="button-text" v-show="largeWindow">{{ tl('Sponsors') }}</span>
       <v-icon v-if="openSponsorsInNew">mdi-open-in-new</v-icon>
       <v-icon v-else>mdi-chevron-right</v-icon>

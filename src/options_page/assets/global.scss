@@ -80,7 +80,7 @@ a.subtitle {
 }
 
 .v-expansion-panel, .v-card {
-  border: 1px solid rgba(0, 0, 0, .12) !important;
+  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity)) !important;
   border-radius: 10px;
   box-shadow: none;
   overflow: hidden;

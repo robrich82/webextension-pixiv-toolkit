@@ -70,7 +70,7 @@ export default {
 <style lang="scss">
 .cacheable-image {
   position: relative;
-  background: #fff;
+  background: rgb(var(--v-theme-surface));
 
   .cacheable-image-bg {
     position: absolute;

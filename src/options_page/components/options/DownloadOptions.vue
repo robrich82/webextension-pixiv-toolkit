@@ -4,9 +4,10 @@
 
     <v-card style="margin-bottom:30px;">
       <v-list lines="two">
-        <v-list-item>
+        <!-- Full opacity: faded, the error colour is too faint on the dark theme. -->
+        <v-list-item style="--v-list-item-subtitle-opacity: 1">
           <template #title>{{ tl('_max_process_download_tasks') }}</template>
-          <template #subtitle><span style="color:brown">{{ tl('_running_too_many_download_tasks_at_same_time_may_be_cause_high_CPU_usage') }}</span></template>
+          <template #subtitle><span class="text-error">{{ tl('_running_too_many_download_tasks_at_same_time_may_be_cause_high_CPU_usage') }}</span></template>
           <template #append>
             <v-text-field
               reverse
