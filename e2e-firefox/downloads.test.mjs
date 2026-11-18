@@ -54,7 +54,7 @@ test('an illust is downloaded and saved in a zip', { timeout: TIMEOUT }, async (
 });
 
 /** Launch on the ugoira, click a format button and return the converted animation. */
-async function convertUgoira(label, mime, settings) {
+async function convertUgoira(label, mime) {
   firefox = await launch({
     ajax: {
       '/ajax/illust/10000003': 'pixiv/illust-ugoira.json',
@@ -64,10 +64,6 @@ async function convertUgoira(label, mime, settings) {
       '/img-zip-ugoira/img/2024/06/01/08/00/00/10000003_ugoira1920x1080.zip': 'pixiv/illust-ugoira-frames.zip'
     }
   });
-
-  if (settings) {
-    await firefox.seedSettings(settings);
-  }
 
   const tab = await firefox.openPanel('https://www.pixiv.net/en/artworks/10000003');
   await firefox.clickButton(tab, label);
@@ -100,17 +96,6 @@ for (const { label, mime } of [
     assertNoErrors();
   });
 }
-
-test('DL Custom runs the custom FFmpeg command', { timeout: TIMEOUT }, async () => {
-  // The last argument names the output, and so the saved file's type.
-  const animation = await convertUgoira('DL Custom', 'image/gif', {
-    ugoiraCustomFFmpegCommand: '-f concat -i input.txt -vf scale=8:4 -plays 0 custom.gif'
-  });
-
-  // The scale shows the custom command ran, not the fixed GIF one.
-  assert.deepEqual(await firefox.decodeMedia(animation.path, 'image/gif'), { width: 8, height: 4 });
-  assertNoErrors();
-});
 
 test('a novel is saved as a text file with its url, author, title and text', { timeout: TIMEOUT }, async () => {
   const url = 'https://www.pixiv.net/novel/show.php?id=40000001';

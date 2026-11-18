@@ -1,6 +1,7 @@
 /**
- * The 6.4.7 migration, which clears the `ugoiraConvertTool` and
- * `maxDownloadRecords` settings left inert once nothing read them any more,
+ * The 6.4.7 migration, which clears the `ugoiraConvertTool`,
+ * `maxDownloadRecords` and `ugoiraCustomFFmpegCommand` settings left inert
+ * once nothing read them any more,
  * and repairs the old `mangaRenameRule` default.
  */
 // The update also runs the history migrations, which open IndexedDB.
@@ -18,7 +19,7 @@ beforeEach(() => {
   Application.createApp();
 });
 
-test.each(['ugoiraConvertTool', 'maxDownloadRecords'])('removes %s rather than blanking it', async key => {
+test.each(['ugoiraConvertTool', 'maxDownloadRecords', 'ugoiraCustomFFmpegCommand'])('removes %s rather than blanking it', async key => {
   await browser.storage.local.set({ [key]: 'stale', language: 'ja' });
 
   await update6_4_7();
@@ -30,13 +31,14 @@ test.each(['ugoiraConvertTool', 'maxDownloadRecords'])('removes %s rather than b
   expect(key in browser.storage.local.items).toBe(false);
 });
 
-test.each(['ugoiraConvertTool', 'maxDownloadRecords', 'historyBackup'])('fresh installs no longer get %s', key => {
+test.each(['ugoiraConvertTool', 'maxDownloadRecords', 'historyBackup', 'ugoiraCustomFFmpegCommand'])('fresh installs no longer get %s', key => {
   expect(defaultSettings).not.toHaveProperty(key);
 });
 
 test('leaves every other setting alone', async () => {
   await browser.storage.local.set({
-    ugoiraConvertTool: 'default', maxDownloadRecords: 10000, language: 'ja', downloadSaveMode: 1
+    ugoiraConvertTool: 'default', maxDownloadRecords: 10000, ugoiraCustomFFmpegCommand: '-f concat -i input.txt out.gif',
+    language: 'ja', downloadSaveMode: 1
   });
 
   await update6_4_7();

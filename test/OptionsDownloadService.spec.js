@@ -39,6 +39,21 @@ const addDownloadArgs = (id, options = {}) => JSON.parse(JSON.stringify({
   options: { selectedIndexes: [], ...options }
 }));
 
+/** The same for an ugoira, whose options name the format to convert to. */
+const addUgoiraDownloadArgs = (id, options = {}) => JSON.parse(JSON.stringify({
+  unpackedResource: IllustResource.create({
+    id: `${id}`,
+    title: `Work ${id}`,
+    url: `https://www.pixiv.net/artworks/${id}`,
+    illustType: IllustResource.UGOIRA_TYPE,
+    illustOriginalSrc: `https://i.pximg.net/img-zip-ugoira/${id}_ugoira1920x1080.zip`,
+    illustFrames: [{ file: '000000.jpg', delay: 100 }],
+    pages: [],
+    totalPages: 1
+  }).unpack(),
+  options: { selectedIndexes: [], ...options }
+}));
+
 beforeEach(async () => {
   Application.instance = undefined;
   DownloadService.instance = undefined;
@@ -122,6 +137,33 @@ describe('download:addDownload', () => {
       errorName: 'DownloadTaskExistsError'
     });
     expect(manager().getTask('pixiv_illust:1')).toBe(running);
+  });
+});
+
+describe('download:addDownload for an ugoira', () => {
+  test('a known format starts a task named after it', async () => {
+    await expect(send('download:addDownload', addUgoiraDownloadArgs(3, { ugoiraConvertType: 'gif' })))
+      .resolves.toEqual({ result: true });
+
+    const task = manager().getTask('pixiv_illust:3:gif');
+    expect(task.options.convertType).toBe('gif');
+    expect(task.options.ffmpegCommandArgs).toMatch(/out\.gif$/);
+  });
+
+  // The Custom download, which ran a stored FFmpeg command, has gone: no format is refused, not converted somehow.
+  test.each([
+    ['no format', {}],
+    ['an unknown format', { ugoiraConvertType: 'custom' }]
+  ])('%s is refused without adding a task', async (_, options) => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    await expect(send('download:addDownload', addUgoiraDownloadArgs(3, options))).resolves.toBeUndefined();
+
+    expect(manager().tasks.size).toBe(0);
+    expect(error).toHaveBeenCalledWith(
+      'onMessage handler failed for action "download:addDownload"',
+      expect.objectContaining({ message: `Unknown ugoira convert type: ${options.ugoiraConvertType}` })
+    );
   });
 });
 

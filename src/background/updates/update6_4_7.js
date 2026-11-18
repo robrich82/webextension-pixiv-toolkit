@@ -7,12 +7,14 @@ const OLD_MANGA_RENAME_RULE = '{id}_{title}}';
 /**
  * Update to 6.4.7
  *
- * Drops two inert settings. No live code reads either key, so removing
- * them only clears a stale value; there is no behaviour to preserve.
+ * Drops three settings nothing reads any more, so removing them only clears
+ * a stale value.
  * - `ugoiraConvertTool` picked between conversion tools before ffmpeg-core
  *   was bundled locally.
  * - `maxDownloadRecords` capped the download-record store, which upstream
  *   stopped using in 6.0.0.
+ * - `ugoiraCustomFFmpegCommand` was the Custom ugoira download's FFmpeg
+ *   command, removed with that download.
  *
  * Also moves the v5 visit history into the History page's Dexie table, from
  * the PouchDB store and the `historyBackup` setting (see migrateIllustHistory
@@ -26,7 +28,7 @@ const OLD_MANGA_RENAME_RULE = '{id}_{title}}';
 export default async () => {
   const settingService = app().getService('setting');
 
-  await settingService.removeSettings(['ugoiraConvertTool', 'maxDownloadRecords']);
+  await settingService.removeSettings(['ugoiraConvertTool', 'maxDownloadRecords', 'ugoiraCustomFFmpegCommand']);
 
   const { mangaRenameRule } = await settingService.getSetting('mangaRenameRule');
 

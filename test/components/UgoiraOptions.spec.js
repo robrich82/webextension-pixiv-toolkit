@@ -5,7 +5,6 @@ import RenameDialog from '@/options_page/components/options/RenameDialog.vue';
 
 const browserItems = {
   ugoiraRenameRule: '{id}_{title}',
-  ugoiraCustomFFmpegCommand: '-f concat',
   animationJsonFormat: 2
 };
 
@@ -19,28 +18,18 @@ describe('UgoiraOptions', () => {
     expect(wrapper.text()).toContain('rename_ugoira_file.message');
   });
 
-  test("links the ffmpeg command's help to this fork's docs/help.md", () => {
+  test('has no FFmpeg command field any more', () => {
     const wrapper = mountOption(UgoiraOptions, { browserItems });
 
-    expect(wrapper.find('a[href*="help.md"]').attributes('href')).toBe(
-      'https://github.com/robrich82/webextension-pixiv-toolkit/blob/main/docs/help.md#about-ffmpeg-custom-convert-command-en_us'
-    );
+    expect(wrapper.find('textarea').exists()).toBe(false);
+    expect(wrapper.find('a[href*="help.md"]').exists()).toBe(false);
   });
 
   test('adopts every stored value on creation', () => {
     const wrapper = shallowMountOption(UgoiraOptions, { browserItems });
 
     expect(wrapper.vm.renameRule).toBe('{id}_{title}');
-    expect(wrapper.vm.ugoiraCustomFFmpegCommand).toBe('-f concat');
     expect(wrapper.vm.animationJsonFormat).toBe(2);
-  });
-
-  test('falls back to an empty ffmpeg command when none is stored', () => {
-    const wrapper = shallowMountOption(UgoiraOptions, {
-      browserItems: { ...browserItems, ugoiraCustomFFmpegCommand: undefined }
-    });
-
-    expect(wrapper.vm.ugoiraCustomFFmpegCommand).toBe('');
   });
 
   test('builds the rename quick-pick metas', () => {
@@ -78,16 +67,6 @@ describe('UgoiraOptions', () => {
     await wrapper.vm.$nextTick();
 
     expect(browser.storage.local.items.animationJsonFormat).toBe(0);
-  });
-
-  test('onUgoiraCustomFFmpegCommandChangeHandler trims and persists the command', async () => {
-    const wrapper = shallowMountOption(UgoiraOptions, { browserItems });
-
-    wrapper.vm.ugoiraCustomFFmpegCommand = '  -f concat -i input.txt  ';
-    wrapper.vm.onUgoiraCustomFFmpegCommandChangeHandler();
-    await browser._fake.flush();
-
-    expect(browser.storage.local.items.ugoiraCustomFFmpegCommand).toBe('-f concat -i input.txt');
   });
 
   test('clicking the rename item opens the "rename_ugoira.message" rename dialog', async () => {

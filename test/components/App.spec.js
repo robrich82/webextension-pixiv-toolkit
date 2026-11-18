@@ -211,13 +211,13 @@ describe('App page lifecycle', () => {
     const wrapper = await mountWithPage(ugoira);
 
     expect(actionLabels(wrapper)).toEqual([
-      '_download_apng', '_download_gif', '_download_webm', '_download_mp4', '_download_custom'
+      '_download_apng', '_download_gif', '_download_webm', '_download_mp4'
     ]);
   });
 
   test.each([
     ['an illust', {}, ['task']],
-    ['an ugoira', ugoira, ['task-gif', 'task-apng', 'task-mp4', 'task-webm', 'task-custom']]
+    ['an ugoira', ugoira, ['task-gif', 'task-apng', 'task-mp4', 'task-webm']]
   ])('%s observes its download task ids', async (_, resourceOptions, downloadTaskIds) => {
     await mountWithPage(resourceOptions);
 
@@ -260,7 +260,7 @@ describe('App page lifecycle', () => {
     await flushPromises();
 
     expect(actionLabels(wrapper)).toEqual([
-      '_download_apng', '_download_gif', '_download_webm (D:0.00%)', '_download_mp4', '_download_custom'
+      '_download_apng', '_download_gif', '_download_webm (D:0.00%)', '_download_mp4'
     ]);
   });
 
@@ -277,7 +277,7 @@ describe('App page lifecycle', () => {
     await flushPromises();
 
     expect(actionLabels(wrapper)).toEqual([
-      '_download_apng', '_download_gif (D:25.00%)', '_download_webm ✔', '_download_mp4 (P:50.00%)', '_download_custom'
+      '_download_apng', '_download_gif (D:25.00%)', '_download_webm ✔', '_download_mp4 (P:50.00%)'
     ]);
   });
 
@@ -454,8 +454,7 @@ describe('App download', () => {
     ['_download_apng', 'apng'],
     ['_download_gif', 'gif'],
     ['_download_webm', 'webm'],
-    ['_download_mp4', 'mp4'],
-    ['_download_custom', undefined]
+    ['_download_mp4', 'mp4']
   ])('the %s button sends its convert type', async (label, ugoiraConvertType) => {
     respondTo(addsDownloads);
     const wrapper = await mountWithPage(ugoira);
@@ -529,7 +528,7 @@ describe('App download', () => {
     await clickAndFlush(actionButtons(wrapper).find(a => a.text() === '_download_gif ✔'));
 
     expect(actionLabels(wrapper)).toEqual([
-      '_download_apng', '_download_gif (D:0.00%)', '_download_webm', '_download_mp4 ✔', '_download_custom'
+      '_download_apng', '_download_gif (D:0.00%)', '_download_webm', '_download_mp4 ✔'
     ]);
   });
 
@@ -590,23 +589,6 @@ describe('App download', () => {
     expect(wrapper.find('.ptk__download-added-notice').isVisible()).toBe(false);
   });
 
-  // The custom format's task reports its convert type as 'CUSTOM'.
-  test('the custom ugoira button follows its task', async () => {
-    respondTo(addsDownloads);
-    const wrapper = await mountWithPage(ugoira);
-    const custom = () => actionLabels(wrapper).at(-1);
-
-    await clickAndFlush(actionButtons(wrapper).find(a => a.text() === '_download_custom'));
-    expect(custom()).toBe('_download_custom (D:0.00%)');
-
-    observerPort().peer.postMessage({
-      downloadTasksStatus: [{ type: 'PIXIV_UGOIRA', convertType: 'CUSTOM', progress: 1, processProgress: 1, state: 4 }]
-    });
-    await flushPromises();
-
-    expect(custom()).toBe('_download_custom ✔');
-  });
-
   test('a stopped task clears the queued 0%', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true);
     respondTo(existsUntilRedownload);
@@ -629,7 +611,7 @@ describe('App download', () => {
 
   test.each([
     ['an illust', {}, ['_download 0.00%']],
-    ['an ugoira', ugoira, ['_download_apng', '_download_gif', '_download_webm', '_download_mp4', '_download_custom (D:0.00%)']]
+    ['an ugoira', ugoira, ['_download_apng', '_download_gif', '_download_webm', '_download_mp4 (D:0.00%)']]
   ])("a queued 0%% on %s doesn't follow it to the next page", async (_, resourceOptions, queuedLabels) => {
     respondTo(addsDownloads);
     const wrapper = await mountWithPage(resourceOptions);
