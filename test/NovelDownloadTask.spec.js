@@ -3,7 +3,7 @@
  * background's `download:saveFile`. The epub specs run the vendored EpubMaker
  * with the globals downloads.html loads; only its cover fetch is stubbed.
  */
-import JSZip from '../src/statics/lib/jszip/jszip.js';
+import JSZip from 'jszip/dist/jszip.min.js';
 import Handlebars from '../src/statics/lib/handlebars-latest.js';
 import browser from './doubles/browser';
 import NovelDownloadTask from '@/options_page/modules/DownloadTasks/Pixiv/NovelDownloadTask';

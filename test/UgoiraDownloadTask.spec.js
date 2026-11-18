@@ -4,7 +4,7 @@
  * network stand-in, and FFmpeg.wasm is a fake that records what it is asked to
  * do; e2e/ugoira.e2e.js runs the real conversion.
  */
-import RealJSZip from '../src/statics/lib/jszip/jszip.js';
+import RealJSZip from 'jszip/dist/jszip.min.js';
 import browser from './doubles/browser';
 import { fakeDownloadFileBackground } from './helpers/downloadFileBackground';
 import UgoiraDownloadTask, { ZipRepo } from '@/options_page/modules/DownloadTasks/Pixiv/UgoiraDownloadTask';
@@ -17,16 +17,6 @@ let background;
 let saved;
 let ffmpegs;
 let nextId = 1000;
-
-/** JSZip reads a Blob through FileReader, which node lacks. */
-class FakeFileReader {
-  readAsArrayBuffer(blob) {
-    blob.arrayBuffer().then(result => {
-      this.result = result;
-      this.onload({ target: this });
-    });
-  }
-}
 
 class FakeFFmpeg {
   files = new Map();
@@ -130,7 +120,6 @@ beforeEach(() => {
   globalThis.JSZip = RealJSZip;
   globalThis.FFmpegWASM = { FFmpeg: FakeFFmpeg };
   FakeFFmpeg.execGate = undefined;
-  vi.stubGlobal('FileReader', FakeFileReader);
   // runFFmpeg logs each command and FFmpeg log line.
   vi.spyOn(console, 'log').mockImplementation(() => {});
   ffmpegs = [];

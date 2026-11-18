@@ -66,6 +66,7 @@ describe('ThirdParty', () => {
 
     expect(versions).toMatchObject({
       'ffmpeg.wasm': installed('@ffmpeg/ffmpeg'),
+      JSZip: installed('jszip'),
       'Dexie.js': installed('dexie'),
       'Vue.js': installed('vue'),
       'Vue Router': installed('vue-router'),
@@ -81,7 +82,6 @@ describe('ThirdParty', () => {
 
   // The vendored copies' versions are hardcoded, so pin them to the files that ship.
   test.each([
-    ['JSZip', 'jszip/jszip.js', /JSZip v(\S+)/],
     ['Handlebars', 'handlebars-latest.js', /handlebars v(\S+)/]
   ])('shows the vendored %s version', (name, file, pattern) => {
     const header = fs.readFileSync(path.resolve(__dirname, '../../src/statics/lib', file), 'utf8');
