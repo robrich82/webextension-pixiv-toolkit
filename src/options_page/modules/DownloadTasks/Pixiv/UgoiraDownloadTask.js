@@ -434,7 +434,7 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
 
   /**
    * input.txt's `option` lines need the concat demuxer's unsafe mode, so each `-f concat` input
-   * that reads input.txt (in any directory), custom commands included, gets `-safe 0`: added
+   * that reads input.txt (in any directory) gets `-safe 0`: added
    * before its `-i`, or replacing the value of its own `-safe`. input.txt only names the frame
    * files written here.
    * @param {string[]} args A command's arguments, changed in place
