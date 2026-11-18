@@ -181,7 +181,7 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
       let infoDownloadId;
 
       try {
-        // Beside the zip, named after the work.
+        // Beside the zip or the animation, named after the work.
         infoDownloadId = await FileSystem.getDefault().saveFileInBackground({
           url: infoUrl,
           filename: pathjoin(GlobalSettings().downloadRelativeLocation, nameFormatter.format(
@@ -193,7 +193,7 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
       }
     }
 
-    // Cached for another conversion of the same work only once everything saved, so a retry downloads again.
+    // Cached for the work's other tasks only once info.json saved, so a retry after it failed downloads again.
     ZipRepo.getDefault().storeZip(this.uid, blob);
   }
 
