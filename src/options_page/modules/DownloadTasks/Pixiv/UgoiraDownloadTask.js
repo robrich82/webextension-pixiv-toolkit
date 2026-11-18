@@ -83,7 +83,7 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
   processedFramesCount = 0;
 
   /**
-   * @type {number} FFmpeg process progress
+   * @type {number} Conversion progress
    */
   processProgress = 0;
 

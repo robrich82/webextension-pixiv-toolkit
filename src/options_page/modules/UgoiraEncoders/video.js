@@ -121,7 +121,7 @@ export async function encodeVideo({ frames, container, codec, onProgress, signal
   const format = createFormat();
   const output = new Output({ format, target: new BufferTarget() });
   const source = new CanvasSource(canvas, { codec: chosen, quality: QUALITY });
-  // The pending add() or finalize() then rejects, which the catch below turns into the abort reason.
+  // A pending add() then rejects; a finalize() under way finishes, so the abort is checked after it.
   const cancel = () => output.cancel().catch(() => {});
 
   output.addVideoTrack(source);
@@ -142,11 +142,13 @@ export async function encodeVideo({ frames, container, codec, onProgress, signal
 
       signal?.throwIfAborted();
       await source.add(times[i].timestamp, times[i].duration);
+      signal?.throwIfAborted();
       onProgress?.((i + 1) / frames.length);
     }
 
     signal?.throwIfAborted();
     await output.finalize();
+    signal?.throwIfAborted();
   } catch (error) {
     bitmap?.close();
 
