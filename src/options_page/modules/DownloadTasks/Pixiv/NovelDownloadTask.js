@@ -10,7 +10,6 @@ import pathjoin from "@/modules/Util/pathjoin";
  * @property {string} url
  * @property {string} renameRule
  * @property {boolean} includeDescription
- * @property {'txt'|'epub'} bookType
  * @property {any} context
  *
  * @class
@@ -50,31 +49,6 @@ class NovelDownloadTask extends AbstractDownloadTask {
     return new NovelDownloadTask(options);
   }
 
-  async makeEpubBook() {
-    let epubMaker = new EpubMaker();
-    epubMaker.withTemplate('idpf-wasteland');
-    epubMaker.withUuid(this.url);
-    epubMaker.withAuthor(this.context.userName);
-    epubMaker.withAttributionUrl(this.context.url);
-    epubMaker.withCover(this.context.coverUrl);
-    epubMaker.withTitle(this.title);
-
-    if (this.options.includeDescription) {
-      epubMaker.withSection(new EpubMaker.Section('bodymatter', null, {
-        content: this.context.description
-      }, false, false));
-    }
-
-    this.context.sections.forEach(section => {
-      epubMaker.withSection(new EpubMaker.Section('bodymatter', null, {
-        content: section
-      }, false, false));
-    });
-
-    // Not downloadEpub(): it returns nothing and saves through a global saveAs() that isn't loaded.
-    await this.saveBook(await epubMaker.makeEpub(), 'epub');
-  }
-
   async makeTxtBook() {
     let contentParts = [];
 
@@ -97,7 +71,7 @@ class NovelDownloadTask extends AbstractDownloadTask {
 
   /**
    * @param {Blob} blob
-   * @param {'txt'|'epub'} extension
+   * @param {string} extension
    */
   async saveBook(blob, extension) {
     let url = URL.createObjectURL(blob);
@@ -130,11 +104,7 @@ class NovelDownloadTask extends AbstractDownloadTask {
     this.dispatch('start');
 
     try {
-      if (this.options.bookType === 'epub') {
-        await this.makeEpubBook();
-      } else {
-        await this.makeTxtBook();
-      }
+      await this.makeTxtBook();
     } catch (error) {
       console.error(`Could not save novel ${this.id}`, error);
       this.lastError = error;

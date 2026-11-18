@@ -53,7 +53,6 @@ class NovelAdapter {
       renameRule: GlobalSettings().novelRenameRule,
       includeDescription: GlobalSettings().novelIncludeDescription,
       context: this.context,
-      bookType: options.bookType,
     });
   }
 }

@@ -15,7 +15,7 @@ const SRC = path.resolve(__dirname, '../../src');
 
 const kebabCase = pascal => pascal.replace(/\B([A-Z])/g, '-$1').toLowerCase();
 
-// src/statics holds vendored third-party libraries, not templates.
+// src/statics holds files copied into the build as they are (manifest, locales, lib/global.js), not templates.
 const sources = fs.readdirSync(SRC, { recursive: true })
   .filter(file => /\.(vue|js)$/.test(file) && !file.startsWith(`statics${path.sep}`))
   .map(file => fs.readFileSync(path.join(SRC, file), 'utf8'));

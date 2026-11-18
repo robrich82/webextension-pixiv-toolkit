@@ -31,8 +31,6 @@ export default {
     // Installed versions of the npm packages, from scripts/thirdPartyVersions.mjs.
     const npm = __THIRD_PARTY_VERSIONS__;
 
-    // The vendored copies in src/statics/lib aren't in node_modules, so their versions are
-    // hardcoded from the files' headers. js-epub-maker's carries none.
     return {
       thirdPartList: [{
         name: 'ffmpeg.wasm',
@@ -49,16 +47,6 @@ export default {
         version: npm.dexie,
         desc: 'A minimalistic wrapper for IndexedDB',
         url: 'https://github.com/dexie/Dexie.js'
-      }, {
-        name: 'js-epub-maker',
-        version: '',
-        desc: 'Builds EPUB files in the browser',
-        url: 'https://github.com/bbottema/js-epub-maker'
-      }, {
-        name: 'Handlebars',
-        version: '5.0.0-alpha.1',
-        desc: 'Minimal templating on steroids',
-        url: 'https://github.com/handlebars-lang/handlebars.js'
       }, {
         name: 'Vue.js',
         version: npm.vue,

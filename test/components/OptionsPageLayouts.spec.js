@@ -50,7 +50,7 @@ describe('ThirdParty', () => {
     const items = wrapper.findAll('.v-list-item');
 
     expect(items.map(item => item.find('.third-party__name').text())).toEqual([
-      'ffmpeg.wasm', 'JSZip', 'Dexie.js', 'js-epub-maker', 'Handlebars', 'Vue.js', 'Vue Router', 'Vuetify',
+      'ffmpeg.wasm', 'JSZip', 'Dexie.js', 'Vue.js', 'Vue Router', 'Vuetify',
       'vue-i18n', 'vue-virtual-scroller', 'Material Design Icons', 'Moment.js', 'mitt', 'md5'
     ]);
 
@@ -78,16 +78,6 @@ describe('ThirdParty', () => {
       mitt: installed('mitt'),
       md5: installed('md5')
     });
-  });
-
-  // The vendored copies' versions are hardcoded, so pin them to the files that ship.
-  test.each([
-    ['Handlebars', 'handlebars-latest.js', /handlebars v(\S+)/]
-  ])('shows the vendored %s version', (name, file, pattern) => {
-    const header = fs.readFileSync(path.resolve(__dirname, '../../src/statics/lib', file), 'utf8');
-    const item = mountOption(ThirdParty).findAll('.v-list-item').find(i => i.find('.third-party__name').text() === name);
-
-    expect(item.find('.third-party__version').text()).toBe(header.match(pattern)[1]);
   });
 
   test('titles the page through the extension i18n API', () => {
