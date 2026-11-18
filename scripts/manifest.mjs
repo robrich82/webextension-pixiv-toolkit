@@ -49,12 +49,15 @@ export function transformManifest(manifest, { platform, version, floors }) {
    * Firefox needs an explicit add-on id to install a build permanently or to
    * sign it through AMO. `update_url` is the self-hosted update manifest that
    * scripts/release-firefox.js publishes, so the unlisted build auto-updates.
+   * `data_collection_permissions` tells AMO and Firefox 140+ that the add-on
+   * collects no data; older Firefox ignores it with a manifest warning.
    */
   json.browser_specific_settings = {
     gecko: {
       id: 'webextension-pixiv-toolkit-fork@robrich82',
       update_url: 'https://github.com/robrich82/webextension-pixiv-toolkit/releases/latest/download/updates.json',
-      strict_min_version: `${floors.firefox}.0`
+      strict_min_version: `${floors.firefox}.0`,
+      data_collection_permissions: { required: ['none'] }
     }
   };
 

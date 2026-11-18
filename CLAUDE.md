@@ -57,7 +57,7 @@ Payloads must survive structured clone. Firefox throws `DataCloneError` on Vue r
 `src/statics/manifest.json` is written for Chrome. The minimum browser versions come from `browserslist` in `package.json` (`docs/toolchain.md`, "browserslist"). `scripts/manifest.mjs` rewrites the manifest for Firefox:
 
 - `service_worker` becomes `background.scripts`
-- a gecko id, a self-hosted `update_url` and `strict_min_version` are added
+- a gecko id, a self-hosted `update_url`, `strict_min_version` and `data_collection_permissions` (none) are added
 - `options_page` becomes `options_ui`
 - optional permissions are folded into `permissions`, except `downloads.shelf` (unsupported on Firefox)
 - `version_name` is dropped
