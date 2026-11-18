@@ -39,6 +39,7 @@ Shapes recorded as of 2026-08-28, against Pixiv's `/ajax/*` endpoints, Fanbox's
 |---|---|
 | `pixiv/illust-*.json` | `/ajax/illust/{id}`, `/ajax/illust/{id}/pages`, `/ajax/illust/{id}/ugoira_meta`, `/ajax/illust/unlisted/{id}` |
 | `pixiv/illust-ugoira-frames.zip` | the `originalSrc` zip from `ugoira_meta`: three 16x16 JPEGs, for the E2E conversion tests |
+| `pixiv/illust-ugoira-frames-odd.zip` | with `illust-ugoira-meta-odd.json`: twelve 17x17 PNGs, for odd sizes, PNG frames and more frames than the encoder queues |
 | `pixiv/novel-*.json` | `/ajax/novel/{id}` |
 | `fanbox/post-*.json` | `api.fanbox.cc/post.info`, as relayed by the background worker |
 | `pixivComic/episode-*.json` | `comic.pixiv.net/api/app/episodes/{id}/read_v4` |

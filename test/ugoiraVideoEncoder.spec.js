@@ -1,16 +1,77 @@
 /**
  * The WebCodecs ugoira encoder's choices, against the real Mediabunny output formats. Node has no
- * VideoEncoder, so which codecs "encode" is faked through canEncodeVideo; e2e/ugoira.e2e.js and
- * e2e-firefox/downloads.test.mjs run the real encode.
+ * VideoEncoder, so which codecs "encode" is faked through canEncodeVideo, and encodeVideo runs
+ * against a fake Output and CanvasSource; e2e/ugoira.e2e.js and e2e-firefox/downloads.test.mjs run
+ * the real encode.
  */
 import { canEncodeVideo } from 'mediabunny';
 import {
-  FALLBACK_DELAY, chooseCodec, containerCodecs, encodedSize, frameTimes
+  FALLBACK_DELAY, chooseCodec, containerCodecs, encodeVideo, encodedSize, frameTimes
 } from '@/options_page/modules/UgoiraEncoders/video';
+
+const fakes = vi.hoisted(() => {
+  const outputs = [];
+  const sources = [];
+  /** Called with each fake as it is made, to set up how it behaves. */
+  const hooks = {};
+
+  /** Mediabunny's Output, as far as encodeVideo drives it. */
+  class FakeOutput {
+    state = 'pending';
+    sources = [];
+
+    constructor({ format, target }) {
+      this.format = format;
+      this.target = target;
+      outputs.push(this);
+      hooks.output?.(this);
+    }
+
+    addVideoTrack(source) {
+      this.sources.push(source);
+    }
+
+    start = vi.fn(async () => {
+      this.state = 'started';
+    });
+
+    finalize = vi.fn(async () => {
+      this.target.buffer = new Uint8Array([1, 2, 3]).buffer;
+      this.state = 'finalized';
+    });
+
+    /** A pending add() rejects, as Mediabunny's does. */
+    cancel = vi.fn(async () => {
+      this.state = 'canceled';
+      this.sources.forEach(source => source.pending?.reject(new Error('Output canceled')));
+    });
+  }
+
+  class FakeCanvasSource {
+    /** add()'s settlers while one is held pending. */
+    pending = null;
+
+    constructor(canvas, config) {
+      this.canvas = canvas;
+      this.config = config;
+      sources.push(this);
+      hooks.source?.(this);
+    }
+
+    add = vi.fn(async () => {});
+  }
+
+  return { outputs, sources, hooks, FakeOutput, FakeCanvasSource };
+});
 
 vi.mock('mediabunny', async importOriginal => ({
   ...await importOriginal(),
-  canEncodeVideo: vi.fn()
+  canEncodeVideo: vi.fn(),
+  BufferTarget: class {
+    buffer = null;
+  },
+  Output: fakes.FakeOutput,
+  CanvasSource: fakes.FakeCanvasSource
 }));
 
 /** Lets the browser encode only these codecs. */
@@ -18,6 +79,9 @@ const encodable = (...codecs) => canEncodeVideo.mockImplementation(async codec =
 
 beforeEach(() => {
   canEncodeVideo.mockReset();
+  fakes.outputs.length = 0;
+  fakes.sources.length = 0;
+  fakes.hooks.output = fakes.hooks.source = undefined;
 });
 
 describe('containerCodecs', () => {
@@ -97,5 +161,139 @@ describe('frameTimes', () => {
       { timestamp: 2 * FALLBACK_DELAY / 1000, duration: FALLBACK_DELAY / 1000 },
       { timestamp: 3 * FALLBACK_DELAY / 1000, duration: 0.05 }
     ]);
+  });
+});
+
+describe('encodeVideo', () => {
+  /** @type {{ image: Blob, width: number, height: number, close: Function }[]} */
+  let bitmaps;
+  let draws;
+
+  const FRAMES = [100, 100, 150].map((delay, i) => ({ delay, image: new Blob([`frame ${i}`], { type: 'image/jpeg' }) }));
+
+  const output = () => fakes.outputs[0];
+  const source = () => fakes.sources[0];
+  const allClosed = () => bitmaps.every(bitmap => bitmap.close.mock.calls.length === 1);
+
+  beforeEach(() => {
+    bitmaps = [];
+    draws = [];
+    vi.stubGlobal('createImageBitmap', vi.fn(async image => {
+      const bitmap = { image, width: 17, height: 17, close: vi.fn() };
+      bitmaps.push(bitmap);
+      return bitmap;
+    }));
+    vi.stubGlobal('OffscreenCanvas', class {
+      constructor(width, height) {
+        Object.assign(this, { width, height });
+      }
+
+      getContext() {
+        return { fillRect: () => {}, drawImage: bitmap => draws.push(bitmap.image) };
+      }
+    });
+    encodable('vp9', 'vp8');
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('adds each frame at its own time and returns the finished file', async () => {
+    const onProgress = vi.fn();
+
+    const result = await encodeVideo({ frames: FRAMES, container: 'webm', onProgress });
+
+    expect(result).toEqual({
+      data: new Uint8Array([1, 2, 3]).buffer, mimeType: 'video/webm', extension: 'webm', codec: 'vp9'
+    });
+    expect(draws).toEqual(FRAMES.map(frame => frame.image));
+    expect(source().add.mock.calls).toEqual([[0, 0.1], [0.1, 0.1], [0.2, 0.15]]);
+    expect(onProgress.mock.calls).toEqual([[1 / 3], [2 / 3], [1]]);
+    expect(source().canvas).toMatchObject({ width: 17, height: 17 });
+    expect(bitmaps).toHaveLength(3);
+    expect(allClosed()).toBe(true);
+  });
+
+  it('encodes with the codec chosen when the preferred one fails', async () => {
+    vi.spyOn(console, 'info').mockImplementation(() => {});
+    encodable('vp8');
+
+    const { codec } = await encodeVideo({ frames: FRAMES, container: 'webm' });
+
+    expect(codec).toBe('vp8');
+    expect(source().config.codec).toBe('vp8');
+  });
+
+  it('closes the first frame when no codec encodes', async () => {
+    encodable();
+
+    await expect(encodeVideo({ frames: FRAMES, container: 'webm' })).rejects.toThrow("can't encode WEBM");
+
+    expect(fakes.outputs).toEqual([]);
+    expect(bitmaps).toHaveLength(1);
+    expect(allClosed()).toBe(true);
+  });
+
+  it('starts nothing when the signal is already aborted', async () => {
+    const reason = new Error('stopped');
+
+    await expect(encodeVideo({ frames: FRAMES, container: 'webm', signal: AbortSignal.abort(reason) }))
+      .rejects.toBe(reason);
+
+    expect(output().start).not.toHaveBeenCalled();
+    expect(output().state).toBe('canceled');
+    expect(allClosed()).toBe(true);
+  });
+
+  it('an abort while a frame is being added cancels the output and rejects with the reason', async () => {
+    const controller = new AbortController();
+    const reason = new Error('stopped');
+    fakes.hooks.source = made => made.add.mockImplementationOnce(() => new Promise((resolve, reject) => {
+      made.pending = { resolve, reject };
+    }));
+    const encoding = encodeVideo({ frames: FRAMES, container: 'webm', signal: controller.signal });
+    await vi.waitFor(() => expect(source()?.pending).toBeTruthy());
+
+    controller.abort(reason);
+
+    await expect(encoding).rejects.toBe(reason);
+    expect(output().cancel).toHaveBeenCalled();
+    expect(output().finalize).not.toHaveBeenCalled();
+    expect(source().add).toHaveBeenCalledTimes(1);
+    expect(allClosed()).toBe(true);
+  });
+
+  it('an abort while finalizing still rejects, once the file is finished', async () => {
+    const controller = new AbortController();
+    const reason = new Error('stopped');
+    let finish;
+    fakes.hooks.output = made => {
+      made.finalize.mockImplementationOnce(() => new Promise(resolve => {
+        finish = () => {
+          made.state = 'finalized';
+          resolve();
+        };
+      }));
+      // A cancel doesn't stop a finalize() under way.
+      made.cancel.mockImplementation(async () => {});
+    };
+    const encoding = encodeVideo({ frames: FRAMES, container: 'webm', signal: controller.signal });
+    await vi.waitFor(() => expect(finish).toBeDefined());
+
+    controller.abort(reason);
+    finish();
+
+    await expect(encoding).rejects.toBe(reason);
+  });
+
+  it('an encoder error cancels the output and rejects with it', async () => {
+    const error = new Error('EncodingError');
+    fakes.hooks.source = made => made.add.mockResolvedValueOnce().mockRejectedValueOnce(error);
+
+    await expect(encodeVideo({ frames: FRAMES, container: 'webm' })).rejects.toBe(error);
+    expect(source().add).toHaveBeenCalledTimes(2);
+    expect(output().state).toBe('canceled');
+    expect(allClosed()).toBe(true);
   });
 });

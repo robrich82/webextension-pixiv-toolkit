@@ -54,22 +54,26 @@ test('an illust is downloaded and saved in a zip', { timeout: TIMEOUT }, async (
   assertNoErrors();
 });
 
-/** Launch on the ugoira, with the frames zip it downloads. */
-async function launchUgoira() {
+/**
+ * Launch on the ugoira, with the frames zip it downloads. `odd` serves the twelve 17x17 PNG frames
+ * instead.
+ */
+async function launchUgoira({ odd = false } = {}) {
   firefox = await launch({
     ajax: {
       '/ajax/illust/10000003': 'pixiv/illust-ugoira.json',
-      '/ajax/illust/10000003/ugoira_meta': 'pixiv/illust-ugoira-meta.json'
+      '/ajax/illust/10000003/ugoira_meta': odd ? 'pixiv/illust-ugoira-meta-odd.json' : 'pixiv/illust-ugoira-meta.json'
     },
     pximg: {
-      '/img-zip-ugoira/img/2024/06/01/08/00/00/10000003_ugoira1920x1080.zip': 'pixiv/illust-ugoira-frames.zip'
+      '/img-zip-ugoira/img/2024/06/01/08/00/00/10000003_ugoira1920x1080.zip':
+        odd ? 'pixiv/illust-ugoira-frames-odd.zip' : 'pixiv/illust-ugoira-frames.zip'
     }
   });
 }
 
 /** Launch on the ugoira, click a format button and return the converted animation. */
-async function convertUgoira(label, mime) {
-  await launchUgoira();
+async function convertUgoira(label, mime, { odd = false } = {}) {
+  await launchUgoira({ odd });
 
   const tab = await firefox.openPanel('https://www.pixiv.net/en/artworks/10000003');
   await firefox.clickButton(tab, label);
@@ -122,6 +126,21 @@ test('DL WEBM encodes VP9 through WebCodecs, each frame for its own delay', { ti
 
   // The fixture's delays are 100, 100 and 150ms.
   assert.deepEqual(await probeVideo(animation.path), { codec: 'vp9', timestamps: [0, 0.1, 0.2], duration: 0.35 });
+  assertNoErrors();
+});
+
+test('DL WEBM keeps an odd frame size and every frame of a longer PNG ugoira', { timeout: TIMEOUT }, async () => {
+  const animation = await convertUgoira('DL WEBM', 'video/webm', { odd: true });
+
+  // Twelve frames: more than the encoder queues before add() waits for it.
+  const delays = [40, 40, 40, 40, 60, 60, 60, 60, 80, 80, 80, 200];
+  assert.deepEqual(await probeVideo(animation.path), {
+    codec: 'vp9',
+    timestamps: delays.map((_, i) => delays.slice(0, i).reduce((sum, delay) => sum + delay, 0) / 1000),
+    duration: delays.reduce((sum, delay) => sum + delay, 0) / 1000
+  });
+  const { width, height } = await firefox.decodeMedia(animation.path, 'video/webm');
+  assert.deepEqual({ width, height }, { width: 17, height: 17 });
   assertNoErrors();
 });
 

@@ -81,9 +81,9 @@ const framesZip = async () => {
   return zip.generateAsync({ type: 'nodebuffer' });
 };
 
-const createTask = ({ id = `${nextId++}`, ...options } = {}) => UgoiraDownloadTask.create({
+const createTask = ({ id = `${nextId++}`, taskId = `pixiv:${id}:gif`, ...options } = {}) => UgoiraDownloadTask.create({
   uid: `pixiv:${id}`,
-  id: `pixiv:${id}:gif`,
+  id: taskId,
   url: `https://www.pixiv.net/artworks/${id}`,
   resource: resourceUrl(id),
   frames,
@@ -788,7 +788,7 @@ describe('a save that fails fails the task', () => {
 });
 
 describe('WEBM through WebCodecs', () => {
-  const webmTask = id => createTask({ id, convertType: 'webm', ffmpegCommandArgs: '' });
+  const webmTask = id => createTask({ id, taskId: `pixiv:${id}:webm`, convertType: 'webm', ffmpegCommandArgs: '' });
 
   beforeEach(() => {
     encodeVideo.mockReset();
@@ -845,7 +845,7 @@ describe('WEBM through WebCodecs', () => {
 
     expect(task.lastError).toBe(error);
     expect(savedNames()).toEqual(['ugoira/182_Moving.zip']);
-    expect(console.error).toHaveBeenCalledWith('Could not convert ugoira pixiv:182:gif', error);
+    expect(console.error).toHaveBeenCalledWith('Could not convert ugoira pixiv:182:webm', error);
   });
 
   test('stop aborts the encoding', async () => {

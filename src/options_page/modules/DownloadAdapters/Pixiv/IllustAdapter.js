@@ -110,7 +110,8 @@ class IllustAdapter {
     const convertType = options?.ugoiraConvertType;
     // A zip task saves only the frames zip, and WebCodecs encodes the video containers, so neither
     // has an FFmpeg command.
-    const noCommand = convertType === UgoiraDownloadTask.ZIP_CONVERT_TYPE || Boolean(VIDEO_CONTAINERS[convertType]);
+    const noCommand = convertType === UgoiraDownloadTask.ZIP_CONVERT_TYPE ||
+      Object.hasOwn(VIDEO_CONTAINERS, convertType ?? '');
     const ffmpegCommandArgs = noCommand ? '' : typeof convertType === 'string' &&
       UGOIRA_FFMPEG_CLI_ARGS[`ugoiraFFmpeg${convertType.toUpperCase()}CliArgs`];
 

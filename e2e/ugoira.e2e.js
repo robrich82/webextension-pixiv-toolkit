@@ -8,17 +8,27 @@ const {
 const UGOIRA_URL = 'https://www.pixiv.net/en/artworks/10000003';
 // test/fixtures/pixiv/illust-ugoira-frames.zip: three 16x16 frames, 350ms in all.
 const FRAME_SIZE = { width: 16, height: 16 };
+// test/fixtures/pixiv/illust-ugoira-meta-odd.json's delays, as frame starts and a duration in seconds.
+const ODD_DELAYS = [40, 40, 40, 40, 60, 60, 60, 60, 80, 80, 80, 200];
+const ODD_TIMES = {
+  timestamps: ODD_DELAYS.map((_, i) => ODD_DELAYS.slice(0, i).reduce((sum, delay) => sum + delay, 0) / 1000),
+  duration: ODD_DELAYS.reduce((sum, delay) => sum + delay, 0) / 1000
+};
+
+/** The ugoira's routes, with `odd` serving the twelve 17x17 PNG frames instead. */
+const ugoiraRoutes = ({ odd = false } = {}) => ({
+  ajax: {
+    '/ajax/illust/10000003': 'pixiv/illust-ugoira.json',
+    '/ajax/illust/10000003/ugoira_meta': odd ? 'pixiv/illust-ugoira-meta-odd.json' : 'pixiv/illust-ugoira-meta.json'
+  },
+  pximg: {
+    '/img-zip-ugoira/img/2024/06/01/08/00/00/10000003_ugoira1920x1080.zip':
+      odd ? 'pixiv/illust-ugoira-frames-odd.zip' : 'pixiv/illust-ugoira-frames.zip'
+  }
+});
 
 test.beforeEach(async ({ context }) => {
-  await mockPixiv(context, {
-    ajax: {
-      '/ajax/illust/10000003': 'pixiv/illust-ugoira.json',
-      '/ajax/illust/10000003/ugoira_meta': 'pixiv/illust-ugoira-meta.json'
-    },
-    pximg: {
-      '/img-zip-ugoira/img/2024/06/01/08/00/00/10000003_ugoira1920x1080.zip': 'pixiv/illust-ugoira-frames.zip'
-    }
-  });
+  await mockPixiv(context, ugoiraRoutes());
 });
 
 /**
@@ -85,5 +95,19 @@ test('DL WEBM encodes VP9 through WebCodecs, each frame for its own delay', asyn
 
   // The fixture's delays are 100, 100 and 150ms.
   expect(await probeVideo(animation.filename)).toEqual({ codec: 'vp9', timestamps: [0, 0.1, 0.2], duration: 0.35 });
+  expect(errors).toEqual([]);
+});
+
+test('DL WEBM keeps an odd frame size and every frame of a longer PNG ugoira', async ({ context, serviceWorker }) => {
+  const errors = collectErrors(context);
+  await context.unrouteAll();
+  await mockPixiv(context, ugoiraRoutes({ odd: true }));
+  const { probeVideo } = await import('../test/helpers/probeVideo.mjs');
+
+  const animation = await convert(context, serviceWorker, 'DL WEBM', 'video/webm');
+
+  // Twelve frames: more than the encoder queues before add() waits for it.
+  expect(await probeVideo(animation.filename)).toEqual({ codec: 'vp9', ...ODD_TIMES });
+  expect(await decodeMedia(context, animation.filename, 'video/webm')).toMatchObject({ width: 17, height: 17 });
   expect(errors).toEqual([]);
 });

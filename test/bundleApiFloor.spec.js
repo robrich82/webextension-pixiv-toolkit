@@ -8,6 +8,7 @@ import path from 'path';
 import { compatReports, newerApiUses, versionAdded } from './helpers/bundleApiFloor';
 
 const DEXIE_GUARD = /(?<![\w$])([\w$]+)\.withResolvers\)?&&\([\w$]+\.withResolvers=\1\.withResolvers\)/g;
+const MEDIABUNNY_GUARD = /[`'"]transferToFixedLength[`'"]\s*in\s*([\w$.]+)\s*\?\s*\1\.transferToFixedLength\(/g;
 
 let out;
 
@@ -106,6 +107,24 @@ describe('newerApiUses', () => {
     write('b.css', '.b{background:url(data:image/png;base64,AAA9lh+/x9lh=)}');
 
     expect(newerApiUses(out, { browser: 'firefox', floor: 115 })).toEqual(['a.css: css.types.length.lh (needs firefox 120)']);
+  });
+
+  it("leaves out Mediabunny's guarded transferToFixedLength", () => {
+    write('a.js', 'this.buffer=`transferToFixedLength`in this._buffer?this._buffer.transferToFixedLength(this._max):this._buffer.slice(0,this._max)');
+
+    expect(newerApiUses(out, { browser: 'chrome', floor: 111, guarded: [MEDIABUNNY_GUARD] })).toEqual([]);
+  });
+
+  it.each([
+    'b=a.transferToFixedLength(n)',
+    // Checked on one buffer, called on another.
+    'b="transferToFixedLength"in a?c.transferToFixedLength(n):a.slice(0,n)'
+  ])('reports an unguarded transferToFixedLength: %s', source => {
+    write('a.js', source);
+
+    expect(newerApiUses(out, { browser: 'chrome', floor: 111, guarded: [MEDIABUNNY_GUARD] })).toEqual([
+      'a.js: javascript.builtins.ArrayBuffer.transfer (needs chrome 114)'
+    ]);
   });
 
   it('still reports an unguarded use next to a guarded one', () => {
