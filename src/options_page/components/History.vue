@@ -68,7 +68,7 @@
               variant="text" icon size="small"
               @click="deleteOne(item)"
             >
-              <svg class="c01204" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2048 2048" width="16" height="16">
+              <svg class="c01204" fill="currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2048 2048" width="16" height="16">
                 <path d="M1115 1024l690 691-90 90-691-690-691 690-90-90 690-691-690-691 90-90 691 690 691-690 90 90-690 691z"></path>
               </svg>
             </v-btn>
@@ -429,7 +429,8 @@ export default {
       box-sizing: border-box;
 
       &:hover {
-        background: rgba(var(--v-theme-on-surface), var(--v-hover-opacity));
+        // Blended over the surface: the card's own background would otherwise be replaced.
+        background: color-mix(in srgb, rgb(var(--v-theme-on-surface)) calc(var(--v-hover-opacity) * 100%), rgb(var(--v-theme-surface)));
 
         .history-item__actions {
           width: 120px;
@@ -489,7 +490,7 @@ export default {
     }
 
     .history-item__info-entity--sub {
-      color: rgba(var(--v-theme-on-surface), var(--v-disabled-opacity));
+      color: #999;
     }
 
     .history-item__info-tag {
@@ -523,7 +524,7 @@ export default {
     font-size: 14px;
     text-align: center;
     line-height: 4;
-    color: rgba(var(--v-theme-on-surface), var(--v-disabled-opacity));
+    color: #999;
   }
 }
 

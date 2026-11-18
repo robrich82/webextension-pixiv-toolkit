@@ -65,7 +65,7 @@ export default {
   position: absolute;
   top: 2px;
   right: 2px;
-  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  color: #999;
 }
 
 .app-suggest__icon {
@@ -97,7 +97,7 @@ export default {
 
 .app-suggest__sub-title {
   font-size: 12px;
-  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  color: #999;
   line-height: 16px;
 }
 

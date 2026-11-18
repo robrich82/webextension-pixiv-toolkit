@@ -44,7 +44,7 @@ $text-shadow: 2px 2px 0 #df7c11;
   padding: 5px 15px;
   margin-right: 10px;
   border-radius: 100px;
-  background: rgb(var(--v-theme-surface));
+  background: #fff;
   box-shadow: 3px 3px 0px #ccc;
 
   .sponser__name {

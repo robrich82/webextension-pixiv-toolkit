@@ -177,7 +177,12 @@ export default {
   width: 100%;
   padding: 5px 5px;
   background: rgb(var(--v-theme-surface-light));
+  color: rgb(var(--v-theme-on-surface-light));
   border-radius: 5px;
+
+  &::placeholder {
+    color: rgba(var(--v-theme-on-surface-light), var(--v-medium-emphasis-opacity));
+  }
 }
 
 .option-section__auto-height {

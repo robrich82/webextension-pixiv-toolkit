@@ -37,16 +37,16 @@ $side-width: 300px;
 
 %a-maintitle, a.maintitle {
   text-decoration: none;
-  color: rgb(var(--v-theme-on-surface));
+  color: #333;
 
   &:hover {
-    color: rgb(var(--v-theme-on-surface));
+    color: #333;
   }
 }
 
 a.subtitle {
   @extend %a-maintitle;
-  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  color: #999;
 }
 
 .no-margin-buttons {
@@ -76,7 +76,7 @@ a.subtitle {
   font-size: 12px;
   font-weight: 700;;
   text-align: center;
-  color: rgba(var(--v-theme-on-surface), var(--v-disabled-opacity));
+  color: #a1a1a1;
 }
 
 .v-expansion-panel, .v-card {
