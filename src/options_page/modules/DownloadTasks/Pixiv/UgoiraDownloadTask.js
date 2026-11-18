@@ -6,6 +6,7 @@ import FileSystem from "../../FileSystem";
 import NameFormatter from "@/modules/Util/NameFormatter";
 import MimeType from "@/modules/Util/MimeType";
 import pathjoin from "@/modules/Util/pathjoin";
+import { VIDEO_CONTAINERS, encodeVideo } from "../../UgoiraEncoders/video";
 
 class ZipRepo {
   /**
@@ -506,25 +507,70 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
   }
 
   async convert() {
-    await this.runFFmpeg(async ({ data, outputFilename }) => {
-      /**
-       * Save file to disk
-       */
-      let animationFileUrl = URL.createObjectURL(new Blob([data], { type: MimeType.getFileMimeType(outputFilename) }));
-      let nameFormatter = NameFormatter.getFormatter({ context: this.context });
-      let downloadId;
+    const container = this.options.convertType?.toLowerCase();
 
-      try {
-        downloadId = this.lastDownloadId = await FileSystem.getDefault().saveFileInBackground({
-          url: animationFileUrl,
-          filename: pathjoin(GlobalSettings().downloadRelativeLocation, nameFormatter.format(
-            this.options.renameRule
-          )) + '.' + MimeType.getFileExtension(outputFilename)
-        });
-      } finally {
-        FileSystem.getDefault().revokeWhenSaved(downloadId, animationFileUrl);
-      }
-    });
+    if (VIDEO_CONTAINERS[container]) {
+      const { data, mimeType, extension } = await this.encodeVideo(container);
+
+      await this.saveAnimation(data, mimeType, extension);
+      return;
+    }
+
+    await this.runFFmpeg(({ data, outputFilename }) => this.saveAnimation(
+      data, MimeType.getFileMimeType(outputFilename), MimeType.getFileExtension(outputFilename)
+    ));
+  }
+
+  /**
+   * Encodes the frames as a video through WebCodecs, each frame lasting its own delay.
+   * @param {string} container A key of VIDEO_CONTAINERS
+   * @returns {Promise<{ data: ArrayBuffer, mimeType: string, extension: string }>}
+   */
+  async encodeVideo(container) {
+    this.encodeController = new AbortController();
+
+    try {
+      await this.zipLoaded;
+
+      const frames = await Promise.all(this.options.frames.map(async frame => ({
+        image: new Blob([await this.zip.file(frame.file).async('uint8array')], { type: this.context.illustMimeType || 'image/jpeg' }),
+        delay: frame.delay
+      })));
+
+      return await encodeVideo({
+        frames,
+        container,
+        signal: this.encodeController.signal,
+        onProgress: progress => {
+          this.processProgress = progress;
+          this.dispatch('progress', [this.processProgress]);
+        }
+      });
+    } finally {
+      this.encodeController = null;
+    }
+  }
+
+  /**
+   * @param {ArrayBuffer|Uint8Array} data
+   * @param {string} mimeType
+   * @param {string} extension
+   */
+  async saveAnimation(data, mimeType, extension) {
+    let animationFileUrl = URL.createObjectURL(new Blob([data], { type: mimeType }));
+    let nameFormatter = NameFormatter.getFormatter({ context: this.context });
+    let downloadId;
+
+    try {
+      downloadId = this.lastDownloadId = await FileSystem.getDefault().saveFileInBackground({
+        url: animationFileUrl,
+        filename: pathjoin(GlobalSettings().downloadRelativeLocation, nameFormatter.format(
+          this.options.renameRule
+        )) + '.' + extension
+      });
+    } finally {
+      FileSystem.getDefault().revokeWhenSaved(downloadId, animationFileUrl);
+    }
   }
 
   /**
@@ -613,6 +659,11 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
     if (this.ffmpeg) {
       this.ffmpeg.terminate();
       this.processProgress = this.processedFramesCount = 0;
+    }
+
+    if (this.encodeController) {
+      this.encodeController.abort();
+      this.processProgress = 0;
     }
   }
 

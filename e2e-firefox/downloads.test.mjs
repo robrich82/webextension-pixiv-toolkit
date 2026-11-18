@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import { afterEach, test } from 'node:test';
 import { PIXEL } from './fakePixiv.mjs';
 import { closeAll, launch } from './firefox.mjs';
+import { probeVideo } from '../test/helpers/probeVideo.mjs';
 
 // End-to-end downloads on Firefox, which Playwright can't load an extension
 // into. See docs/testing.md.
@@ -89,7 +90,7 @@ for (const { label, mime } of [
   { label: 'DL WEBM', mime: 'video/webm' },
   { label: 'DL MP4', mime: 'video/mp4' }
 ]) {
-  test(`${label} converts the ugoira frames with FFmpeg.wasm`, { timeout: TIMEOUT }, async () => {
+  test(`${label} converts the ugoira frames`, { timeout: TIMEOUT }, async () => {
     const animation = await convertUgoira(label, mime);
 
     const { duration, ...size } = await firefox.decodeMedia(animation.path, mime);
@@ -113,6 +114,14 @@ test('DL Zip saves the frames zip and converts nothing', { timeout: TIMEOUT }, a
   // With animation.json, which the default animationJsonFormat packs.
   assert.deepEqual(entries.map(entry => entry.name), ['000000.jpg', '000001.jpg', '000002.jpg', 'animation.json']);
   await firefox.waitForButton(tab, 'DL Zip ✔');
+  assertNoErrors();
+});
+
+test('DL WEBM encodes VP9 through WebCodecs, each frame for its own delay', { timeout: TIMEOUT }, async () => {
+  const animation = await convertUgoira('DL WEBM', 'video/webm');
+
+  // The fixture's delays are 100, 100 and 150ms.
+  assert.deepEqual(await probeVideo(animation.path), { codec: 'vp9', timestamps: [0, 0.1, 0.2], duration: 0.35 });
   assertNoErrors();
 });
 

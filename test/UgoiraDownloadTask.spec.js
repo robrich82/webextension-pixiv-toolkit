@@ -1,14 +1,21 @@
 /**
  * UgoiraDownloadTask driving a real Downloader and the real JSZip the download
  * manager page loads. The background's end of the `DownloadFile` port is the
- * network stand-in, and FFmpeg.wasm is a fake that records what it is asked to
- * do; e2e/ugoira.e2e.js runs the real conversion.
+ * network stand-in, and FFmpeg.wasm and the WebCodecs encoder are fakes that record what they
+ * are asked to do; e2e/ugoira.e2e.js runs the real conversion.
  */
 import RealJSZip from 'jszip/dist/jszip.min.js';
 import browser from './doubles/browser';
 import { fakeDownloadFileBackground } from './helpers/downloadFileBackground';
 import UgoiraDownloadTask, { ZipRepo } from '@/options_page/modules/DownloadTasks/Pixiv/UgoiraDownloadTask';
 import DownloadManager from '@/options_page/modules/DownloadManager';
+import { encodeVideo } from '@/options_page/modules/UgoiraEncoders/video';
+
+// Node has no WebCodecs; test/ugoiraVideoEncoder.spec.js and the e2e tests cover the encoder.
+vi.mock('@/options_page/modules/UgoiraEncoders/video', async importOriginal => ({
+  ...await importOriginal(),
+  encodeVideo: vi.fn()
+}));
 
 const resourceUrl = id => `https://i.pximg.net/img-zip-ugoira/img/${id}_ugoira1920x1080.zip`;
 const frames = [{ file: '000000.jpg', delay: 100 }, { file: '000001.jpg', delay: 250 }];
@@ -777,5 +784,90 @@ describe('a save that fails fails the task', () => {
     expect(task.lastError).toEqual(new Error('Could not save "ugoira/152_Moving.gif"'));
     expect(ffmpegs[0].terminated).toBe(true);
     expect(revoke).toHaveBeenCalledWith(background.saves.find(save => save.filename.endsWith('.gif')).url);
+  });
+});
+
+describe('WEBM through WebCodecs', () => {
+  const webmTask = id => createTask({ id, convertType: 'webm', ffmpegCommandArgs: '' });
+
+  beforeEach(() => {
+    encodeVideo.mockReset();
+    encodeVideo.mockResolvedValue({ data: new Uint8Array([4, 5, 6]), mimeType: 'video/webm', extension: 'webm', codec: 'vp9' });
+  });
+
+  test('encodes each frame with its delay, without FFmpeg, and saves the video', async () => {
+    const task = webmTask('180');
+
+    task.start();
+    await completeDownload(task);
+    await vi.waitFor(() => expect(task.isComplete()).toBe(true));
+
+    expect(savedNames()).toEqual(['ugoira/180_Moving.zip', 'ugoira/180_Moving.webm']);
+    expect(saved[1].blob.type).toBe('video/webm');
+    expect(new Uint8Array(await saved[1].blob.arrayBuffer())).toEqual(new Uint8Array([4, 5, 6]));
+    expect(ffmpegs).toEqual([]);
+
+    const [{ frames: encoded, container, signal }] = encodeVideo.mock.calls[0];
+    expect(container).toBe('webm');
+    expect(signal.aborted).toBe(false);
+    expect(encoded.map(frame => frame.delay)).toEqual([100, 250]);
+    expect(encoded.map(frame => frame.image.type)).toEqual(['image/jpeg', 'image/jpeg']);
+    expect(await Promise.all(encoded.map(frame => frame.image.text()))).toEqual(['frame 0', 'frame 1']);
+  });
+
+  test('reports the encoding progress', async () => {
+    const task = webmTask('181');
+    const progresses = [];
+    task.addListener('progress', progress => progresses.push(progress));
+    encodeVideo.mockImplementation(async ({ onProgress }) => {
+      onProgress(0.5);
+      onProgress(1);
+      return { data: new Uint8Array([1]), mimeType: 'video/webm', extension: 'webm', codec: 'vp9' };
+    });
+
+    task.start();
+    await completeDownload(task);
+    await vi.waitFor(() => expect(task.isComplete()).toBe(true));
+
+    expect(progresses).toEqual(expect.arrayContaining([0.5, 1]));
+    expect(task.toJson()).toMatchObject({ processProgress: 1, convertType: 'webm' });
+  });
+
+  test('an encoding that fails fails the task; the frames zip stays saved', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const task = webmTask('182');
+    const error = new Error("This browser can't encode WEBM video at 16x16");
+    encodeVideo.mockRejectedValue(error);
+
+    task.start();
+    await completeDownload(task);
+    await vi.waitFor(() => expect(task.isFailure()).toBe(true));
+
+    expect(task.lastError).toBe(error);
+    expect(savedNames()).toEqual(['ugoira/182_Moving.zip']);
+    expect(console.error).toHaveBeenCalledWith('Could not convert ugoira pixiv:182:gif', error);
+  });
+
+  test('stop aborts the encoding', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const task = webmTask('183');
+    let encodeSignal;
+    encodeVideo.mockImplementation(({ signal }) => new Promise((resolve, reject) => {
+      encodeSignal = signal;
+      signal.addEventListener('abort', () => reject(signal.reason));
+    }));
+
+    task.start();
+    await completeDownload(task);
+    await vi.waitFor(() => expect(encodeSignal).toBeDefined());
+
+    task.pause();
+    expect(encodeSignal.aborted).toBe(false);
+
+    task.stop();
+    expect(encodeSignal.aborted).toBe(true);
+    await vi.waitFor(() => expect(task.isFailure()).toBe(true));
+    expect(task.processProgress).toBe(0);
+    expect(task.encodeController).toBeNull();
   });
 });

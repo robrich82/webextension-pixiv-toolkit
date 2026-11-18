@@ -49,7 +49,9 @@ const GUARDED = [
   /(?<![\w$])([\w$]+)\.withResolvers\)?&&\([\w$]+\.withResolvers=\1\.withResolvers\)/g,
   // Vue Router checks for view transitions inline, Vuetify returns early without them.
   /[`'"]startViewTransition[`'"]\s*in\s*document\s*&&\s*document\.startViewTransition\(/g,
-  /!document\.startViewTransition\s*\|\|[^]{0,1500}?document\.startViewTransition\(/g
+  /!document\.startViewTransition\s*\|\|[^]{0,1500}?document\.startViewTransition\(/g,
+  // Mediabunny's BufferTarget slices the buffer instead where it can't transfer it.
+  /[`'"]transferToFixedLength[`'"]\s*in\s*([\w$.]+)\s*\?\s*\1\.transferToFixedLength\(/g
 ];
 const GUARDED_COMPAT = [/^lib\/dexie\/dexie\.min\.js:\d+ navigator\.userAgentData\(\) /];
 // Uses that degrade on the floor, accepted for now. Per file, so a new use elsewhere still fails.

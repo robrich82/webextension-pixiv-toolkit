@@ -76,3 +76,14 @@ test('DL Zip saves the frames zip and converts nothing', async ({ context, servi
   await expect(page.getByText('DL Zip ✔', { exact: true })).toBeVisible();
   expect(errors).toEqual([]);
 });
+
+test('DL WEBM encodes VP9 through WebCodecs, each frame for its own delay', async ({ context, serviceWorker }) => {
+  const errors = collectErrors(context);
+  const { probeVideo } = await import('../test/helpers/probeVideo.mjs');
+
+  const animation = await convert(context, serviceWorker, 'DL WEBM', 'video/webm');
+
+  // The fixture's delays are 100, 100 and 150ms.
+  expect(await probeVideo(animation.filename)).toEqual({ codec: 'vp9', timestamps: [0, 0.1, 0.2], duration: 0.35 });
+  expect(errors).toEqual([]);
+});
