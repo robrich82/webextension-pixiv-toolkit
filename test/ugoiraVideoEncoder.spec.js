@@ -40,10 +40,10 @@ const fakes = vi.hoisted(() => {
       this.state = 'finalized';
     });
 
-    /** A pending add() rejects, as Mediabunny's does. */
+    /** A pending add() returns early, as Mediabunny's does once its encoder is closed. */
     cancel = vi.fn(async () => {
       this.state = 'canceled';
-      this.sources.forEach(source => source.pending?.reject(new Error('Output canceled')));
+      this.sources.forEach(source => source.pending?.resolve());
     });
   }
 
@@ -84,6 +84,10 @@ beforeEach(() => {
   fakes.hooks.output = fakes.hooks.source = undefined;
 });
 
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
 describe('containerCodecs', () => {
   it('offers the codecs WebM holds, H.264 and H.265 not among them', () => {
     expect(containerCodecs('webm')).toEqual(['vp9', 'av1', 'vp8']);
@@ -92,9 +96,11 @@ describe('containerCodecs', () => {
 
 describe('chooseCodec', () => {
   it('uses the preferred codec when the browser can encode it', async () => {
+    vi.spyOn(console, 'info');
     encodable('vp9', 'vp8');
 
     expect(await chooseCodec('webm', 'vp9', { width: 16, height: 16 })).toBe('vp9');
+    expect(console.info).not.toHaveBeenCalled();
   });
 
   it('falls back to the first codec it can encode, in the offered order', async () => {
@@ -201,8 +207,12 @@ describe('encodeVideo', () => {
 
   it('adds each frame at its own time and returns the finished file', async () => {
     const onProgress = vi.fn();
+    const controller = new AbortController();
 
-    const result = await encodeVideo({ frames: FRAMES, container: 'webm', onProgress });
+    const result = await encodeVideo({ frames: FRAMES, container: 'webm', onProgress, signal: controller.signal });
+    // A stop once it is done cancels nothing.
+    controller.abort();
+    expect(output().cancel).not.toHaveBeenCalled();
 
     expect(result).toEqual({
       data: new Uint8Array([1, 2, 3]).buffer, mimeType: 'video/webm', extension: 'webm', codec: 'vp9'
@@ -249,15 +259,17 @@ describe('encodeVideo', () => {
   it('an abort while a frame is being added cancels the output and rejects with the reason', async () => {
     const controller = new AbortController();
     const reason = new Error('stopped');
+    const onProgress = vi.fn();
     fakes.hooks.source = made => made.add.mockImplementationOnce(() => new Promise((resolve, reject) => {
       made.pending = { resolve, reject };
     }));
-    const encoding = encodeVideo({ frames: FRAMES, container: 'webm', signal: controller.signal });
+    const encoding = encodeVideo({ frames: FRAMES, container: 'webm', onProgress, signal: controller.signal });
     await vi.waitFor(() => expect(source()?.pending).toBeTruthy());
 
     controller.abort(reason);
 
     await expect(encoding).rejects.toBe(reason);
+    expect(onProgress).not.toHaveBeenCalled();
     expect(output().cancel).toHaveBeenCalled();
     expect(output().finalize).not.toHaveBeenCalled();
     expect(source().add).toHaveBeenCalledTimes(1);
@@ -285,6 +297,35 @@ describe('encodeVideo', () => {
     finish();
 
     await expect(encoding).rejects.toBe(reason);
+    // The listener's cancel only: a finished output isn't cancelled again.
+    expect(output().cancel).toHaveBeenCalledTimes(1);
+  });
+
+  it('a stop while the encoder cleans up after its error keeps the error', async () => {
+    const controller = new AbortController();
+    const error = new Error('EncodingError');
+    fakes.hooks.source = made => made.add.mockRejectedValueOnce(error);
+    fakes.hooks.output = made => {
+      const cancel = made.cancel.getMockImplementation();
+      made.cancel.mockImplementation(async () => {
+        controller.abort(new Error('stopped'));
+        await cancel();
+      });
+    };
+
+    await expect(encodeVideo({ frames: FRAMES, container: 'webm', signal: controller.signal })).rejects.toBe(error);
+  });
+
+  it('a stop while the codec is chosen rejects with the stop', async () => {
+    const controller = new AbortController();
+    const reason = new Error('stopped');
+    canEncodeVideo.mockImplementation(async () => {
+      controller.abort(reason);
+      return false;
+    });
+
+    await expect(encodeVideo({ frames: FRAMES, container: 'webm', signal: controller.signal })).rejects.toBe(reason);
+    expect(allClosed()).toBe(true);
   });
 
   it('an encoder error cancels the output and rejects with it', async () => {

@@ -509,7 +509,7 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
   async convert() {
     const container = this.options.convertType?.toLowerCase();
 
-    if (VIDEO_CONTAINERS[container]) {
+    if (Object.hasOwn(VIDEO_CONTAINERS, container ?? '')) {
       const { data, mimeType, extension } = await this.encodeVideo(container);
 
       await this.saveAnimation(data, mimeType, extension);

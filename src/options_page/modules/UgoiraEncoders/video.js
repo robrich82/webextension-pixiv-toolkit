@@ -125,11 +125,15 @@ export async function encodeVideo({ frames, container, codec, onProgress, signal
     output.addVideoTrack(source);
   } catch (error) {
     bitmap.close();
-    throw error;
+    throw signal?.aborted ? signal.reason : error;
   }
 
-  // A pending add() then rejects; a finalize() under way finishes, so the abort is checked after it.
-  const cancel = () => output.cancel().catch(() => {});
+  // A pending add() returns early and a finalize() under way finishes, so the abort is checked after each.
+  const cancel = () => {
+    if (output.state !== 'finalized') {
+      output.cancel().catch(() => {});
+    }
+  };
 
   signal?.addEventListener('abort', cancel);
 
@@ -156,13 +160,16 @@ export async function encodeVideo({ frames, container, codec, onProgress, signal
     await output.finalize();
     signal?.throwIfAborted();
   } catch (error) {
+    // Read before the cancel below, so a stop during it doesn't replace a real error.
+    const aborted = signal?.aborted;
+
     bitmap?.close();
 
     if (output.state !== 'canceled' && output.state !== 'finalized') {
       await output.cancel();
     }
 
-    throw signal?.aborted ? signal.reason : error;
+    throw aborted ? signal.reason : error;
   } finally {
     signal?.removeEventListener('abort', cancel);
   }
