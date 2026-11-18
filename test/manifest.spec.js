@@ -61,11 +61,12 @@ describe('transformManifest', () => {
       expect(json.background).toEqual({ scripts: [source.background.service_worker] });
     });
 
-    it('sets the fork add-on id, its self-hosted update manifest and the minimum Firefox version', () => {
+    it('sets the fork add-on id, its self-hosted update manifest, the minimum Firefox version and no data collection', () => {
       expect(json.browser_specific_settings.gecko).toEqual({
         id: 'webextension-pixiv-toolkit-fork@robrich82',
         update_url: 'https://github.com/robrich82/webextension-pixiv-toolkit/releases/latest/download/updates.json',
-        strict_min_version: '456.0'
+        strict_min_version: '456.0',
+        data_collection_permissions: { required: ['none'] }
       });
       expect(json).not.toHaveProperty('minimum_chrome_version');
     });
