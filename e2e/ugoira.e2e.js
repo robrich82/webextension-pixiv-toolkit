@@ -15,7 +15,7 @@ const ODD_TIMES = {
   duration: ODD_DELAYS.reduce((sum, delay) => sum + delay, 0) / 1000
 };
 
-/** The ugoira's routes, with `odd` serving the twelve 17x17 PNG frames instead. */
+/** The ugoira's routes, with `odd` serving the twelve 37x35 PNG frames instead. */
 const ugoiraRoutes = ({ odd = false } = {}) => ({
   ajax: {
     '/ajax/illust/10000003': 'pixiv/illust-ugoira.json',
@@ -108,6 +108,20 @@ test('DL WEBM keeps an odd frame size and every frame of a longer PNG ugoira', a
 
   // Twelve frames: more than the encoder queues before add() waits for it.
   expect(await probeVideo(animation.filename)).toEqual({ codec: 'vp9', ...ODD_TIMES });
-  expect(await decodeMedia(context, animation.filename, 'video/webm')).toMatchObject({ width: 17, height: 17 });
+  expect(await decodeMedia(context, animation.filename, 'video/webm')).toMatchObject({ width: 37, height: 35 });
+  expect(errors).toEqual([]);
+});
+
+// On the odd fixture: Firefox's H.264 encoder refuses the 16x16 one (see e2e-firefox/downloads.test.mjs).
+test('DL MP4 encodes H.264 through WebCodecs, padded to an even size, each frame for its own delay', async ({ context, serviceWorker }) => {
+  const errors = collectErrors(context);
+  await context.unrouteAll();
+  await mockPixiv(context, ugoiraRoutes({ odd: true }));
+  const { probeVideo } = await import('../test/helpers/probeVideo.mjs');
+
+  const animation = await convert(context, serviceWorker, 'DL MP4', 'video/mp4');
+
+  expect(await probeVideo(animation.filename)).toEqual({ codec: 'avc', ...ODD_TIMES });
+  expect(await decodeMedia(context, animation.filename, 'video/mp4')).toMatchObject({ width: 38, height: 36 });
   expect(errors).toEqual([]);
 });

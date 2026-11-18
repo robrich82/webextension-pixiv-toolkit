@@ -33,9 +33,9 @@ afterEach(() => {
 });
 
 describe('createUgoiraDownloadTask', () => {
-  it('encodes WEBM through WebCodecs, without an FFmpeg command', () => {
-    expect(taskOptions('webm')).toMatchObject({
-      id: 'pixiv_illust:10000003:webm', convertType: 'webm', ffmpegCommandArgs: ''
+  it.each(['webm', 'mp4'])('encodes %s through WebCodecs, without an FFmpeg command', type => {
+    expect(taskOptions(type)).toMatchObject({
+      id: `pixiv_illust:10000003:${type}`, convertType: type, ffmpegCommandArgs: ''
     });
   });
 
@@ -43,9 +43,9 @@ describe('createUgoiraDownloadTask', () => {
     expect(taskOptions('zip')).toMatchObject({ convertType: 'zip', ffmpegCommandArgs: '' });
   });
 
-  it('still converts MP4 with its FFmpeg preset', () => {
-    expect(taskOptions('mp4')).toMatchObject({
-      convertType: 'mp4', ffmpegCommandArgs: UGOIRA_FFMPEG_CLI_ARGS.ugoiraFFmpegMP4CliArgs
+  it('still converts GIF with its FFmpeg preset', () => {
+    expect(taskOptions('gif')).toMatchObject({
+      convertType: 'gif', ffmpegCommandArgs: UGOIRA_FFMPEG_CLI_ARGS.ugoiraFFmpegGIFCliArgs
     });
   });
 

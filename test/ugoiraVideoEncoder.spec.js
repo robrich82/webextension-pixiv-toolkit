@@ -4,7 +4,7 @@
  * against a fake Output and CanvasSource; e2e/ugoira.e2e.js and e2e-firefox/downloads.test.mjs run
  * the real encode.
  */
-import { canEncodeVideo } from 'mediabunny';
+import { Mp4OutputFormat, canEncodeVideo } from 'mediabunny';
 import {
   FALLBACK_DELAY, chooseCodec, containerCodecs, encodeVideo, encodedSize, frameTimes
 } from '@/options_page/modules/UgoiraEncoders/video';
@@ -92,6 +92,10 @@ describe('containerCodecs', () => {
   it('offers the codecs WebM holds, H.264 and H.265 not among them', () => {
     expect(containerCodecs('webm')).toEqual(['vp9', 'av1', 'vp8']);
   });
+
+  it('offers every codec for MP4, H.264 first', () => {
+    expect(containerCodecs('mp4')).toEqual(['avc', 'vp9', 'av1', 'hevc', 'vp8']);
+  });
 });
 
 describe('chooseCodec', () => {
@@ -121,11 +125,13 @@ describe('chooseCodec', () => {
   });
 
   it('asks at the size each codec would encode', async () => {
+    vi.spyOn(console, 'info').mockImplementation(() => {});
     encodable('vp9');
 
-    await chooseCodec('webm', 'vp9', { width: 15, height: 9 });
+    await chooseCodec('mp4', 'avc', { width: 15, height: 9 });
 
-    expect(canEncodeVideo).toHaveBeenCalledWith('vp9', expect.objectContaining({ width: 15, height: 9 }));
+    expect(canEncodeVideo).toHaveBeenNthCalledWith(1, 'avc', expect.objectContaining({ width: 16, height: 10 }));
+    expect(canEncodeVideo).toHaveBeenNthCalledWith(2, 'vp9', expect.objectContaining({ width: 15, height: 9 }));
   });
 
   it('fails when the browser can encode none of them', async () => {
@@ -233,6 +239,24 @@ describe('encodeVideo', () => {
 
     expect(codec).toBe('vp8');
     expect(source().config.codec).toBe('vp8');
+  });
+
+  it('encodes with the codec asked for, over the container default', async () => {
+    const { codec } = await encodeVideo({ frames: FRAMES, container: 'webm', codec: 'vp8' });
+
+    expect(codec).toBe('vp8');
+    expect(source().config.codec).toBe('vp8');
+    expect(canEncodeVideo).toHaveBeenCalledTimes(1);
+  });
+
+  it('encodes MP4 as H.264, padded to even dimensions', async () => {
+    encodable('avc', 'vp9');
+
+    const result = await encodeVideo({ frames: FRAMES, container: 'mp4' });
+
+    expect(result).toMatchObject({ mimeType: 'video/mp4', extension: 'mp4', codec: 'avc' });
+    expect(source().canvas).toMatchObject({ width: 18, height: 18 });
+    expect(output().format).toBeInstanceOf(Mp4OutputFormat);
   });
 
   it('closes the first frame when no codec encodes', async () => {

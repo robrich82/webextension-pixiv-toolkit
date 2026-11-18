@@ -11,14 +11,10 @@ import { VIDEO_CONTAINERS } from "@/options_page/modules/UgoiraEncoders/video";
 
 /**
  * The ugoira conversions FFmpeg makes; VIDEO_CONTAINERS are encoded through WebCodecs instead.
- * MP4 is re-encoded to H.264 (frames copied as is make MJPEG, which browsers don't play), and
- * yuv420p needs even dimensions, hence the pad. Variable frame rate keeps one frame per ugoira
- * frame; FFmpeg 5.1 would otherwise repeat them at input.txt's frame rate.
  */
 export const UGOIRA_FFMPEG_CLI_ARGS = {
   ugoiraFFmpegGIFCliArgs: '-f concat -i input.txt -plays 0 out.gif',
-  ugoiraFFmpegAPNGCliArgs: '-f concat -i input.txt -plays 0 output.apng',
-  ugoiraFFmpegMP4CliArgs: '-f concat -i input.txt -safe 0 -c:v libx264 -pix_fmt yuv420p -vf pad=ceil(iw/2)*2:ceil(ih/2)*2 -fps_mode vfr -movflags +faststart output.mp4'
+  ugoiraFFmpegAPNGCliArgs: '-f concat -i input.txt -plays 0 output.apng'
 };
 
 class IllustAdapter {

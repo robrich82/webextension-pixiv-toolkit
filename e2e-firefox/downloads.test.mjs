@@ -55,7 +55,7 @@ test('an illust is downloaded and saved in a zip', { timeout: TIMEOUT }, async (
 });
 
 /**
- * Launch on the ugoira, with the frames zip it downloads. `odd` serves the twelve 17x17 PNG frames
+ * Launch on the ugoira, with the frames zip it downloads. `odd` serves the twelve 37x35 PNG frames
  * instead.
  */
 async function launchUgoira({ odd = false } = {}) {
@@ -87,6 +87,12 @@ async function convertUgoira(label, mime, { odd = false } = {}) {
 
 // test/fixtures/pixiv/illust-ugoira-frames.zip: three 16x16 frames.
 const FRAME_SIZE = { width: 16, height: 16 };
+// test/fixtures/pixiv/illust-ugoira-meta-odd.json's delays, as frame starts and a duration in seconds.
+const ODD_DELAYS = [40, 40, 40, 40, 60, 60, 60, 60, 80, 80, 80, 200];
+const ODD_TIMES = {
+  timestamps: ODD_DELAYS.map((_, i) => ODD_DELAYS.slice(0, i).reduce((sum, delay) => sum + delay, 0) / 1000),
+  duration: ODD_DELAYS.reduce((sum, delay) => sum + delay, 0) / 1000
+};
 
 for (const { label, mime } of [
   { label: 'DL GIF', mime: 'image/gif' },
@@ -133,14 +139,19 @@ test('DL WEBM keeps an odd frame size and every frame of a longer PNG ugoira', {
   const animation = await convertUgoira('DL WEBM', 'video/webm', { odd: true });
 
   // Twelve frames: more than the encoder queues before add() waits for it.
-  const delays = [40, 40, 40, 40, 60, 60, 60, 60, 80, 80, 80, 200];
-  assert.deepEqual(await probeVideo(animation.path), {
-    codec: 'vp9',
-    timestamps: delays.map((_, i) => delays.slice(0, i).reduce((sum, delay) => sum + delay, 0) / 1000),
-    duration: delays.reduce((sum, delay) => sum + delay, 0) / 1000
-  });
+  assert.deepEqual(await probeVideo(animation.path), { codec: 'vp9', ...ODD_TIMES });
   const { width, height } = await firefox.decodeMedia(animation.path, 'video/webm');
-  assert.deepEqual({ width, height }, { width: 17, height: 17 });
+  assert.deepEqual({ width, height }, { width: 37, height: 35 });
+  assertNoErrors();
+});
+
+// On the odd fixture: Firefox 160's Windows H.264 encoder fails below 34px, so the 16x16 one falls back to VP9.
+test('DL MP4 encodes H.264 through WebCodecs, padded to an even size, each frame for its own delay', { timeout: TIMEOUT }, async () => {
+  const animation = await convertUgoira('DL MP4', 'video/mp4', undefined, { odd: true });
+
+  assert.deepEqual(await probeVideo(animation.path), { codec: 'avc', ...ODD_TIMES });
+  const { width, height } = await firefox.decodeMedia(animation.path, 'video/mp4');
+  assert.deepEqual({ width, height }, { width: 38, height: 36 });
   assertNoErrors();
 });
 

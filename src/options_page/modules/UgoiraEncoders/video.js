@@ -1,6 +1,7 @@
 import {
   BufferTarget,
   CanvasSource,
+  Mp4OutputFormat,
   Output,
   Quality,
   WebMOutputFormat,
@@ -12,7 +13,9 @@ import {
  * browser can't encode it.
  */
 export const VIDEO_CONTAINERS = {
-  webm: { createFormat: () => new WebMOutputFormat(), defaultCodec: 'vp9' }
+  webm: { createFormat: () => new WebMOutputFormat(), defaultCodec: 'vp9' },
+  // The index up front, so a browser plays it before it has all loaded.
+  mp4: { createFormat: () => new Mp4OutputFormat({ fastStart: 'in-memory' }), defaultCodec: 'avc' }
 };
 
 const QUALITY = new Quality('very-high');

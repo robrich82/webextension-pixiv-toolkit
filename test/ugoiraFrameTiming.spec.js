@@ -11,8 +11,7 @@ import { UGOIRA_FFMPEG_CLI_ARGS } from '@/options_page/modules/DownloadAdapters/
 
 const FORMATS = {
   gif: 'ugoiraFFmpegGIFCliArgs',
-  apng: 'ugoiraFFmpegAPNGCliArgs',
-  mp4: 'ugoiraFFmpegMP4CliArgs'
+  apng: 'ugoiraFFmpegAPNGCliArgs'
 };
 const UNEVEN = [30, 70, 100, 50, 130, 60];
 const EVEN = [70, 70, 70, 70];
@@ -40,7 +39,7 @@ const conversions = [
   ...ALL.map(format => preset('uneven', format, UNEVEN)),
   ...ALL.map(format => preset('even', format, EVEN)),
   ...ALL.map(format => preset('hold', format, HOLD)),
-  ...['gif', 'mp4'].map(format => preset('near', format, NEAR)),
+  preset('near', 'gif', NEAR),
   ...['gif', 'apng'].map(format => preset('fast', format, FAST)),
   conversion('apng named .png', '-f concat -i input.txt -plays 0 -f apng out.png', HOLD),
   conversion('gif named .img', '-f concat -i input.txt -f gif out.img', HOLD)
@@ -61,11 +60,9 @@ beforeAll(() => {
   results = Object.fromEntries(conversions.map(({ name }, i) => [name, list[i]]));
 }, 120000);
 
-// A video ends with a repeat of the last frame, one tick before the end (#325).
 test.each([
   ['gif', [0, 30, 100, 200, 250, 380]],
-  ['apng', [0, 30, 100, 200, 250, 380]],
-  ['mp4', [0, 30, 100, 200, 250, 380, 430]]
+  ['apng', [0, 30, 100, 200, 250, 380]]
 ])('%s shows each frame for its own delay, the last too', (format, starts) => {
   expect(results[`${format} uneven`]).toEqual({ code: 0, starts, total: 440 });
 });
@@ -76,8 +73,7 @@ test.each(ALL)('%s with equal delays shows every frame for its delay', format =>
 
 test.each([
   ['gif', [0, 100, 200]],
-  ['apng', [0, 100, 200]],
-  ['mp4', [0, 100, 200, 1100]]
+  ['apng', [0, 100, 200]]
 ])('%s holds a long last frame for its delay', (format, starts) => {
   expect(results[`${format} hold`]).toEqual({ code: 0, starts, total: 1200 });
 });
@@ -86,11 +82,8 @@ test.each(['apng named .png', 'gif named .img'])('a custom command whose -f pick
   expect(results[name]).toEqual({ code: 0, starts: [0, 100, 200], total: 1200 });
 });
 
-test.each([
-  ['gif', [0, 30, 70, 100, 130, 170]],
-  ['mp4', [0, 30, 70, 100, 130, 170, 190]]
-])('%s starts each frame on the nearest 10ms when the delays share no 10ms step', (format, starts) => {
-  expect(results[`${format} near`]).toEqual({ code: 0, starts, total: 200 });
+test('gif starts each frame on the nearest 10ms when the delays share no 10ms step', () => {
+  expect(results['gif near']).toEqual({ code: 0, starts: [0, 30, 70, 100, 130, 170], total: 200 });
 });
 
 // ffprobe reads a GIF delay under 20ms as 100ms, as browsers do, so 20ms steps prove the stored delays.
