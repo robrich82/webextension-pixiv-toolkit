@@ -21,6 +21,11 @@
     ],
     "packageRules": [
         {
+            "description": "pnpm is pinned in both mise.toml and packageManager; bump them in one PR, where the mise manager also relocks mise.lock.",
+            "matchDepNames": ["pnpm"],
+            "groupName": "pnpm"
+        },
+        {
             "description": "Automerge non-major updates once every check is green. platformAutomerge is off because main has no required status checks, so GitHub would merge before CI finishes. Not digest: a re-pointed tag keeps its old release date, so it skips minimumReleaseAge.",
             "matchUpdateTypes": ["minor", "patch", "pin"],
             "matchCurrentVersion": "!/^v?0\\./",

@@ -18,14 +18,22 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      # Installs Node from mise.toml and pnpm from `packageManager`, as locally.
+      # Caches mise's downloads rather than its installs: mise.lock checks what
+      # mise downloads, but a restored install would be trusted as is.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/mise/downloads-cas
+          key: mise-downloads-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('mise.lock') }}
+
+      # Installs Node and pnpm from mise.toml, as locally. With mise.lock
+      # present the action runs `mise install --locked`, so each download must
+      # match its locked checksum.
       # No separate check against `engines`: pnpm enforces the root project's
       # `engines` on every install, so an out-of-range pin fails the install.
-      # The default key ignores package.json, so it would miss a pnpm bump.
       - uses: jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d # v5.2.9
         with:
           version: 2026.11.8
-          cache_key: "{{default}}-${{ hashFiles('package.json') }}"
+          cache: false
 
       - name: Locate pnpm store
         id: pnpm-store
