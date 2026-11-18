@@ -226,12 +226,10 @@ Renovate image.
 `jdx/mise-action` installs Node and pnpm exactly as local mise does, so CI runs
 the same versions as local development. Because `mise.lock` exists it installs
 with `--locked`, failing on a version or checksum the lock doesn't have. CI
-caches mise's downloads, keyed on `mise.lock`, rather than its installs, which
-mise would trust without checking. The pnpm store is cached with
+caches mise's downloads, keyed on `mise.lock`. The pnpm store is cached with
 `actions/cache`, keyed on `pnpm-lock.yaml`.
 
-To relock by hand, run `mise lock` (it keeps the platforms already in the
-lock). After adding a tool, pass `--platform linux-x64,windows-x64,macos-arm64`.
+To relock by hand, run `mise lock`; it keeps the platforms already in the lock.
 
 The job then runs `pnpm install --frozen-lockfile`,
 `pnpm audit --audit-level=moderate`, `pnpm test`, and the Chrome and Firefox

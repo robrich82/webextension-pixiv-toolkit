@@ -1,11 +1,11 @@
-# The oldest release checked against mise.lock; 2026.8.11 can't read it.
+# The oldest release tested with this mise.lock; 2026.8.11 can't read it.
 min_version = "2026.11.8"
 
 [settings]
 # Stops the per-install download ping to mise-versions.jdx.dev.
 use_versions_host_track = false
-# Overrides a global list naming pnpm: reading `packageManager` as well would
-# add a second, npm:pnpm entry to mise.lock on every `mise install`.
+# Overrides any global list naming pnpm: reading `packageManager` as well would
+# add a second, npm:pnpm entry to mise.lock.
 idiomatic_version_file_enable_tools = []
 
 [tools]
