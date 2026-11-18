@@ -108,10 +108,12 @@ class IllustAdapter {
    */
   createUgoiraDownloadTask(resource, options) {
     const convertType = options?.ugoiraConvertType;
-    const ffmpegCommandArgs = typeof convertType === 'string' &&
+    // A zip task saves the frames zip only, so it has no command.
+    const isZip = convertType === UgoiraDownloadTask.ZIP_CONVERT_TYPE;
+    const ffmpegCommandArgs = isZip ? '' : typeof convertType === 'string' &&
       UGOIRA_FFMPEG_CLI_ARGS[`ugoiraFFmpeg${convertType.toUpperCase()}CliArgs`];
 
-    if (!ffmpegCommandArgs) {
+    if (!isZip && !ffmpegCommandArgs) {
       throw new Error(`Unknown ugoira convert type: ${convertType}`);
     }
 

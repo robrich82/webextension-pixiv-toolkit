@@ -51,7 +51,7 @@ class ZipRepo {
  * @property {0|1|2} packAnimationJsonType
  * @property {string} ffmpegCommandArgs
  * @property {any} context
- * @property {string} convertType
+ * @property {string} convertType A button's format; 'zip' saves the frames zip instead of converting
  *
  * @class
  */
@@ -94,9 +94,9 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
   zip;
 
   /**
-   * @type {boolean} The frames zip is saved
+   * The convertType of a task that saves the frames zip and converts nothing
    */
-  zipSaved = false;
+  static ZIP_CONVERT_TYPE = 'zip';
 
   /**
    *
@@ -161,7 +161,7 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
    * @param {*} param0
    * @fires UgoiraDownloadTask#progress
    */
-  async onItemFinish({ blob, mimeType }) {
+  async onItemFinish({ blob }) {
     this.data = blob;
 
     let nameFormatter = NameFormatter.getFormatter({ context: this.context });
@@ -169,29 +169,6 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
     this.zip = new JSZip();
     this.zipLoaded = this.zip.loadAsync(blob);
     await this.zipLoaded;
-
-    if (this.options.packAnimationJsonType > 0) {
-      this.zip.file('animation.json', this.makeAnimationJsonContent(this.options.packAnimationJsonType));
-    }
-
-    // A retry after info.json failed to save downloads the zip again, but mustn't save it twice.
-    if (!this.zipSaved) {
-      let url = URL.createObjectURL(await this.zip.generateAsync({ type: 'blob' }));
-      let downloadId;
-
-      try {
-        downloadId = this.lastDownloadId = await FileSystem.getDefault().saveFileInBackground({
-          url,
-          filename: pathjoin(GlobalSettings().downloadRelativeLocation, nameFormatter.format(
-            this.options.renameRule
-          )) + '.' + MimeType.getExtenstion(mimeType)
-        });
-      } finally {
-        FileSystem.getDefault().revokeWhenSaved(downloadId, url);
-      }
-
-      this.zipSaved = true;
-    }
 
     this.dispatch('progress', [this.progress]);
 
@@ -474,9 +451,13 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
     this.changeState(this.PROCESSING_STATE);
 
     try {
-      await this.convert();
+      if (this.isZipOnly()) {
+        await this.saveZip();
+      } else {
+        await this.convert();
+      }
     } catch (error) {
-      console.error(`Could not convert ugoira ${this.id}`, error);
+      console.error(`Could not ${this.isZipOnly() ? 'save the frames zip of' : 'convert'} ugoira ${this.id}`, error);
       this.lastError = error;
       this.onFailure();
       return;
@@ -484,6 +465,44 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
 
     this.changeState(this.COMPLETE_STATE);
     this.dispatch('complete');
+  }
+
+  /**
+   * @returns {boolean} the task saves the frames zip rather than converting them
+   */
+  isZipOnly() {
+    return this.options.convertType === UgoiraDownloadTask.ZIP_CONVERT_TYPE;
+  }
+
+  /**
+   * Saves the frames zip, with animation.json when packAnimationJsonType asks for it. Done
+   * processing at once, which is what marks the content script's button done.
+   * @fires UgoiraDownloadTask#progress
+   */
+  async saveZip() {
+    await this.zipLoaded;
+
+    if (this.options.packAnimationJsonType > 0) {
+      this.zip.file('animation.json', this.makeAnimationJsonContent(this.options.packAnimationJsonType));
+    }
+
+    const url = URL.createObjectURL(await this.zip.generateAsync({ type: 'blob' }));
+    const nameFormatter = NameFormatter.getFormatter({ context: this.context });
+    let downloadId;
+
+    try {
+      downloadId = this.lastDownloadId = await FileSystem.getDefault().saveFileInBackground({
+        url,
+        filename: pathjoin(GlobalSettings().downloadRelativeLocation, nameFormatter.format(
+          this.options.renameRule
+        )) + '.zip'
+      });
+    } finally {
+      FileSystem.getDefault().revokeWhenSaved(downloadId, url);
+    }
+
+    this.processProgress = 1;
+    this.dispatch('progress', [this.processProgress]);
   }
 
   async convert() {

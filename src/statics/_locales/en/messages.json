@@ -857,6 +857,9 @@
     "_download_mp4": {
         "message": "DL MP4"
     },
+    "_download_zip": {
+        "message": "DL Zip"
+    },
     "_download_added": {
         "message": "Download added"
     },

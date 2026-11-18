@@ -84,7 +84,8 @@ describe('DownloadManager', () => {
   });
 
   test.each([
-    [{ type: 'PIXIV_UGOIRA', convertType: 'gif' }, 'Pixiv Ugoira gif'],
+    [{ type: 'PIXIV_UGOIRA', convertType: 'gif' }, 'Pixiv Ugoira GIF'],
+    [{ type: 'PIXIV_UGOIRA', convertType: 'zip' }, 'Pixiv Ugoira ZIP'],
     [{ type: 'PIXIV_ILLUST' }, 'Pixiv Illust'],
     [{ type: 'PIXIV_MANGA' }, 'Pixiv Manga'],
     [{ type: 'PIXIV_NOVEL' }, 'Pixiv Novel'],
