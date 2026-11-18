@@ -42,7 +42,7 @@
             "schedule": ["* 0-5 * * 1"]
         },
         {
-            "description": "mise releases almost daily, some with breaking changes; bump it weekly. Renovate relocks mise.lock with its own, newer mise, so a lockfile format change fails CI until this bump lands.",
+            "description": "mise releases almost daily, some with breaking changes; bump it weekly.",
             "matchPackageNames": ["jdx/mise"],
             "schedule": ["* 0-5 * * 1"]
         },
