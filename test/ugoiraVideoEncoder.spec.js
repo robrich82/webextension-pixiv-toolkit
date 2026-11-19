@@ -6,8 +6,9 @@
  */
 import { MkvOutputFormat, MovOutputFormat, Mp4OutputFormat, canEncodeVideo } from 'mediabunny';
 import {
-  FALLBACK_DELAY, VIDEO_CONTAINERS, chooseCodec, codecSettingKey, containerCodecs, encodeVideo, encodedSize, frameTimes
+  VIDEO_CONTAINERS, chooseCodec, codecSettingKey, containerCodecs, encodeVideo, encodedSize, frameTimes
 } from '@/options_page/modules/UgoiraEncoders/video';
+import { FALLBACK_DELAY } from '@/options_page/modules/UgoiraEncoders/delay';
 import defaultSettings from '@/config/default';
 import { VIDEO_FORMAT_CODECS } from '@/options_page/modules/UgoiraEncoders/codecs';
 

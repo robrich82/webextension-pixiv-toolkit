@@ -4,6 +4,7 @@ import { afterEach, test } from 'node:test';
 import { PIXEL } from './fakePixiv.mjs';
 import { closeAll, launch, poll } from './firefox.mjs';
 import { probeVideo, videoSize } from '../test/helpers/probeVideo.mjs';
+import { nearColors, probeGif } from '../test/helpers/probeGif.mjs';
 
 // End-to-end downloads on Firefox, which Playwright can't load an extension
 // into. See docs/testing.md.
@@ -128,6 +129,30 @@ test('DL Zip saves the frames zip and converts nothing', { timeout: TIMEOUT }, a
   // With animation.json, which the default animationJsonFormat packs.
   assert.deepEqual(entries.map(entry => entry.name), ['000000.jpg', '000001.jpg', '000002.jpg', 'animation.json']);
   await firefox.waitForButton(tab, 'DL Zip ✔');
+  assertNoErrors();
+});
+
+test('DL GIF gives each frame its own palette and delay, and loops', { timeout: TIMEOUT }, async () => {
+  const animation = await convertUgoira('DL GIF', 'image/gif');
+
+  const gif = probeGif(fs.readFileSync(animation.path));
+  assert.deepEqual({ width: gif.width, height: gif.height, loops: gif.loops }, { ...FRAME_SIZE, loops: 0 });
+  // The fixture's frames are red, green and blue, for 100, 100 and 150ms.
+  assert.deepEqual(gif.frames.map(frame => frame.delay), [100, 100, 150]);
+  assert.ok(nearColors(gif.frames, [[254, 0, 0], [0, 129, 0], [0, 0, 254]]), 'frame colours');
+  // Frames after the first carry their own palette, where FFmpeg's GIF shared one.
+  assert.deepEqual(gif.frames.map(frame => frame.localPalette), [false, true, true]);
+  assertNoErrors();
+});
+
+test('DL GIF keeps an odd frame size and every frame of a longer PNG ugoira', { timeout: TIMEOUT }, async () => {
+  const animation = await convertUgoira('DL GIF', 'image/gif', { odd: true });
+
+  const gif = probeGif(fs.readFileSync(animation.path));
+  assert.deepEqual({ width: gif.width, height: gif.height, loops: gif.loops }, { width: 37, height: 35, loops: 0 });
+  assert.deepEqual(gif.frames.map(frame => frame.delay), ODD_DELAYS);
+  // Each frame has two colours, which a palette of its own keeps.
+  assert.deepEqual(gif.frames.map(frame => frame.distinctColors), ODD_DELAYS.map(() => 2));
   assertNoErrors();
 });
 

@@ -44,9 +44,13 @@ describe('createUgoiraDownloadTask', () => {
     expect(taskOptions('zip')).toMatchObject({ convertType: 'zip', ffmpegCommandArgs: '' });
   });
 
-  it('still converts GIF with its FFmpeg preset', () => {
-    expect(taskOptions('gif')).toMatchObject({
-      convertType: 'gif', ffmpegCommandArgs: UGOIRA_FFMPEG_CLI_ARGS.ugoiraFFmpegGIFCliArgs
+  it('encodes GIF in the browser, without an FFmpeg command', () => {
+    expect(taskOptions('gif')).toMatchObject({ id: 'pixiv_illust:10000003:gif', convertType: 'gif', ffmpegCommandArgs: '' });
+  });
+
+  it('still converts APNG with its FFmpeg preset', () => {
+    expect(taskOptions('apng')).toMatchObject({
+      convertType: 'apng', ffmpegCommandArgs: UGOIRA_FFMPEG_CLI_ARGS.ugoiraFFmpegAPNGCliArgs
     });
   });
 

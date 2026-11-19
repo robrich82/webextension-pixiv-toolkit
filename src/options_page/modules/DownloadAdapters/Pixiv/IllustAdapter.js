@@ -10,10 +10,9 @@ import IllustResource from "@/modules/PageResource/Pixiv/IllustResource";
 import { VIDEO_CONTAINERS, codecSettingKey } from "@/options_page/modules/UgoiraEncoders/video";
 
 /**
- * The ugoira conversions FFmpeg makes; VIDEO_CONTAINERS are encoded through WebCodecs instead.
+ * The ugoira conversions FFmpeg makes; GIF and VIDEO_CONTAINERS are encoded in the browser instead.
  */
 export const UGOIRA_FFMPEG_CLI_ARGS = {
-  ugoiraFFmpegGIFCliArgs: '-f concat -i input.txt -plays 0 out.gif',
   ugoiraFFmpegAPNGCliArgs: '-f concat -i input.txt -plays 0 output.apng'
 };
 
@@ -104,10 +103,11 @@ class IllustAdapter {
    */
   createUgoiraDownloadTask(resource, options) {
     const convertType = options?.ugoiraConvertType;
-    // A zip task saves only the frames zip, and WebCodecs encodes the video containers, so neither
-    // has an FFmpeg command.
+    // A zip task saves only the frames zip, and the browser encodes GIF and the video containers, so
+    // none of them has an FFmpeg command.
     const isVideo = Object.hasOwn(VIDEO_CONTAINERS, convertType ?? '');
-    const noCommand = isVideo || convertType === UgoiraDownloadTask.ZIP_CONVERT_TYPE;
+    const noCommand = isVideo ||
+      [UgoiraDownloadTask.ZIP_CONVERT_TYPE, UgoiraDownloadTask.GIF_CONVERT_TYPE].includes(convertType);
     const ffmpegCommandArgs = noCommand ? '' : typeof convertType === 'string' &&
       UGOIRA_FFMPEG_CLI_ARGS[`ugoiraFFmpeg${convertType.toUpperCase()}CliArgs`];
 

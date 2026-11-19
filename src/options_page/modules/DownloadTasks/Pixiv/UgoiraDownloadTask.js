@@ -7,6 +7,7 @@ import NameFormatter from "@/modules/Util/NameFormatter";
 import MimeType from "@/modules/Util/MimeType";
 import pathjoin from "@/modules/Util/pathjoin";
 import { VIDEO_CONTAINERS, encodeVideo } from "../../UgoiraEncoders/video";
+import { encodeGif } from "../../UgoiraEncoders/gif";
 
 class ZipRepo {
   /**
@@ -52,7 +53,8 @@ class ZipRepo {
  * @property {0|1|2} packAnimationJsonType
  * @property {string} ffmpegCommandArgs
  * @property {any} context
- * @property {string} convertType A button's format; 'zip' saves the frames zip instead of converting
+ * @property {string} convertType A button's format: 'zip' saves the frames zip, GIF and the videos encode in
+ *   the browser, and APNG converts through FFmpeg
  * @property {string} [codec] For a video format, the codec to try first; unset, the container's default
  *
  * @class
@@ -105,6 +107,11 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
    * The convertType of a task that saves the frames zip and converts nothing
    */
   static ZIP_CONVERT_TYPE = 'zip';
+
+  /**
+   * The convertType of a task that encodes a GIF in workers (UgoiraEncoders/gif)
+   */
+  static GIF_CONVERT_TYPE = 'gif';
 
   /**
    *
@@ -514,18 +521,21 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
   }
 
   async convert() {
-    const container = this.options.convertType?.toLowerCase();
+    const format = this.options.convertType?.toLowerCase();
+    let encoded;
 
-    if (Object.hasOwn(VIDEO_CONTAINERS, container ?? '')) {
-      const { data, mimeType, extension } = await this.encodeVideo(container);
-
-      await this.saveAnimation(data, mimeType, extension);
+    if (format === UgoiraDownloadTask.GIF_CONVERT_TYPE) {
+      encoded = await this.encodeFrames(encodeGif);
+    } else if (Object.hasOwn(VIDEO_CONTAINERS, format ?? '')) {
+      encoded = await this.encodeVideo(format);
+    } else {
+      await this.runFFmpeg(({ data, outputFilename }) => this.saveAnimation(
+        data, MimeType.getFileMimeType(outputFilename), MimeType.getFileExtension(outputFilename)
+      ));
       return;
     }
 
-    await this.runFFmpeg(({ data, outputFilename }) => this.saveAnimation(
-      data, MimeType.getFileMimeType(outputFilename), MimeType.getFileExtension(outputFilename)
-    ));
+    await this.saveAnimation(encoded.data, encoded.mimeType, encoded.extension);
   }
 
   /**
@@ -533,9 +543,28 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
    * @param {string} container A key of VIDEO_CONTAINERS
    * @returns {Promise<{ data: ArrayBuffer, mimeType: string, extension: string }>}
    */
-  async encodeVideo(container) {
-    this.encodeController = new AbortController();
+  encodeVideo(container) {
     this.fallbackCodec = null;
+
+    return this.encodeFrames(options => encodeVideo({
+      ...options,
+      container,
+      codec: this.options.codec,
+      // The next progress event marks the task changed, and the download manager's poll reads it.
+      onCodec: ({ codec, fallback }) => {
+        this.fallbackCodec = fallback ? codec : null;
+      }
+    }));
+  }
+
+  /**
+   * Passes the frames and their delays to an encoder; stop() aborts it.
+   * @template T
+   * @param {(options: { frames: { image: Blob, delay: number }[], signal: AbortSignal, onProgress: (progress: number) => void }) => Promise<T>} encode
+   * @returns {Promise<T>}
+   */
+  async encodeFrames(encode) {
+    this.encodeController = new AbortController();
 
     try {
       await this.zipLoaded;
@@ -545,15 +574,9 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
         delay: frame.delay
       })));
 
-      return await encodeVideo({
+      return await encode({
         frames,
-        container,
-        codec: this.options.codec,
         signal: this.encodeController.signal,
-        // The next progress event marks the task changed, and the download manager's poll reads it.
-        onCodec: ({ codec, fallback }) => {
-          this.fallbackCodec = fallback ? codec : null;
-        },
         onProgress: progress => {
           this.processProgress = progress;
           this.dispatch('progress', [this.processProgress]);

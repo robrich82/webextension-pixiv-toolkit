@@ -188,12 +188,17 @@ The background reads each finished file with `FileReader`, which Node lacks, so
 really does with a command, `test/helpers/ffmpegCore.cjs` runs it in a child
 Node process (its web-build globals would confuse Vitest's worker), with a fresh
 core per conversion, since one core crashes after a few runs.
-`test/ugoiraFrameTiming.spec.js` uses it to time each format's frames.
+`test/ugoiraFrameTiming.spec.js` uses it to time the frames of each format FFmpeg converts.
 
 WEBM, MP4, MKV and MOV are encoded through WebCodecs, which Node lacks. `test/UgoiraDownloadTask.spec.js`
 fakes `encodeVideo`, `test/ugoiraVideoEncoder.spec.js` covers the codec choice and frame
 times with `canEncodeVideo` faked, and the e2e tests encode for real, reading the saved
 video back with `test/helpers/probeVideo.mjs`.
+
+GIF is encoded with gifenc in workers, which Node lacks. `test/UgoiraDownloadTask.spec.js`
+fakes `encodeGif`, `test/ugoiraGifEncoder.spec.js` runs the real gifenc and the worker pool over
+fake workers, `test/ugoiraGifWorker.spec.js` runs `gif.worker.js` over stubbed worker globals, and
+the e2e tests read the saved GIF back with `test/helpers/probeGif.mjs`.
 
 ## DOM code, without jsdom
 

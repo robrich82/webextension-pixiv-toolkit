@@ -10,15 +10,23 @@ import { fakeDownloadFileBackground } from './helpers/downloadFileBackground';
 import UgoiraDownloadTask, { ZipRepo } from '@/options_page/modules/DownloadTasks/Pixiv/UgoiraDownloadTask';
 import DownloadManager from '@/options_page/modules/DownloadManager';
 import { encodeVideo } from '@/options_page/modules/UgoiraEncoders/video';
+import { encodeGif } from '@/options_page/modules/UgoiraEncoders/gif';
 
 // Node has no WebCodecs; test/ugoiraVideoEncoder.spec.js and the e2e tests cover the encoder.
 vi.mock('@/options_page/modules/UgoiraEncoders/video', async importOriginal => ({
   ...await importOriginal(),
   encodeVideo: vi.fn()
 }));
+// Node has no Worker or OffscreenCanvas; test/ugoiraGifEncoder.spec.js and the e2e tests cover the encoder.
+vi.mock('@/options_page/modules/UgoiraEncoders/gif', async importOriginal => ({
+  ...await importOriginal(),
+  encodeGif: vi.fn()
+}));
 
 const resourceUrl = id => `https://i.pximg.net/img-zip-ugoira/img/${id}_ugoira1920x1080.zip`;
 const frames = [{ file: '000000.jpg', delay: 100 }, { file: '000001.jpg', delay: 250 }];
+// The tasks convert through FFmpeg by default: APNG still does, GIF and video encode in the browser.
+const APNG_COMMAND = '-f concat -i input.txt -plays 0 output.apng';
 
 let background;
 let saved;
@@ -81,7 +89,7 @@ const framesZip = async () => {
   return zip.generateAsync({ type: 'nodebuffer' });
 };
 
-const createTask = ({ id = `${nextId++}`, taskId = `pixiv:${id}:gif`, ...options } = {}) => UgoiraDownloadTask.create({
+const createTask = ({ id = `${nextId++}`, taskId = `pixiv:${id}:apng`, ...options } = {}) => UgoiraDownloadTask.create({
   uid: `pixiv:${id}`,
   id: taskId,
   url: `https://www.pixiv.net/artworks/${id}`,
@@ -89,8 +97,8 @@ const createTask = ({ id = `${nextId++}`, taskId = `pixiv:${id}:gif`, ...options
   frames,
   packAnimationJsonType: 0,
   renameRule: '{id}_{title}',
-  ffmpegCommandArgs: '',
-  convertType: 'gif',
+  ffmpegCommandArgs: APNG_COMMAND,
+  convertType: 'apng',
   context: {
     id,
     title: 'Moving',
@@ -166,8 +174,8 @@ test('converts the frames and saves only the animation, not the frames zip', asy
   await completeDownload(task);
   await vi.waitFor(() => expect(task.isComplete()).toBe(true));
 
-  expect(savedNames()).toEqual(['ugoira/123_Moving.gif']);
-  expect(saved[0].blob.type).toBe('image/gif');
+  expect(savedNames()).toEqual(['ugoira/123_Moving.apng']);
+  expect(saved[0].blob.type).toBe('image/apng');
 
   const [ffmpeg] = ffmpegs;
   expect(new TextDecoder().decode(ffmpeg.files.get('000001.jpg'))).toBe('frame 1');
@@ -177,14 +185,14 @@ test('converts the frames and saves only the animation, not the frames zip', asy
     "file '000001.jpg'\r\noption framerate 1000/50\r\nduration 0.25\r\n"
   );
   expect(ffmpeg.commands)
-    .toEqual([['-f', 'concat', '-safe', '0', '-i', 'input.txt', '-plays', '0', '-final_delay', '25', 'out.gif']]);
-  expect(ffmpeg.deleted).toEqual(['000000.jpg', '000001.jpg', 'input.txt', 'out.gif']);
+    .toEqual([['-f', 'concat', '-safe', '0', '-i', 'input.txt', '-plays', '0', '-final_delay', '250/1000', 'output.apng']]);
+  expect(ffmpeg.deleted).toEqual(['000000.jpg', '000001.jpg', 'input.txt', 'output.apng']);
   expect(ffmpeg.terminated).toBe(true);
   expect(task.ffmpeg).toBeNull();
   expect(fired).toEqual(['start', 'complete']);
 });
 
-test.each(['gif', 'zip'])('keeps the %s blob url until its download finishes (#296)', async convertType => {
+test.each(['apng', 'zip'])('keeps the %s blob url until its download finishes (#296)', async convertType => {
   vi.spyOn(URL, 'revokeObjectURL');
   const task = createTask({ convertType });
 
@@ -216,7 +224,7 @@ test('a zip task saves the frames zip, converts nothing and is done processing',
   expect(fired).toEqual(['start', 'complete']);
   // processProgress 1 is what ticks the content script's button.
   expect(progresses.at(-1)).toBe(1);
-  expect(task.toJson()).toMatchObject({ id: 'pixiv:180:gif', processProgress: 1, convertType: 'zip' });
+  expect(task.toJson()).toMatchObject({ id: 'pixiv:180:apng', processProgress: 1, convertType: 'zip' });
 });
 
 test('a zip task after a conversion saves the cached zip without downloading it again', async () => {
@@ -230,7 +238,7 @@ test('a zip task after a conversion saves the cached zip without downloading it 
   await vi.waitFor(() => expect(second.isComplete()).toBe(true));
 
   expect(background.requests).toHaveLength(1);
-  expect(savedNames()).toEqual(['ugoira/181_Moving.gif', 'ugoira/181_Moving.zip']);
+  expect(savedNames()).toEqual(['ugoira/181_Moving.apng', 'ugoira/181_Moving.zip']);
   const zip = await RealJSZip.loadAsync(await saved[1].blob.arrayBuffer());
   expect(Object.keys(zip.files)).toEqual(['000000.jpg', '000001.jpg', 'animation.json']);
 });
@@ -247,7 +255,7 @@ test('a conversion after a zip task converts the cached zip without downloading 
 
   expect(background.requests).toHaveLength(1);
   expect(ffmpegs).toHaveLength(1);
-  expect(savedNames()).toEqual(['ugoira/182_Moving.zip', 'ugoira/182_Moving.gif']);
+  expect(savedNames()).toEqual(['ugoira/182_Moving.zip', 'ugoira/182_Moving.apng']);
 });
 
 test.each([
@@ -271,10 +279,10 @@ test.each([
   expect(JSON.parse(await zip.file('animation.json').async('string'))).toEqual(json);
 });
 
-test.each(['gif', 'zip'])('a %s task saves the work information beside it when metadata is on', async convertType => {
+test.each(['apng', 'zip'])('a %s task saves the work information beside it when metadata is on', async convertType => {
   window.$app.settings.enableDownloadMetadata = true;
   const revoke = vi.spyOn(URL, 'revokeObjectURL');
-  const task = createTask({ id: convertType === 'gif' ? '125' : '135', convertType });
+  const task = createTask({ id: convertType === 'apng' ? '125' : '135', convertType });
   const name = `ugoira/${task.options.context.id}_Moving.info.json`;
 
   task.start();
@@ -473,7 +481,6 @@ describe('frame timing (#322)', () => {
   });
 
   test.each([
-    ['the default GIF command', '', '1000/20', '0.02'],
     ['a custom command whose output is a GIF', '-f concat -i input.txt -plays 0 fast.GIF', '1000/20', '0.02'],
     ['a custom command whose output is an APNG', '-f concat -i input.txt -plays 0 output.apng', '1000/20', '0.02'],
     ['a two-line custom command whose last output is a GIF',
@@ -483,7 +490,7 @@ describe('frame timing (#322)', () => {
   ])('input.txt times a 10ms frame for %s', async (_, ffmpegCommandArgs, rate, duration) => {
     const task = createTask({
       ffmpegCommandArgs,
-      convertType: ffmpegCommandArgs ? 'CUSTOM' : 'gif',
+      convertType: 'CUSTOM',
       frames: [{ file: '000000.jpg', delay: 10 }, { file: '000001.jpg', delay: 10 }]
     });
 
@@ -530,11 +537,11 @@ test('reports conversion progress, and toJson carries it with the convert type',
   expect(progresses).toContain(0.5);
   expect(task.toJson()).toMatchObject({
     type: 'PIXIV_UGOIRA',
-    id: 'pixiv:127:gif',
+    id: 'pixiv:127:apng',
     state: task.COMPLETE_STATE,
     progress: 1,
     processProgress: 0.5,
-    convertType: 'gif'
+    convertType: 'apng'
   });
 });
 
@@ -555,7 +562,7 @@ test('a conversion that fails fails the task and saves nothing', async () => {
   expect(fired).toEqual(['start', 'failure']);
   expect(ffmpegs[0].terminated).toBe(true);
   expect(saved).toEqual([]);
-  expect(console.error).toHaveBeenCalledWith('Could not convert ugoira pixiv:128:gif', error);
+  expect(console.error).toHaveBeenCalledWith('Could not convert ugoira pixiv:128:apng', error);
 });
 
 test('a download that fails fails the task before any conversion', async () => {
@@ -586,7 +593,7 @@ test('a second task for the same work converts the cached zip without downloadin
   expect(second.progress).toBe(1);
   expect(ffmpegs[1].commands)
     .toEqual([['-f', 'concat', '-safe', '0', '-i', 'input.txt', '-final_delay', '250/1000', 'output.apng']]);
-  expect(savedNames()).toEqual(['ugoira/130_Moving.gif', 'ugoira/130_Moving.apng']);
+  expect(savedNames()).toEqual(['ugoira/130_Moving.apng', 'ugoira/130_Moving.apng']);
 });
 
 test('a second start() while the cached zip loads converts it once', async () => {
@@ -604,7 +611,7 @@ test('a second start() while the cached zip loads converts it once', async () =>
 
   expect(fired).toEqual(['start', 'complete']);
   expect(ffmpegs).toHaveLength(2);
-  expect(savedNames()).toEqual(['ugoira/133_Moving.gif', 'ugoira/133_Moving.gif']);
+  expect(savedNames()).toEqual(['ugoira/133_Moving.apng', 'ugoira/133_Moving.apng']);
 });
 
 // #311: the task used to stay downloading for good, as the rejection went unhandled.
@@ -622,7 +629,7 @@ describe('a cached zip that will not load', () => {
     await vi.waitFor(() => expect(task.isComplete()).toBe(true));
 
     expect(background.requests).toHaveLength(1);
-    expect(savedNames()).toEqual(['ugoira/160_Moving.gif']);
+    expect(savedNames()).toEqual(['ugoira/160_Moving.apng']);
     // The download replaced the bad entry, so the next conversion uses it.
     expect(ZipRepo.getDefault().getZip('pixiv:160')).toBeDefined();
     expect(ZipRepo.getDefault().getZip('pixiv:160')).not.toBe(notAZip);
@@ -664,7 +671,7 @@ test('retrying a ugoira whose conversion failed, through the download manager, c
 
   expect(background.requests).toHaveLength(1);
   expect(ffmpegs).toHaveLength(2);
-  expect(savedNames()).toEqual(['ugoira/140_Moving.gif']);
+  expect(savedNames()).toEqual(['ugoira/140_Moving.apng']);
   expect(manager.lastError).toBeNull();
 });
 
@@ -686,7 +693,7 @@ test('pause aborts the download, and a restarted task fetches the zip again and 
   await completeDownload(task);
   await vi.waitFor(() => expect(task.isComplete()).toBe(true));
 
-  expect(savedNames()).toEqual(['ugoira/131_Moving.gif']);
+  expect(savedNames()).toEqual(['ugoira/131_Moving.apng']);
 });
 
 test('pause leaves a conversion running; stop terminates it', async () => {
@@ -735,7 +742,7 @@ describe('a save that fails fails the task', () => {
     await vi.waitFor(() => expect(task.isFailure()).toBe(true));
 
     expect(task.lastError).toEqual(new Error('Could not save "ugoira/150_Moving.zip"'));
-    expect(console.error).toHaveBeenCalledWith('Could not save the frames zip of ugoira pixiv:150:gif', task.lastError);
+    expect(console.error).toHaveBeenCalledWith('Could not save the frames zip of ugoira pixiv:150:apng', task.lastError);
     expect(revoke).toHaveBeenCalledWith(background.saves[0].url);
 
     failing = false;
@@ -768,22 +775,22 @@ describe('a save that fails fails the task', () => {
     await vi.waitFor(() => expect(task.isComplete()).toBe(true));
 
     expect(savedNames()).toEqual([
-      'ugoira/151_Moving.info.json', 'ugoira/151_Moving.info.json', 'ugoira/151_Moving.gif'
+      'ugoira/151_Moving.info.json', 'ugoira/151_Moving.info.json', 'ugoira/151_Moving.apng'
     ]);
   });
 
   test('the converted animation', async () => {
     const revoke = vi.spyOn(URL, 'revokeObjectURL');
-    background.failSaves(save => save.filename.endsWith('.gif'));
+    background.failSaves(save => save.filename.endsWith('.apng'));
     const task = createTask({ id: '152' });
 
     task.start();
     await completeDownload(task);
     await vi.waitFor(() => expect(task.isFailure()).toBe(true));
 
-    expect(task.lastError).toEqual(new Error('Could not save "ugoira/152_Moving.gif"'));
+    expect(task.lastError).toEqual(new Error('Could not save "ugoira/152_Moving.apng"'));
     expect(ffmpegs[0].terminated).toBe(true);
-    expect(revoke).toHaveBeenCalledWith(background.saves.find(save => save.filename.endsWith('.gif')).url);
+    expect(revoke).toHaveBeenCalledWith(background.saves.find(save => save.filename.endsWith('.apng')).url);
   });
 });
 
@@ -934,6 +941,90 @@ describe('WEBM through WebCodecs', () => {
 
     task.pause();
     expect(encodeSignal.aborted).toBe(false);
+
+    task.stop();
+    expect(encodeSignal.aborted).toBe(true);
+    await vi.waitFor(() => expect(task.isFailure()).toBe(true));
+    expect(task.processProgress).toBe(0);
+    expect(task.encodeController).toBeNull();
+  });
+});
+
+describe('GIF in the browser', () => {
+  const gifTask = id => createTask({ id, taskId: `pixiv:${id}:gif`, convertType: 'gif', ffmpegCommandArgs: '' });
+
+  beforeEach(() => {
+    encodeGif.mockReset();
+    encodeGif.mockResolvedValue({ data: new Uint8Array([7, 8, 9]), mimeType: 'image/gif', extension: 'gif' });
+  });
+
+  test('encodes each frame with its delay, without FFmpeg, and saves the GIF', async () => {
+    const task = gifTask('200');
+    const fired = events(task);
+
+    task.start();
+    await completeDownload(task);
+    await vi.waitFor(() => expect(task.isComplete()).toBe(true));
+
+    expect(savedNames()).toEqual(['ugoira/200_Moving.gif']);
+    expect(saved[0].blob.type).toBe('image/gif');
+    expect(new Uint8Array(await saved[0].blob.arrayBuffer())).toEqual(new Uint8Array([7, 8, 9]));
+    expect(ffmpegs).toEqual([]);
+    expect(encodeVideo).not.toHaveBeenCalled();
+    expect(fired).toEqual(['start', 'complete']);
+
+    const [{ frames: encoded, signal }] = encodeGif.mock.calls[0];
+    expect(signal.aborted).toBe(false);
+    expect(encoded.map(frame => frame.delay)).toEqual([100, 250]);
+    expect(encoded.map(frame => frame.image.type)).toEqual(['image/jpeg', 'image/jpeg']);
+    expect(await Promise.all(encoded.map(frame => frame.image.text()))).toEqual(['frame 0', 'frame 1']);
+  });
+
+  test('reports the encoding progress', async () => {
+    const task = gifTask('201');
+    const progresses = [];
+    task.addListener('progress', progress => progresses.push(progress));
+    encodeGif.mockImplementation(async ({ onProgress }) => {
+      onProgress(0.5);
+      onProgress(1);
+      return { data: new Uint8Array([1]), mimeType: 'image/gif', extension: 'gif' };
+    });
+
+    task.start();
+    await completeDownload(task);
+    await vi.waitFor(() => expect(task.isComplete()).toBe(true));
+
+    expect(progresses).toEqual(expect.arrayContaining([0.5, 1]));
+    expect(task.toJson()).toMatchObject({ processProgress: 1, convertType: 'gif', fallbackCodec: null });
+  });
+
+  test('an encoding that fails fails the task and saves nothing', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const task = gifTask('202');
+    const error = new Error('Could not encode GIF frame 2: decode failed');
+    encodeGif.mockRejectedValue(error);
+
+    task.start();
+    await completeDownload(task);
+    await vi.waitFor(() => expect(task.isFailure()).toBe(true));
+
+    expect(task.lastError).toBe(error);
+    expect(savedNames()).toEqual([]);
+    expect(console.error).toHaveBeenCalledWith('Could not convert ugoira pixiv:202:gif', error);
+  });
+
+  test('stop aborts the encoding', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const task = gifTask('203');
+    let encodeSignal;
+    encodeGif.mockImplementation(({ signal }) => new Promise((resolve, reject) => {
+      encodeSignal = signal;
+      signal.addEventListener('abort', () => reject(signal.reason));
+    }));
+
+    task.start();
+    await completeDownload(task);
+    await vi.waitFor(() => expect(encodeSignal).toBeDefined());
 
     task.stop();
     expect(encodeSignal.aborted).toBe(true);

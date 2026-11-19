@@ -9,9 +9,11 @@ import path from 'node:path';
 import UgoiraDownloadTask from '@/options_page/modules/DownloadTasks/Pixiv/UgoiraDownloadTask';
 import { UGOIRA_FFMPEG_CLI_ARGS } from '@/options_page/modules/DownloadAdapters/Pixiv/IllustAdapter';
 
-const FORMATS = {
-  gif: 'ugoiraFFmpegGIFCliArgs',
-  apng: 'ugoiraFFmpegAPNGCliArgs'
+// GIF encodes in the browser now (test/ugoiraGifEncoder.spec.js). The gif rows time prepareConversion's
+// GIF handling, which no task reaches any more, for as long as it stays.
+const COMMANDS = {
+  gif: '-f concat -i input.txt -plays 0 out.gif',
+  apng: UGOIRA_FFMPEG_CLI_ARGS.ugoiraFFmpegAPNGCliArgs
 };
 const UNEVEN = [30, 70, 100, 50, 130, 60];
 const EVEN = [70, 70, 70, 70];
@@ -31,10 +33,9 @@ const conversion = (name, command, delays) => {
 
   return { name, input, args };
 };
-const preset = (name, format, delays) =>
-  conversion(`${format} ${name}`, UGOIRA_FFMPEG_CLI_ARGS[FORMATS[format]], delays);
+const preset = (name, format, delays) => conversion(`${format} ${name}`, COMMANDS[format], delays);
 
-const ALL = Object.keys(FORMATS);
+const ALL = Object.keys(COMMANDS);
 const conversions = [
   ...ALL.map(format => preset('uneven', format, UNEVEN)),
   ...ALL.map(format => preset('even', format, EVEN)),

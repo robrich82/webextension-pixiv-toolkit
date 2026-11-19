@@ -87,6 +87,38 @@ test('DL Zip saves the frames zip and converts nothing', async ({ context, servi
   expect(errors).toEqual([]);
 });
 
+test('DL GIF gives each frame its own palette and delay, and loops', async ({ context, serviceWorker }) => {
+  const errors = collectErrors(context);
+  const { probeGif, nearColors } = await import('../test/helpers/probeGif.mjs');
+
+  const animation = await convert(context, serviceWorker, 'DL GIF', 'image/gif');
+
+  const gif = probeGif(fs.readFileSync(animation.filename));
+  expect(gif).toMatchObject({ ...FRAME_SIZE, loops: 0 });
+  // The fixture's frames are red, green and blue, for 100, 100 and 150ms.
+  expect(gif.frames.map(frame => frame.delay)).toEqual([100, 100, 150]);
+  expect(nearColors(gif.frames, [[254, 0, 0], [0, 129, 0], [0, 0, 254]])).toBe(true);
+  // Frames after the first carry their own palette, where FFmpeg's GIF shared one.
+  expect(gif.frames.map(frame => frame.localPalette)).toEqual([false, true, true]);
+  expect(errors).toEqual([]);
+});
+
+test('DL GIF keeps an odd frame size and every frame of a longer PNG ugoira', async ({ context, serviceWorker }) => {
+  const errors = collectErrors(context);
+  await context.unrouteAll();
+  await mockPixiv(context, ugoiraRoutes({ odd: true }));
+  const { probeGif } = await import('../test/helpers/probeGif.mjs');
+
+  const animation = await convert(context, serviceWorker, 'DL GIF', 'image/gif');
+
+  const gif = probeGif(fs.readFileSync(animation.filename));
+  expect(gif).toMatchObject({ width: 37, height: 35, loops: 0 });
+  expect(gif.frames.map(frame => frame.delay)).toEqual(ODD_DELAYS);
+  // Each frame has two colours, which a palette of its own keeps.
+  expect(gif.frames.map(frame => frame.distinctColors)).toEqual(ODD_DELAYS.map(() => 2));
+  expect(errors).toEqual([]);
+});
+
 test('DL WEBM encodes VP9 through WebCodecs, each frame for its own delay', async ({ context, serviceWorker }) => {
   const errors = collectErrors(context);
   const { probeVideo } = await import('../test/helpers/probeVideo.mjs');

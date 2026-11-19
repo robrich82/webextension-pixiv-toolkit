@@ -10,6 +10,7 @@ import {
   canEncodeVideo
 } from 'mediabunny';
 import { VIDEO_CODECS, VIDEO_FORMAT_CODECS, codecSettingKey } from './codecs';
+import { frameDelay } from './delay';
 
 export { codecSettingKey };
 
@@ -26,9 +27,6 @@ const QUALITY = new Quality('very-high');
 
 /** H.264 and H.265 encoders refuse odd dimensions. */
 const EVEN_DIMENSION_CODECS = ['avc', 'hevc'];
-
-/** A frame whose delay isn't a positive number of ms (Pixiv always gives one) lasts this long. */
-export const FALLBACK_DELAY = 100;
 
 /**
  * @param {string} container
@@ -92,7 +90,7 @@ export function frameTimes(frames) {
   let elapsed = 0;
 
   return frames.map(({ delay }) => {
-    const ms = Number.isFinite(delay) && delay > 0 ? delay : FALLBACK_DELAY;
+    const ms = frameDelay(delay);
     const time = { timestamp: elapsed / 1000, duration: ms / 1000 };
 
     elapsed += ms;
