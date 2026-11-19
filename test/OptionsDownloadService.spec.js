@@ -107,7 +107,7 @@ describe('download:addDownload', () => {
 
   test.each([
     ['zip', 'zip', ''],
-    ['webm', 'webm', '-f concat -i input.txt -safe 0 output.webm']
+    ['webm', 'webm', '']
   ])('an ugoira with convert type %s gets its own task, of convert type %s', async (ugoiraConvertType, convertType, args) => {
     const frames = [{ file: '000000.jpg', delay: 100 }];
     const resource = IllustResource.create({

@@ -796,15 +796,15 @@ describe('WEBM through WebCodecs', () => {
   });
 
   test('encodes each frame with its delay, without FFmpeg, and saves the video', async () => {
-    const task = webmTask('180');
+    const task = webmTask('190');
 
     task.start();
     await completeDownload(task);
     await vi.waitFor(() => expect(task.isComplete()).toBe(true));
 
-    expect(savedNames()).toEqual(['ugoira/180_Moving.zip', 'ugoira/180_Moving.webm']);
-    expect(saved[1].blob.type).toBe('video/webm');
-    expect(new Uint8Array(await saved[1].blob.arrayBuffer())).toEqual(new Uint8Array([4, 5, 6]));
+    expect(savedNames()).toEqual(['ugoira/190_Moving.webm']);
+    expect(saved[0].blob.type).toBe('video/webm');
+    expect(new Uint8Array(await saved[0].blob.arrayBuffer())).toEqual(new Uint8Array([4, 5, 6]));
     expect(ffmpegs).toEqual([]);
 
     const [{ frames: encoded, container, signal }] = encodeVideo.mock.calls[0];
@@ -816,7 +816,7 @@ describe('WEBM through WebCodecs', () => {
   });
 
   test('reports the encoding progress', async () => {
-    const task = webmTask('181');
+    const task = webmTask('191');
     const progresses = [];
     task.addListener('progress', progress => progresses.push(progress));
     encodeVideo.mockImplementation(async ({ onProgress }) => {
@@ -833,9 +833,9 @@ describe('WEBM through WebCodecs', () => {
     expect(task.toJson()).toMatchObject({ processProgress: 1, convertType: 'webm' });
   });
 
-  test('an encoding that fails fails the task; the frames zip stays saved', async () => {
+  test('an encoding that fails fails the task and saves nothing', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
-    const task = webmTask('182');
+    const task = webmTask('192');
     const error = new Error("This browser can't encode WEBM video at 16x16");
     encodeVideo.mockRejectedValue(error);
 
@@ -844,13 +844,13 @@ describe('WEBM through WebCodecs', () => {
     await vi.waitFor(() => expect(task.isFailure()).toBe(true));
 
     expect(task.lastError).toBe(error);
-    expect(savedNames()).toEqual(['ugoira/182_Moving.zip']);
-    expect(console.error).toHaveBeenCalledWith('Could not convert ugoira pixiv:182:webm', error);
+    expect(savedNames()).toEqual([]);
+    expect(console.error).toHaveBeenCalledWith('Could not convert ugoira pixiv:192:webm', error);
   });
 
   test('stop aborts the encoding', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
-    const task = webmTask('183');
+    const task = webmTask('193');
     let encodeSignal;
     encodeVideo.mockImplementation(({ signal }) => new Promise((resolve, reject) => {
       encodeSignal = signal;

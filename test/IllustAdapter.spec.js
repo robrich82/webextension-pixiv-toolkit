@@ -39,6 +39,10 @@ describe('createUgoiraDownloadTask', () => {
     });
   });
 
+  it('saves only the frames zip for DL Zip, without an FFmpeg command', () => {
+    expect(taskOptions('zip')).toMatchObject({ convertType: 'zip', ffmpegCommandArgs: '' });
+  });
+
   it('still converts MP4 with its FFmpeg preset', () => {
     expect(taskOptions('mp4')).toMatchObject({
       convertType: 'mp4', ffmpegCommandArgs: UGOIRA_FFMPEG_CLI_ARGS.ugoiraFFmpegMP4CliArgs
