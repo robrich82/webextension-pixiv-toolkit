@@ -7,8 +7,16 @@ use_versions_host_track = false
 # Overrides any global list naming pnpm: reading `packageManager` as well would
 # add a second, npm:pnpm entry to mise.lock.
 idiomatic_version_file_enable_tools = []
+# `[deps]` below is experimental; without this, `mise exec` and `mise deps` error.
+experimental = true
 
 [tools]
 node = "26.13.1"
 # Must match `packageManager` in package.json; test/toolchainPins.spec.js checks.
 pnpm = "12.21.0"
+
+# `mise deps` installs node_modules when pnpm-lock.yaml or package.json changed;
+# `mise exec` and `mise run` do it first too. `mise install` doesn't.
+[deps.pnpm]
+auto = true
+run = "pnpm install --frozen-lockfile"
