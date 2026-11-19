@@ -126,18 +126,22 @@ test('DL MP4 encodes H.264 through WebCodecs, padded to an even size, each frame
   expect(errors).toEqual([]);
 });
 
-for (const { label, mime } of [
-  { label: 'DL MKV', mime: 'video/x-matroska' },
-  { label: 'DL MOV', mime: 'video/quicktime' }
+// Size is read in Node; Chromium can't decode MOV.
+for (const { label, mime, extension } of [
+  { label: 'DL MKV', mime: 'video/x-matroska', extension: '.mkv' },
+  { label: 'DL MOV', mime: 'video/quicktime', extension: '.mov' }
 ]) {
   test(`${label} encodes H.264 through WebCodecs, padded to an even size, each frame for its own delay`, async ({ context, serviceWorker }) => {
     const errors = collectErrors(context);
     await context.unrouteAll();
     await mockPixiv(context, ugoiraRoutes({ odd: true }));
     const { probeVideo, videoSize } = await import('../test/helpers/probeVideo.mjs');
+    await recordSaveNames(serviceWorker);
 
     const animation = await convert(context, serviceWorker, label, mime);
 
+    // Playwright saves under its own ids, so the name comes from the download request.
+    expect((await serviceWorker.evaluate(() => self.saveNames))[animation.id]).toBe(`10000003_rain loop${extension}`);
     expect(await probeVideo(animation.filename)).toEqual({ codec: 'avc', ...ODD_TIMES });
     expect(await videoSize(animation.filename)).toEqual({ width: 38, height: 36 });
     expect(errors).toEqual([]);

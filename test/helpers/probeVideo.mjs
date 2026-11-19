@@ -20,7 +20,7 @@ export async function probeVideo(file) {
 }
 
 /**
- * A saved video's frame size, read in Node, for containers the browser can't play (Chrome has no MOV).
+ * A saved video's frame size, read in Node, for MOV, which Chromium can't play (MKV is read the same way).
  * @param {string} file
  * @returns {Promise<{ width: number, height: number }>}
  */

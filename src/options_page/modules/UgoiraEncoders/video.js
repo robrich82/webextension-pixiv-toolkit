@@ -16,7 +16,7 @@ import {
  */
 export const VIDEO_CONTAINERS = {
   webm: { createFormat: () => new WebMOutputFormat(), defaultCodec: 'vp9' },
-  // The index up front, so a player starts before it has all loaded.
+  // MP4 and MOV put the index up front, so a player starts before it has all loaded.
   mp4: { createFormat: () => new Mp4OutputFormat({ fastStart: 'in-memory' }), defaultCodec: 'avc' },
   mov: { createFormat: () => new MovOutputFormat({ fastStart: 'in-memory' }), defaultCodec: 'avc' },
   mkv: { createFormat: () => new MkvOutputFormat(), defaultCodec: 'avc' }

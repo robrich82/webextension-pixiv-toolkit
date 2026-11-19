@@ -465,6 +465,8 @@ describe('App download', () => {
     await clickAndFlush(actionButtons(wrapper).find(a => a.text() === label));
 
     expect(sentMessages('download:addDownload')[0].args.options.ugoiraConvertType).toBe(ugoiraConvertType);
+    // Only the clicked button shows its task's progress.
+    expect(actionLabels(wrapper).filter(text => text.endsWith('(D:0.00%)'))).toEqual([`${label} (D:0.00%)`]);
   });
 
   test("the selector's own download button sends the picked pages", async () => {

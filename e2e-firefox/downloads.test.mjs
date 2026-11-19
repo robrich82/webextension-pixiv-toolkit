@@ -155,13 +155,14 @@ test('DL MP4 encodes H.264 through WebCodecs, padded to an even size, each frame
   assertNoErrors();
 });
 
-for (const { label, mime } of [
-  { label: 'DL MKV', mime: 'video/x-matroska' },
-  { label: 'DL MOV', mime: 'video/quicktime' }
+for (const { label, mime, extension } of [
+  { label: 'DL MKV', mime: 'video/x-matroska', extension: '.mkv' },
+  { label: 'DL MOV', mime: 'video/quicktime', extension: '.mov' }
 ]) {
   test(`${label} encodes H.264 through WebCodecs, padded to an even size, each frame for its own delay`, { timeout: TIMEOUT }, async () => {
     const animation = await convertUgoira(label, mime, { odd: true });
 
+    assert.ok(animation.name.endsWith(extension), animation.name);
     assert.deepEqual(await probeVideo(animation.path), { codec: 'avc', ...ODD_TIMES });
     assert.deepEqual(await videoSize(animation.path), { width: 38, height: 36 });
     assertNoErrors();
