@@ -172,8 +172,9 @@ own modulepreload one).
 
 ## browserslist
 
-Targets are `chrome >= 111` / `firefox >= 128` (#347, #354), both set by
-Vuetify. Below Chrome 110 / Firefox 115 the options page and download manager
+Targets are `chrome >= 111` / `firefox >= 130`. Chrome's is set by Vuetify
+(#347, #354), and Firefox's by WebCodecs' `VideoEncoder` (Firefox 130), which
+converts ugoira to video. Below Chrome 110 / Firefox 115 the options page and download manager
 don't load, because @vuetify/v0 calls `Array.prototype.toSorted` at startup.
 Chrome 110 loads them without Vuetify's `color-mix()` colours. Firefox below 121
 rejects the `:has()` selector Vuetify finds focusable elements with, and below

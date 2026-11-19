@@ -27,15 +27,16 @@ describe('browserFloors', () => {
     expect(() => browserFloors(undefined)).toThrow('browserslist array');
   });
 
-  it("keeps package.json's browserslist at or above what Vuetify needs (#347, #354)", () => {
+  it("keeps package.json's browserslist at or above what Vuetify and WebCodecs need (#347, #354)", () => {
     // @vuetify/v0 calls Array.prototype.toSorted when Vuetify starts (Chrome 110),
     // Vuetify's CSS colours use color-mix() (Chrome 111), and it registers
     // properties with @property (Firefox 128) and selects with :has() (Firefox 121).
+    // Ugoira video conversion needs WebCodecs' VideoEncoder (Chrome 94, Firefox 130).
     const { browserslist } = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../package.json'), 'utf8'));
     const { chrome, firefox } = browserFloors(browserslist);
 
     expect(Number(chrome)).toBeGreaterThanOrEqual(111);
-    expect(Number(firefox)).toBeGreaterThanOrEqual(128);
+    expect(Number(firefox)).toBeGreaterThanOrEqual(130);
   });
 });
 
