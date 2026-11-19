@@ -1,6 +1,8 @@
 import {
   BufferTarget,
   CanvasSource,
+  MkvOutputFormat,
+  MovOutputFormat,
   Mp4OutputFormat,
   Output,
   Quality,
@@ -14,8 +16,10 @@ import {
  */
 export const VIDEO_CONTAINERS = {
   webm: { createFormat: () => new WebMOutputFormat(), defaultCodec: 'vp9' },
-  // The index up front, so a browser plays it before it has all loaded.
-  mp4: { createFormat: () => new Mp4OutputFormat({ fastStart: 'in-memory' }), defaultCodec: 'avc' }
+  // The index up front, so a player starts before it has all loaded.
+  mp4: { createFormat: () => new Mp4OutputFormat({ fastStart: 'in-memory' }), defaultCodec: 'avc' },
+  mov: { createFormat: () => new MovOutputFormat({ fastStart: 'in-memory' }), defaultCodec: 'avc' },
+  mkv: { createFormat: () => new MkvOutputFormat(), defaultCodec: 'avc' }
 };
 
 const QUALITY = new Quality('very-high');

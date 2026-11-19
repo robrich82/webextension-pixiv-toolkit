@@ -863,6 +863,12 @@
     "_download_mp4": {
         "message": "下载MP4"
     },
+    "_download_mkv": {
+        "message": "下载MKV"
+    },
+    "_download_mov": {
+        "message": "下载MOV"
+    },
     "_download_zip": {
         "message": "下载ZIP"
     },

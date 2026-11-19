@@ -4,7 +4,7 @@
  * against a fake Output and CanvasSource; e2e/ugoira.e2e.js and e2e-firefox/downloads.test.mjs run
  * the real encode.
  */
-import { Mp4OutputFormat, canEncodeVideo } from 'mediabunny';
+import { MkvOutputFormat, MovOutputFormat, Mp4OutputFormat, canEncodeVideo } from 'mediabunny';
 import {
   FALLBACK_DELAY, chooseCodec, containerCodecs, encodeVideo, encodedSize, frameTimes
 } from '@/options_page/modules/UgoiraEncoders/video';
@@ -93,8 +93,8 @@ describe('containerCodecs', () => {
     expect(containerCodecs('webm')).toEqual(['vp9', 'av1', 'vp8']);
   });
 
-  it('offers every codec for MP4, H.264 first', () => {
-    expect(containerCodecs('mp4')).toEqual(['avc', 'vp9', 'av1', 'hevc', 'vp8']);
+  it.each(['mp4', 'mov', 'mkv'])('offers every codec for %s, H.264 first', container => {
+    expect(containerCodecs(container)).toEqual(['avc', 'vp9', 'av1', 'hevc', 'vp8']);
   });
 });
 
@@ -249,14 +249,18 @@ describe('encodeVideo', () => {
     expect(canEncodeVideo).toHaveBeenCalledTimes(1);
   });
 
-  it('encodes MP4 as H.264, padded to even dimensions', async () => {
+  it.each([
+    ['mp4', Mp4OutputFormat, 'video/mp4'],
+    ['mov', MovOutputFormat, 'video/quicktime'],
+    ['mkv', MkvOutputFormat, 'video/x-matroska']
+  ])('encodes %s as H.264, padded to even dimensions', async (container, Format, mimeType) => {
     encodable('avc', 'vp9');
 
-    const result = await encodeVideo({ frames: FRAMES, container: 'mp4' });
+    const result = await encodeVideo({ frames: FRAMES, container });
 
-    expect(result).toMatchObject({ mimeType: 'video/mp4', extension: 'mp4', codec: 'avc' });
+    expect(result).toMatchObject({ mimeType, extension: container, codec: 'avc' });
     expect(source().canvas).toMatchObject({ width: 18, height: 18 });
-    expect(output().format).toBeInstanceOf(Mp4OutputFormat);
+    expect(output().format).toBeInstanceOf(Format);
   });
 
   it('keeps an MP4 without H.264 at the frame size, in MP4', async () => {

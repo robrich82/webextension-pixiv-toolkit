@@ -33,7 +33,7 @@ afterEach(() => {
 });
 
 describe('createUgoiraDownloadTask', () => {
-  it.each(['webm', 'mp4'])('encodes %s through WebCodecs, without an FFmpeg command', type => {
+  it.each(['webm', 'mp4', 'mov', 'mkv'])('encodes %s through WebCodecs, without an FFmpeg command', type => {
     expect(taskOptions(type)).toMatchObject({
       id: `pixiv_illust:10000003:${type}`, convertType: type, ffmpegCommandArgs: ''
     });

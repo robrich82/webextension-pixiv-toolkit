@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import { afterEach, test } from 'node:test';
 import { PIXEL } from './fakePixiv.mjs';
 import { closeAll, launch } from './firefox.mjs';
-import { probeVideo } from '../test/helpers/probeVideo.mjs';
+import { probeVideo, videoSize } from '../test/helpers/probeVideo.mjs';
 
 // End-to-end downloads on Firefox, which Playwright can't load an extension
 // into. See docs/testing.md.
@@ -154,6 +154,19 @@ test('DL MP4 encodes H.264 through WebCodecs, padded to an even size, each frame
   assert.deepEqual({ width, height }, { width: 38, height: 36 });
   assertNoErrors();
 });
+
+for (const { label, mime } of [
+  { label: 'DL MKV', mime: 'video/x-matroska' },
+  { label: 'DL MOV', mime: 'video/quicktime' }
+]) {
+  test(`${label} encodes H.264 through WebCodecs, padded to an even size, each frame for its own delay`, { timeout: TIMEOUT }, async () => {
+    const animation = await convertUgoira(label, mime, { odd: true });
+
+    assert.deepEqual(await probeVideo(animation.path), { codec: 'avc', ...ODD_TIMES });
+    assert.deepEqual(await videoSize(animation.path), { width: 38, height: 36 });
+    assertNoErrors();
+  });
+}
 
 test('a novel is saved as a text file with its url, author, title and text', { timeout: TIMEOUT }, async () => {
   const url = 'https://www.pixiv.net/novel/show.php?id=40000001';
