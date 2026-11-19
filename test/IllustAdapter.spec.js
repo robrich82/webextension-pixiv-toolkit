@@ -6,8 +6,6 @@ import IllustAdapter, { UGOIRA_FFMPEG_CLI_ARGS } from '@/options_page/modules/Do
 import UgoiraDownloadTask from '@/options_page/modules/DownloadTasks/Pixiv/UgoiraDownloadTask';
 import IllustResource from '@/modules/PageResource/Pixiv/IllustResource';
 
-const CUSTOM = '-f concat -i input.txt custom.gif';
-
 /** The options the adapter creates the ugoira task with, for a click on `ugoiraConvertType`. */
 function taskOptions(ugoiraConvertType) {
   const context = {
@@ -25,7 +23,7 @@ function taskOptions(ugoiraConvertType) {
 }
 
 beforeEach(() => {
-  window.$app = { settings: { ugoiraCustomFFmpegCommand: CUSTOM, ugoiraRenameRule: '{id}' } };
+  window.$app = { settings: { ugoiraRenameRule: '{id}' } };
   vi.spyOn(UgoiraDownloadTask, 'create').mockReturnValue({});
 });
 
@@ -47,9 +45,8 @@ describe('createUgoiraDownloadTask', () => {
     });
   });
 
-  it.each([undefined, 'constructor', 'toString'])('runs the custom command for %s', type => {
-    expect(taskOptions(type)).toMatchObject({
-      id: 'pixiv_illust:10000003:custom', convertType: 'CUSTOM', ffmpegCommandArgs: CUSTOM
-    });
+  // An inherited key such as 'constructor' is not a container.
+  it.each([undefined, 'constructor', 'toString'])('refuses %s, which names no format', type => {
+    expect(() => taskOptions(type)).toThrow(`Unknown ugoira convert type: ${type}`);
   });
 });
