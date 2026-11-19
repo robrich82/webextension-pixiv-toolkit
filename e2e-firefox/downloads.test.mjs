@@ -147,7 +147,7 @@ test('DL WEBM keeps an odd frame size and every frame of a longer PNG ugoira', {
 
 // The odd fixture, not the 16x16 one: Firefox 160's Windows H.264 encoder fails below 34px and would fall back to VP9.
 test('DL MP4 encodes H.264 through WebCodecs, padded to an even size, each frame for its own delay', { timeout: TIMEOUT }, async () => {
-  const animation = await convertUgoira('DL MP4', 'video/mp4', undefined, { odd: true });
+  const animation = await convertUgoira('DL MP4', 'video/mp4', { odd: true });
 
   assert.deepEqual(await probeVideo(animation.path), { codec: 'avc', ...ODD_TIMES });
   const { width, height } = await firefox.decodeMedia(animation.path, 'video/mp4');
