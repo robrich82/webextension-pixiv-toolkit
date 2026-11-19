@@ -9,29 +9,23 @@ import {
   WebMOutputFormat,
   canEncodeVideo
 } from 'mediabunny';
+import { VIDEO_CODECS, VIDEO_FORMAT_CODECS, codecSettingKey } from './codecs';
+
+export { VIDEO_CODECS, codecSettingKey };
 
 /**
  * The video containers ugoira convert to through WebCodecs, each with the codec used unless the
  * browser can't encode it.
  */
 export const VIDEO_CONTAINERS = {
-  webm: { createFormat: () => new WebMOutputFormat(), defaultCodec: 'vp9' },
+  webm: { createFormat: () => new WebMOutputFormat(), defaultCodec: VIDEO_FORMAT_CODECS.webm.defaultCodec },
   // MP4 and MOV put the index up front, so a player starts before it has all loaded.
-  mp4: { createFormat: () => new Mp4OutputFormat({ fastStart: 'in-memory' }), defaultCodec: 'avc' },
-  mov: { createFormat: () => new MovOutputFormat({ fastStart: 'in-memory' }), defaultCodec: 'avc' },
-  mkv: { createFormat: () => new MkvOutputFormat(), defaultCodec: 'avc' }
+  mp4: { createFormat: () => new Mp4OutputFormat({ fastStart: 'in-memory' }), defaultCodec: VIDEO_FORMAT_CODECS.mp4.defaultCodec },
+  mov: { createFormat: () => new MovOutputFormat({ fastStart: 'in-memory' }), defaultCodec: VIDEO_FORMAT_CODECS.mov.defaultCodec },
+  mkv: { createFormat: () => new MkvOutputFormat(), defaultCodec: VIDEO_FORMAT_CODECS.mkv.defaultCodec }
 };
 
-/**
- * @param {string} container A key of VIDEO_CONTAINERS
- * @returns {string} The setting holding the codec the container tries first
- */
-export const codecSettingKey = container => `ugoira${container.toUpperCase()}Codec`;
-
 const QUALITY = new Quality('very-high');
-
-/** The codecs offered, in the order a fallback tries them. */
-export const VIDEO_CODECS = ['avc', 'vp9', 'av1', 'hevc', 'vp8'];
 
 /** H.264 and H.265 encoders refuse odd dimensions. */
 const EVEN_DIMENSION_CODECS = ['avc', 'hevc'];

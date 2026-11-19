@@ -9,6 +9,7 @@ import {
   FALLBACK_DELAY, VIDEO_CONTAINERS, chooseCodec, codecSettingKey, containerCodecs, encodeVideo, encodedSize, frameTimes
 } from '@/options_page/modules/UgoiraEncoders/video';
 import defaultSettings from '@/config/default';
+import { VIDEO_FORMAT_CODECS } from '@/options_page/modules/UgoiraEncoders/codecs';
 
 const fakes = vi.hoisted(() => {
   const outputs = [];
@@ -96,6 +97,16 @@ describe('containerCodecs', () => {
 
   it.each(['mp4', 'mov', 'mkv'])('offers every codec for %s, H.264 first', container => {
     expect(containerCodecs(container)).toEqual(['avc', 'vp9', 'av1', 'hevc', 'vp8']);
+  });
+
+  // The settings page lists VIDEO_FORMAT_CODECS, so it doesn't bundle Mediabunny.
+  it.each(Object.keys(VIDEO_CONTAINERS))('matches the settings page list for %s', container => {
+    expect(VIDEO_FORMAT_CODECS[container].codecs).toEqual(containerCodecs(container));
+    expect(VIDEO_FORMAT_CODECS[container].defaultCodec).toBe(VIDEO_CONTAINERS[container].defaultCodec);
+  });
+
+  it('lists the same formats as the settings page', () => {
+    expect(Object.keys(VIDEO_FORMAT_CODECS)).toEqual(Object.keys(VIDEO_CONTAINERS));
   });
 });
 

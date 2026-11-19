@@ -143,6 +143,15 @@
    "pack_ugoira_frames_info_into_zip": {
       "message": "将动图帧信息打包进zip文件"
    },
+   "ugoira_codec": {
+      "message": "编码格式"
+   },
+   "ugoira_codec_fallback": {
+      "message": "浏览器无法编码时改用其他编码"
+   },
+   "codec_unencodable": {
+      "message": "此浏览器无法编码"
+   },
    "pack_ugoira_frames_info": {
       "message": "打包帧信息"
    },

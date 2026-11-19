@@ -76,3 +76,33 @@ test('the diagnosis page lists tracked errors without the download manager open'
   expect(context.pages().some(p => p.url().includes('/downloads.html'))).toBe(false);
   expect(errors).toEqual([]);
 });
+
+test('each video format offers the codecs it holds, marks the ones Chromium can\'t encode and stores the choice', async ({ context, extensionId, serviceWorker }) => {
+  const errors = collectErrors(context);
+  const page = await context.newPage();
+  await page.goto(`chrome-extension://${extensionId}/options_page/index.html`);
+  await page.getByRole('dialog').getByRole('button', { name: 'Close' }).click();
+  await page.getByRole('button', { name: 'Pixiv Ugoira' }).click();
+
+  const webm = page.locator('.ugoira-codec-webm');
+  await expect(webm).toContainText('WEBM codec');
+  await webm.getByRole('combobox').first().click();
+  await expect(page.getByRole('option')).toHaveText(['VP9', 'AV1', 'VP8']);
+  await page.keyboard.press('Escape');
+
+  const mp4 = page.locator('.ugoira-codec-mp4');
+  await mp4.getByRole('combobox').first().click();
+  const options = page.getByRole('option');
+  await expect(options).toHaveCount(5);
+  // Chromium encodes these in software, so marking one would mean its codec string is wrong.
+  for (const label of ['H.264 (AVC)', 'VP9', 'AV1', 'VP8']) {
+    await expect(options.filter({ hasText: label })).not.toContainText("This browser can't encode it");
+  }
+  await options.filter({ hasText: 'VP9' }).click();
+
+  await expect.poll(() => serviceWorker.evaluate(() =>
+    chrome.storage.local.get(['ugoiraMP4Codec', 'ugoiraMOVCodec'])
+  )).toEqual({ ugoiraMP4Codec: 'vp9', ugoiraMOVCodec: 'avc' });
+  await expect(mp4).toContainText('VP9');
+  expect(errors).toEqual([]);
+});

@@ -152,6 +152,34 @@ describe.each(['chrome', 'firefox'])('build for %s', platform => {
     expect(read(out, 'background/background.js')).not.toMatch(/globalThis\.(Dexie|Vue|VueI18n|locales)\b/);
   });
 
+  // The settings page lists the ugoira codecs from codecs.js; only the download manager encodes.
+  it('leaves Mediabunny out of every chunk the settings page can load', () => {
+    /** The chunks a page loads, following static and dynamic imports. */
+    const reachable = page => {
+      const dir = path.join(out, path.dirname(page));
+      const html = read(out, page);
+      const queue = [...html.matchAll(/\s(?:src|href)="(\.\/static\/[^"]+\.js)"/g)].map(m => path.join(dir, m[1]));
+      const seen = new Set();
+
+      while (queue.length) {
+        const file = queue.shift();
+
+        if (!seen.has(file)) {
+          seen.add(file);
+          const imports = fs.readFileSync(file, 'utf8').matchAll(/["'`](\.\/[\w.-]+\.js)["'`]/g);
+          queue.push(...[...imports].map(m => path.join(path.dirname(file), m[1])));
+        }
+      }
+
+      return [...seen].map(file => fs.readFileSync(file, 'utf8'));
+    };
+    // A method name minifying keeps, from Mediabunny's output formats.
+    const hasMediabunny = chunks => chunks.some(chunk => chunk.includes('getSupportedVideoCodecs'));
+
+    expect(hasMediabunny(reachable('options_page/downloads.html'))).toBe(true);
+    expect(hasMediabunny(reachable('options_page/index.html'))).toBe(false);
+  });
+
   it('gives the options pages the Dexie global from the npm package the background bundles', () => {
     const context = vm.createContext({});
 
