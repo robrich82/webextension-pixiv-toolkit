@@ -9,9 +9,9 @@
   both pnpm pins in one PR and relocks `mise.lock` there, and
   `test/toolchainPins.spec.js` fails if the pins and the lock disagree
 - `pnpm install --frozen-lockfile` to install — `pnpm-lock.yaml` is committed
-  and CI installs from it. `mise deps` runs it only when `pnpm-lock.yaml` or
-  `package.json` changed, and so does `mise exec`/`mise run` first; that's why
-  `mise.toml` turns on mise's `experimental` setting
+  and CI installs from it. `mise deps` runs it when `pnpm-lock.yaml` or
+  `package.json` changed or `node_modules` is missing, and `mise exec` and
+  `mise run` run it first too
 
 Any other pnpm fetches and runs the `packageManager` version instead (pnpm's
 default `pmOnFail: download`), so a stray global pnpm does no harm. Without

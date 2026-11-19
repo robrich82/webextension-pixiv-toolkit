@@ -15,8 +15,9 @@ node = "26.13.1"
 # Must match `packageManager` in package.json; test/toolchainPins.spec.js checks.
 pnpm = "12.21.0"
 
-# `mise deps` installs node_modules when pnpm-lock.yaml or package.json changed;
-# `mise exec` and `mise run` do it first too. `mise install` doesn't.
+# `mise deps` runs this when pnpm-lock.yaml or package.json changed or
+# node_modules is missing; `mise exec` and `mise run` do it first too.
+# `mise install` doesn't.
 [deps.pnpm]
 auto = true
 run = "pnpm install --frozen-lockfile"
