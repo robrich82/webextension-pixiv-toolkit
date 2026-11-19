@@ -11,18 +11,15 @@ import {
 } from 'mediabunny';
 import { VIDEO_CODECS, VIDEO_FORMAT_CODECS, codecSettingKey } from './codecs';
 
-export { VIDEO_CODECS, codecSettingKey };
+export { codecSettingKey };
 
-/**
- * The video containers ugoira convert to through WebCodecs, each with the codec used unless the
- * browser can't encode it.
- */
+/** The video containers ugoira convert to through WebCodecs. Their codecs are in VIDEO_FORMAT_CODECS. */
 export const VIDEO_CONTAINERS = {
-  webm: { createFormat: () => new WebMOutputFormat(), defaultCodec: VIDEO_FORMAT_CODECS.webm.defaultCodec },
+  webm: { createFormat: () => new WebMOutputFormat() },
   // MP4 and MOV put the index up front, so a player starts before it has all loaded.
-  mp4: { createFormat: () => new Mp4OutputFormat({ fastStart: 'in-memory' }), defaultCodec: VIDEO_FORMAT_CODECS.mp4.defaultCodec },
-  mov: { createFormat: () => new MovOutputFormat({ fastStart: 'in-memory' }), defaultCodec: VIDEO_FORMAT_CODECS.mov.defaultCodec },
-  mkv: { createFormat: () => new MkvOutputFormat(), defaultCodec: VIDEO_FORMAT_CODECS.mkv.defaultCodec }
+  mp4: { createFormat: () => new Mp4OutputFormat({ fastStart: 'in-memory' }) },
+  mov: { createFormat: () => new MovOutputFormat({ fastStart: 'in-memory' }) },
+  mkv: { createFormat: () => new MkvOutputFormat() }
 };
 
 const QUALITY = new Quality('very-high');
@@ -115,7 +112,8 @@ export function frameTimes(frames) {
  * @returns {Promise<{ data: ArrayBuffer, mimeType: string, extension: string, codec: string }>}
  */
 export async function encodeVideo({ frames, container, codec, onProgress, signal }) {
-  const { createFormat, defaultCodec } = VIDEO_CONTAINERS[container];
+  const { createFormat } = VIDEO_CONTAINERS[container];
+  const { defaultCodec } = VIDEO_FORMAT_CODECS[container];
   const times = frameTimes(frames);
   let bitmap = await createImageBitmap(frames[0].image);
   const size = { width: bitmap.width, height: bitmap.height };

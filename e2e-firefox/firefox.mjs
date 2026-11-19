@@ -56,7 +56,7 @@ export async function closeAll() {
  * @param {string|(() => string)} message Thrown on timeout
  * @returns {Promise<T>}
  */
-async function poll(fn, message, limit = 20000) {
+export async function poll(fn, message, limit = 20000) {
   const deadline = Date.now() + limit;
   let lastError;
 

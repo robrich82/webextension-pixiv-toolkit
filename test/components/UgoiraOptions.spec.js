@@ -10,8 +10,8 @@ const browserItems = {
   animationJsonFormat: 2
 };
 
-/** WebCodecs that can encode only `codecs`, by their codec strings' prefixes. */
-function encodable(...prefixes) {
+/** Stubs VideoEncoder so only codec strings starting with one of `prefixes` are supported. */
+function stubEncodable(...prefixes) {
   vi.stubGlobal('VideoEncoder', {
     isConfigSupported: async ({ codec }) => ({ supported: prefixes.some(prefix => codec.startsWith(prefix)) })
   });
@@ -99,7 +99,7 @@ describe('UgoiraOptions', () => {
 
   describe('video codecs', () => {
     test('offers only the codecs each format holds, its default selected when unset', async () => {
-      encodable('avc1.', 'vp09.', 'av01.', 'hvc1.', 'vp8');
+      stubEncodable('avc1.', 'vp09.', 'av01.', 'hvc1.', 'vp8');
       const wrapper = mountOption(UgoiraOptions, { browserItems });
       await flushPromises();
 
@@ -114,7 +114,7 @@ describe('UgoiraOptions', () => {
     });
 
     test("shows the stored codec, and the default for one the format can't hold", async () => {
-      encodable('vp');
+      stubEncodable('vp');
       const wrapper = mountOption(UgoiraOptions, {
         browserItems: { ...browserItems, ugoiraMP4Codec: 'vp9', ugoiraWEBMCodec: 'avc', ugoiraMKVCodec: 'prores' }
       });
@@ -125,7 +125,7 @@ describe('UgoiraOptions', () => {
     });
 
     test("picking a codec stores it under that format's setting only", async () => {
-      encodable('vp');
+      stubEncodable('vp');
       const wrapper = mountOption(UgoiraOptions, { browserItems });
 
       codecSelect(wrapper, 'mov').vm.$emit('update:modelValue', 'av1');
@@ -137,7 +137,7 @@ describe('UgoiraOptions', () => {
     });
 
     test("marks the codecs this browser can't encode, and the row whose choice is one", async () => {
-      encodable('vp09.', 'vp8');
+      stubEncodable('vp09.', 'vp8');
       const wrapper = mountOption(UgoiraOptions, { browserItems: { ...browserItems, ugoiraMKVCodec: 'vp9' } });
       await flushPromises();
 
@@ -149,6 +149,7 @@ describe('UgoiraOptions', () => {
       expect(codecSelect(wrapper, 'mp4').props('messages')).toBe('codec_unencodable.message');
       expect(codecSelect(wrapper, 'mkv').props('messages')).toEqual([]);
       expect(wrapper.find('.ugoira-codec-mp4').text()).toContain('codec_unencodable.message');
+      expect(codecSelect(wrapper, 'mp4').props('loading')).toBe(false);
     });
 
     test('marks nothing until WebCodecs answers', () => {
@@ -157,6 +158,7 @@ describe('UgoiraOptions', () => {
 
       expect(codecSelect(wrapper, 'mp4').props('items').every(item => !item.props.subtitle)).toBe(true);
       expect(codecSelect(wrapper, 'mp4').props('messages')).toEqual([]);
+      expect(codecSelect(wrapper, 'mp4').props('loading')).toBe(true);
     });
   });
 });

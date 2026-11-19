@@ -1,6 +1,6 @@
 /**
- * The video formats and codecs, without Mediabunny, so the settings page can list them without
- * bundling it. video.js checks the table against Mediabunny's formats (test/ugoiraVideoEncoder.spec.js).
+ * The video formats and codecs, kept apart from Mediabunny so the settings page doesn't bundle it.
+ * test/ugoiraVideoEncoder.spec.js fails if this table drifts from Mediabunny's formats.
  */
 
 /** The codecs offered, in the order a fallback tries them. */
@@ -29,8 +29,8 @@ export const CODEC_LABELS = {
 export const codecSettingKey = container => `ugoira${container.toUpperCase()}Codec`;
 
 /**
- * Codec strings for an 8-bit 1920x1080 encode, the way Mediabunny writes them. Mediabunny picks the
- * level from the real size and bitrate, so this only approximates what a conversion asks for.
+ * The codec strings Mediabunny asks for at 1920x1080 (test/ugoiraCodecs.spec.js pins them). It
+ * picks the level from the real size and bitrate, so this only approximates a conversion.
  */
 const PROBE_CODEC_STRINGS = {
   avc: 'avc1.640028',
@@ -41,8 +41,8 @@ const PROBE_CODEC_STRINGS = {
 };
 
 /**
- * Asks the browser's WebCodecs which codecs it can encode. Firefox over-reports H.264 for small
- * frames, which the encode-time fallback covers.
+ * Asks the browser's WebCodecs which codecs it can encode at 1080p. A codec can still fail at the
+ * real size (Firefox's H.264 below 34px on Windows), so chooseCodec checks again when encoding.
  * @returns {Promise<Object<string, boolean>>} Each of VIDEO_CODECS, true when it can be encoded
  */
 export async function encodableCodecs() {
@@ -53,8 +53,12 @@ export async function encodableCodecs() {
       });
 
       return [codec, supported === true];
-    } catch {
-      // No VideoEncoder, or it rejects the config outright.
+    } catch (error) {
+      // Without WebCodecs nothing encodes. A rejection means the config is invalid, which is our bug.
+      if (globalThis.VideoEncoder) {
+        console.warn(`Couldn't check whether this browser encodes ${codec}`, error);
+      }
+
       return [codec, false];
     }
   }));

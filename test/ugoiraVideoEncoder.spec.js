@@ -99,10 +99,15 @@ describe('containerCodecs', () => {
     expect(containerCodecs(container)).toEqual(['avc', 'vp9', 'av1', 'hevc', 'vp8']);
   });
 
-  // The settings page lists VIDEO_FORMAT_CODECS, so it doesn't bundle Mediabunny.
+  // VIDEO_FORMAT_CODECS copies these lists so the settings page needn't bundle Mediabunny.
   it.each(Object.keys(VIDEO_CONTAINERS))('matches the settings page list for %s', container => {
     expect(VIDEO_FORMAT_CODECS[container].codecs).toEqual(containerCodecs(container));
-    expect(VIDEO_FORMAT_CODECS[container].defaultCodec).toBe(VIDEO_CONTAINERS[container].defaultCodec);
+  });
+
+  // The settings page shows the default for a stored codec the format can't hold, while
+  // chooseCodec tries the format's codecs in order: they agree only while the default is first.
+  it.each(Object.keys(VIDEO_CONTAINERS))('lists the %s default first', container => {
+    expect(containerCodecs(container)[0]).toBe(VIDEO_FORMAT_CODECS[container].defaultCodec);
   });
 
   it('lists the same formats as the settings page', () => {
@@ -392,6 +397,6 @@ describe('encodeVideo', () => {
 test.each(Object.keys(VIDEO_CONTAINERS))('fresh installs set %s to its container default, a codec it holds', container => {
   const codec = defaultSettings[codecSettingKey(container)];
 
-  expect(codec).toBe(VIDEO_CONTAINERS[container].defaultCodec);
+  expect(codec).toBe(VIDEO_FORMAT_CODECS[container].defaultCodec);
   expect(containerCodecs(container)).toContain(codec);
 });

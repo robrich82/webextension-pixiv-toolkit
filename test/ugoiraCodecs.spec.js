@@ -1,10 +1,12 @@
+import { Quality, canEncodeVideo } from 'mediabunny';
 import { VIDEO_CODECS, codecSettingKey, encodableCodecs } from '@/options_page/modules/UgoiraEncoders/codecs';
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
-/** Stands in for WebCodecs' VideoEncoder, answering isConfigSupported with `isConfigSupported`. */
+/** Stubs VideoEncoder with the given isConfigSupported, and returns the mock. */
 function stubEncoder(isConfigSupported) {
   vi.stubGlobal('VideoEncoder', { isConfigSupported: vi.fn(isConfigSupported) });
 
@@ -28,7 +30,8 @@ describe('encodableCodecs', () => {
     }
   });
 
-  test('a codec whose check rejects counts as unencodable, without failing the others', async () => {
+  test('a codec whose check rejects counts as unencodable, says so, and leaves the others', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     stubEncoder(async ({ codec }) => {
       if (codec.startsWith('hvc1.')) {
         throw new TypeError('invalid codec');
@@ -38,12 +41,31 @@ describe('encodableCodecs', () => {
     });
 
     expect(await encodableCodecs()).toMatchObject({ hevc: false, avc: true, vp9: true });
+    expect(warn).toHaveBeenCalledOnce();
+    expect(warn.mock.calls[0][0]).toContain('hevc');
   });
 
   test('without WebCodecs, no codec is encodable', async () => {
+    const warn = vi.spyOn(console, 'warn');
     vi.stubGlobal('VideoEncoder', undefined);
 
     expect(Object.values(await encodableCodecs())).toEqual(VIDEO_CODECS.map(() => false));
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  // No browser in CI encodes H.265, so the e2e tests can't tell a wrong string from a real "no".
+  test('asks with the codec strings Mediabunny asks with at 1920x1080', async () => {
+    const isConfigSupported = stubEncoder(async () => ({ supported: true }));
+    const askedFor = () => isConfigSupported.mock.calls.map(([config]) => config.codec);
+
+    await encodableCodecs();
+    const ours = askedFor();
+
+    for (const [i, codec] of VIDEO_CODECS.entries()) {
+      isConfigSupported.mockClear();
+      await canEncodeVideo(codec, { width: 1920, height: 1080, quality: new Quality('very-high') });
+      expect(askedFor()[0], codec).toBe(ours[i]);
+    }
   });
 });
 

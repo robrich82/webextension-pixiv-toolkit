@@ -77,7 +77,7 @@ test('the diagnosis page lists tracked errors without the download manager open'
   expect(errors).toEqual([]);
 });
 
-test('each video format offers the codecs it holds, marks the ones Chromium can\'t encode and stores the choice', async ({ context, extensionId, serviceWorker }) => {
+test("each video format offers the codecs it holds, marks the ones Chromium can't encode and stores the choice", async ({ context, extensionId, serviceWorker }) => {
   const errors = collectErrors(context);
   const page = await context.newPage();
   await page.goto(`chrome-extension://${extensionId}/options_page/index.html`);
@@ -85,19 +85,28 @@ test('each video format offers the codecs it holds, marks the ones Chromium can\
   await page.getByRole('button', { name: 'Pixiv Ugoira' }).click();
 
   const webm = page.locator('.ugoira-codec-webm');
-  await expect(webm).toContainText('WEBM codec');
+  const mp4 = page.locator('.ugoira-codec-mp4');
+  await expect(mp4).toContainText('MP4 codec');
+  // The rows load until WebCodecs answers, and only then mark anything.
+  await expect(page.locator('[class*="ugoira-codec-"] .v-field--loading')).toHaveCount(0);
+
   await webm.getByRole('combobox').first().click();
   await expect(page.getByRole('option')).toHaveText(['VP9', 'AV1', 'VP8']);
   await page.keyboard.press('Escape');
 
-  const mp4 = page.locator('.ugoira-codec-mp4');
   await mp4.getByRole('combobox').first().click();
   const options = page.getByRole('option');
   await expect(options).toHaveCount(5);
-  // Chromium encodes these in software, so marking one would mean its codec string is wrong.
+  const unencodable = "This browser can't encode it";
+  // Playwright's Chromium encodes these, so marking one would mean its codec string is wrong.
   for (const label of ['H.264 (AVC)', 'VP9', 'AV1', 'VP8']) {
-    await expect(options.filter({ hasText: label })).not.toContainText("This browser can't encode it");
+    await expect(options.filter({ hasText: label })).not.toContainText(unencodable);
   }
+  // Whether H.265 encodes depends on the host's hardware: the mark follows the browser's answer.
+  const hevc = await page.evaluate(() => VideoEncoder.isConfigSupported({ codec: 'hvc1.1.6.L120.B0', width: 1920, height: 1080 })
+    .then(support => support.supported));
+  const hevcOption = expect(options.filter({ hasText: 'H.265 (HEVC)' }));
+  await (hevc ? hevcOption.not.toContainText(unencodable) : hevcOption.toContainText(unencodable));
   await options.filter({ hasText: 'VP9' }).click();
 
   await expect.poll(() => serviceWorker.evaluate(() =>

@@ -48,7 +48,8 @@
           <v-select
             :items="codecItems(format)"
             :model-value="codecs[format]"
-            :messages="encodable[codecs[format]] === false ? tl('codec_unencodable') : []"
+            :messages="unencodable(codecs[format]) ? tl('codec_unencodable') : []"
+            :loading="encodable === null"
             style="width:220px"
             @update:model-value="setCodec(format, $event)"
           >
@@ -90,12 +91,12 @@ export default {
 
       videoFormats: Object.keys(VIDEO_FORMAT_CODECS),
 
-      /** Each video format's codec. Unset (installs from before the setting) or unknown reads as the default, as encodeVideo does. */
+      /** Each format's codec; a missing or unknown stored value shows as the format's default. */
       codecs: Object.fromEntries(Object.entries(VIDEO_FORMAT_CODECS)
         .map(([format, { defaultCodec }]) => [format, defaultCodec])),
 
-      /** Filled in once WebCodecs answers; until then no codec is marked. */
-      encodable: {},
+      /** Which codecs this browser encodes, once WebCodecs answers; until then nothing is marked. */
+      encodable: null,
     };
   },
 
@@ -193,8 +194,12 @@ export default {
       return VIDEO_FORMAT_CODECS[format].codecs.map(codec => ({
         title: CODEC_LABELS[codec],
         value: codec,
-        props: this.encodable[codec] === false ? { subtitle: this.tl('codec_unencodable') } : {}
+        props: this.unencodable(codec) ? { subtitle: this.tl('codec_unencodable') } : {}
       }));
+    },
+
+    unencodable(codec) {
+      return this.encodable?.[codec] === false;
     },
 
     setCodec(format, codec) {
