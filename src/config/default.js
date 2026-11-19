@@ -157,8 +157,6 @@ export default Object.assign({}, {
      */
     showUpdateChangeLog: false,
 
-    ugoiraCustomFFmpegCommand: '',
-
     /**
      * @since 5.1.0
      * @deprecated 6.0.0

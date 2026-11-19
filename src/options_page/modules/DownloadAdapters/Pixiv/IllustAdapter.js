@@ -107,16 +107,12 @@ class IllustAdapter {
    * @returns {UgoiraDownloadTask}
    */
   createUgoiraDownloadTask(resource, options) {
-    let ffmpegCommandArgs = this.settings.ugoiraCustomFFmpegCommand;
-    let convertType = 'CUSTOM';
+    const convertType = options?.ugoiraConvertType;
+    const ffmpegCommandArgs = typeof convertType === 'string' &&
+      UGOIRA_FFMPEG_CLI_ARGS[`ugoiraFFmpeg${convertType.toUpperCase()}CliArgs`];
 
-    if (options && typeof options.ugoiraConvertType === 'string') {
-      const key = `ugoiraFFmpeg${options.ugoiraConvertType.toUpperCase()}CliArgs`;
-
-      if (UGOIRA_FFMPEG_CLI_ARGS[key]) {
-        ffmpegCommandArgs = UGOIRA_FFMPEG_CLI_ARGS[key];
-        convertType = options.ugoiraConvertType;
-      }
+    if (!ffmpegCommandArgs) {
+      throw new Error(`Unknown ugoira convert type: ${convertType}`);
     }
 
     const downloadTask = UgoiraDownloadTask.create({

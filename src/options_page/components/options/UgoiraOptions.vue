@@ -11,17 +11,6 @@
         </template>
       </v-list-item>
 
-      <v-list-item class="option-section__auto-height">
-        <template #title>{{ tl('_ffmpeg_custom_convert_command') }} (<a href="https://github.com/robrich82/webextension-pixiv-toolkit/blob/main/docs/help.md#about-ffmpeg-custom-convert-command-en_us" target="_blank"><strong>{{ tl('_more_info') }}</strong></a>)</template>
-        <template #subtitle>
-          <textarea class="option-section__input-text"
-            v-model="ugoiraCustomFFmpegCommand"
-            :placeholder="tl('_not_set')"
-            @blur="onUgoiraCustomFFmpegCommandChangeHandler"
-          ></textarea>
-        </template>
-      </v-list-item>
-
       <v-list-item>
         <template #title>
           {{ tl('pack_ugoira_frames_info') }}
@@ -77,8 +66,6 @@ export default {
 
       defaultRenameRule: "{id}_{title}",
 
-      ugoiraCustomFFmpegCommand: '',
-
       animationJsonFormat: 1,
 
       showRenameDialog: false,
@@ -123,7 +110,6 @@ export default {
 
   created() {
     this.renameRule = this.browserItems.ugoiraRenameRule;
-    this.ugoiraCustomFFmpegCommand = this.browserItems.ugoiraCustomFFmpegCommand || '';
     this.animationJsonFormat = this.browserItems.animationJsonFormat;
 
     this.renameMetas = [
@@ -159,12 +145,6 @@ export default {
   },
 
   methods: {
-    onUgoiraCustomFFmpegCommandChangeHandler() {
-      browser.storage.local.set({
-        ugoiraCustomFFmpegCommand: this.ugoiraCustomFFmpegCommand.trim()
-      });
-    },
-
     openRenameDialog() {
       this.showRenameDialog = true;
     }
@@ -172,31 +152,3 @@ export default {
 };
 </script>
 
-<style lang="scss">
-.option-section__input-text {
-  width: 100%;
-  padding: 5px 5px;
-  background: rgb(var(--v-theme-surface-light));
-  color: rgb(var(--v-theme-on-surface-light));
-  border-radius: 5px;
-
-  &::placeholder {
-    color: rgba(var(--v-theme-on-surface-light), var(--v-medium-emphasis-opacity));
-  }
-}
-
-.option-section__auto-height {
-  .v-list-item {
-    height: auto;
-  }
-
-  // The ffmpeg command textarea lives in the #subtitle slot, which Vuetify
-  // clamps to 2 lines and fades via v-list's `lines="two"` -- undo both so
-  // the textarea stays fully visible and legible.
-  .v-list-item-subtitle {
-    display: block;
-    overflow: visible;
-    opacity: 1;
-  }
-}
-</style>

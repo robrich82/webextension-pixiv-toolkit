@@ -1,5 +1,5 @@
 const {
-  test, expect, mockPixiv, collectErrors, openPanel, waitForDownloads, seedSettings, decodeMedia
+  test, expect, mockPixiv, collectErrors, openPanel, waitForDownloads, decodeMedia
 } = require('./fixtures');
 
 const UGOIRA_URL = 'https://www.pixiv.net/en/artworks/10000003';
@@ -57,16 +57,3 @@ for (const { label, mime } of formats) {
     expect(errors).toEqual([]);
   });
 }
-
-test('DL Custom runs the custom FFmpeg command and saves its output', async ({ context, serviceWorker }) => {
-  const errors = collectErrors(context);
-  // The last argument names the output, and so the saved file's type.
-  await seedSettings(serviceWorker, {
-    ugoiraCustomFFmpegCommand: '-f concat -i input.txt -vf scale=8:4 -plays 0 custom.gif'
-  });
-
-  const animation = await convert(context, serviceWorker, 'DL Custom', 'image/gif');
-
-  expect(await decodeMedia(context, animation.filename, 'image/gif')).toEqual({ width: 8, height: 4 });
-  expect(errors).toEqual([]);
-});

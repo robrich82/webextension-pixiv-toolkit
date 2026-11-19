@@ -120,12 +120,12 @@ class IllustResource extends AbstractResource {
 
   /**
    *
-   * @param {'apng'|'gif'|'mp4'|'webm'} [convertType]
+   * @param {'apng'|'gif'|'mp4'|'webm'} [convertType] Required for an ugoira
    * @returns
    */
   getDownloadTaskId(convertType) {
     if (this.isUgoira()) {
-      return this.getUid() + ':' + (convertType || 'custom').toLowerCase();
+      return this.getUid() + ':' + convertType.toLowerCase();
     } else {
       return this.getUid();
     }

@@ -28,9 +28,6 @@
 
       <ptk-button @click="download({ ugoiraConvertType: 'mp4' })"
       >{{ tl('_download_mp4') }}{{ mp4Progress }}</ptk-button>
-
-      <ptk-button @click="download"
-      >{{ tl('_download_custom') }}{{ customProgress }}</ptk-button>
     </template>
     <page-selector
       ref="pageSelector"
@@ -68,8 +65,7 @@ const emptyUgoiraTaskProgresses = () => ({
   'gif': { d: 0, p: 0, active: false },
   'apng': { d: 0, p: 0, active: false },
   'webm': { d: 0, p: 0, active: false },
-  'mp4': { d: 0, p: 0, active: false },
-  'custom': { d: 0, p: 0, active: false }
+  'mp4': { d: 0, p: 0, active: false }
 });
 
 export default {
@@ -170,10 +166,6 @@ export default {
       return this.ugoiraProgress('mp4');
     },
 
-    customProgress() {
-      return this.ugoiraProgress('custom');
-    },
-
     generalTaskProgressText() {
       if (this.generalTaskProgress === 1) {
         return ' ✔';
@@ -203,8 +195,7 @@ export default {
       if (downloadTasksStatus && downloadTasksStatus.length > 0) {
         downloadTasksStatus.forEach(task => {
           if (task.type === 'PIXIV_UGOIRA') {
-            // The custom format's task reports 'CUSTOM'; its task id and button use 'custom'.
-            this.ugoiraTaskProgresses[(task.convertType || 'custom').toLowerCase()] = {
+            this.ugoiraTaskProgresses[task.convertType.toLowerCase()] = {
               d: task.progress, p: task.processProgress, active: ACTIVE_TASK_STATES.includes(task.state)
             };
           } else {
@@ -335,11 +326,11 @@ export default {
     /**
      * Show a task the download manager just accepted as queued, rather than
      * keeping a finished run's tick until the next status arrives.
-     * @param {string} [ugoiraConvertType]
+     * @param {string} [ugoiraConvertType] Required for an ugoira
      */
     markTaskQueued(ugoiraConvertType) {
       if (this.isUgoira) {
-        this.ugoiraTaskProgresses[ugoiraConvertType || 'custom'] = { d: 0, p: 0, active: true };
+        this.ugoiraTaskProgresses[ugoiraConvertType] = { d: 0, p: 0, active: true };
       } else {
         this.generalTaskProgress = 0;
         this.generalTaskActive = true;
@@ -365,7 +356,7 @@ export default {
     observeDownloadTask() {
       if (this.isUgoira) {
         this.downloadTaskObserver.observeDownloadTasks(
-          ['gif', 'apng', 'mp4', 'webm', 'custom'].map(type => this.resource.getDownloadTaskId(type))
+          ['gif', 'apng', 'mp4', 'webm'].map(type => this.resource.getDownloadTaskId(type))
         );
       } else {
         this.downloadTaskObserver.observeDownloadTasks([this.resource.getDownloadTaskId()]);
