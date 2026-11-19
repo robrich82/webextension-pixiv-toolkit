@@ -7,7 +7,7 @@ import {
 import AbstractDownloadTask from "../../DownloadTasks/AbstractDownloadTask";
 import AbstractResource from "@/modules/PageResource/AbstractResource";
 import IllustResource from "@/modules/PageResource/Pixiv/IllustResource";
-import { VIDEO_CONTAINERS } from "@/options_page/modules/UgoiraEncoders/video";
+import { VIDEO_CONTAINERS, codecSettingKey } from "@/options_page/modules/UgoiraEncoders/video";
 
 /**
  * The ugoira conversions FFmpeg makes; VIDEO_CONTAINERS are encoded through WebCodecs instead.
@@ -106,8 +106,8 @@ class IllustAdapter {
     const convertType = options?.ugoiraConvertType;
     // A zip task saves only the frames zip, and WebCodecs encodes the video containers, so neither
     // has an FFmpeg command.
-    const noCommand = convertType === UgoiraDownloadTask.ZIP_CONVERT_TYPE ||
-      Object.hasOwn(VIDEO_CONTAINERS, convertType ?? '');
+    const isVideo = Object.hasOwn(VIDEO_CONTAINERS, convertType ?? '');
+    const noCommand = isVideo || convertType === UgoiraDownloadTask.ZIP_CONVERT_TYPE;
     const ffmpegCommandArgs = noCommand ? '' : typeof convertType === 'string' &&
       UGOIRA_FFMPEG_CLI_ARGS[`ugoiraFFmpeg${convertType.toUpperCase()}CliArgs`];
 
@@ -125,7 +125,8 @@ class IllustAdapter {
       renameRule: this.settings.ugoiraRenameRule,
       ffmpegCommandArgs,
       context: this.context,
-      convertType
+      convertType,
+      codec: isVideo ? this.settings[codecSettingKey(convertType)] : undefined
     });
 
     return downloadTask;

@@ -6,8 +6,9 @@
  */
 import { MkvOutputFormat, MovOutputFormat, Mp4OutputFormat, canEncodeVideo } from 'mediabunny';
 import {
-  FALLBACK_DELAY, chooseCodec, containerCodecs, encodeVideo, encodedSize, frameTimes
+  FALLBACK_DELAY, VIDEO_CONTAINERS, chooseCodec, codecSettingKey, containerCodecs, encodeVideo, encodedSize, frameTimes
 } from '@/options_page/modules/UgoiraEncoders/video';
+import defaultSettings from '@/config/default';
 
 const fakes = vi.hoisted(() => {
   const outputs = [];
@@ -375,4 +376,11 @@ describe('encodeVideo', () => {
     expect(output().state).toBe('canceled');
     expect(allClosed()).toBe(true);
   });
+});
+
+test.each(Object.keys(VIDEO_CONTAINERS))('fresh installs set %s to its container default, a codec it holds', container => {
+  const codec = defaultSettings[codecSettingKey(container)];
+
+  expect(codec).toBe(VIDEO_CONTAINERS[container].defaultCodec);
+  expect(containerCodecs(container)).toContain(codec);
 });

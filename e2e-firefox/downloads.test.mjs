@@ -71,9 +71,13 @@ async function launchUgoira({ odd = false } = {}) {
   });
 }
 
-/** Launch on the ugoira, click a format button and return the converted animation. */
-async function convertUgoira(label, mime, { odd = false } = {}) {
+/** Launch on the ugoira, with `settings` stored, click a format button and return the converted animation. */
+async function convertUgoira(label, mime, { odd = false, settings } = {}) {
   await launchUgoira({ odd });
+
+  if (settings) {
+    await firefox.seedSettings(settings);
+  }
 
   const tab = await firefox.openPanel('https://www.pixiv.net/en/artworks/10000003');
   await firefox.clickButton(tab, label);
@@ -152,6 +156,13 @@ test('DL MP4 encodes H.264 through WebCodecs, padded to an even size, each frame
   assert.deepEqual(await probeVideo(animation.path), { codec: 'avc', ...ODD_TIMES });
   const { width, height } = await firefox.decodeMedia(animation.path, 'video/mp4');
   assert.deepEqual({ width, height }, { width: 38, height: 36 });
+  assertNoErrors();
+});
+
+test('DL MP4 encodes the codec its setting names', { timeout: TIMEOUT }, async () => {
+  const animation = await convertUgoira('DL MP4', 'video/mp4', { settings: { ugoiraMP4Codec: 'vp9' } });
+
+  assert.equal((await probeVideo(animation.path)).codec, 'vp9');
   assertNoErrors();
 });
 

@@ -53,6 +53,7 @@ class ZipRepo {
  * @property {string} ffmpegCommandArgs
  * @property {any} context
  * @property {string} convertType A button's format; 'zip' saves the frames zip instead of converting
+ * @property {string} [codec] For a video format, the codec to try first; unset, the container's default
  *
  * @class
  */
@@ -540,6 +541,7 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
       return await encodeVideo({
         frames,
         container,
+        codec: this.options.codec,
         signal: this.encodeController.signal,
         onProgress: progress => {
           this.processProgress = progress;

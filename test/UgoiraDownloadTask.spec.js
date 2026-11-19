@@ -829,6 +829,16 @@ describe('WEBM through WebCodecs', () => {
     expect(encodeVideo.mock.calls[0][0].container).toBe('mp4');
   });
 
+  test.each([['195', 'vp8'], ['196', undefined]])('task %s hands the encoder its codec, %s', async (id, codec) => {
+    const task = createTask({ id, taskId: `pixiv:${id}:webm`, convertType: 'webm', ffmpegCommandArgs: '', codec });
+
+    task.start();
+    await completeDownload(task);
+    await vi.waitFor(() => expect(task.isComplete()).toBe(true));
+
+    expect(encodeVideo.mock.calls[0][0]).toMatchObject({ container: 'webm', codec });
+  });
+
   test('reports the encoding progress', async () => {
     const task = webmTask('191');
     const progresses = [];

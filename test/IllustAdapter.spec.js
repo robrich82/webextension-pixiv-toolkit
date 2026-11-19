@@ -1,7 +1,8 @@
 /**
  * Which ugoira conversion IllustAdapter hands the download task: WebCodecs containers get no FFmpeg
- * command, the rest their preset.
+ * command but their codec setting, the rest their preset.
  */
+import { codecSettingKey } from '@/options_page/modules/UgoiraEncoders/video';
 import IllustAdapter, { UGOIRA_FFMPEG_CLI_ARGS } from '@/options_page/modules/DownloadAdapters/Pixiv/IllustAdapter';
 import UgoiraDownloadTask from '@/options_page/modules/DownloadTasks/Pixiv/UgoiraDownloadTask';
 import IllustResource from '@/modules/PageResource/Pixiv/IllustResource';
@@ -47,6 +48,12 @@ describe('createUgoiraDownloadTask', () => {
     expect(taskOptions('gif')).toMatchObject({
       convertType: 'gif', ffmpegCommandArgs: UGOIRA_FFMPEG_CLI_ARGS.ugoiraFFmpegGIFCliArgs
     });
+  });
+
+  it.each(['webm', 'mp4', 'mov', 'mkv'])('hands a %s task the codec its setting names', type => {
+    window.$app.settings[codecSettingKey(type)] = 'vp8';
+
+    expect(taskOptions(type)).toMatchObject({ convertType: type, codec: 'vp8' });
   });
 
   // An inherited key such as 'constructor' is not a container.

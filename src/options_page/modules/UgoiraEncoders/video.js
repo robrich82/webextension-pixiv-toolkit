@@ -22,6 +22,12 @@ export const VIDEO_CONTAINERS = {
   mkv: { createFormat: () => new MkvOutputFormat(), defaultCodec: 'avc' }
 };
 
+/**
+ * @param {string} container A key of VIDEO_CONTAINERS
+ * @returns {string} The setting holding the codec the container tries first
+ */
+export const codecSettingKey = container => `ugoira${container.toUpperCase()}Codec`;
+
 const QUALITY = new Quality('very-high');
 
 /** The codecs offered, in the order a fallback tries them. */

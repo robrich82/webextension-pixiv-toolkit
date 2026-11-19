@@ -130,6 +130,25 @@ describe('download:addDownload', () => {
     expect(task.isZipOnly()).toBe(convertType === 'zip');
   });
 
+  test('a video ugoira task tries the codec its format is set to, as the setting is when it is added', async () => {
+    const codec = async id => {
+      await send('download:addDownload', addUgoiraDownloadArgs(id, { ugoiraConvertType: 'mp4' }));
+
+      return manager().getTask(`pixiv_illust:${id}:mp4`).options.codec;
+    };
+
+    expect(await codec(8)).toBe('avc');
+
+    await browser.storage.local.set({ ugoiraMP4Codec: 'vp9' });
+    await browser._fake.flush();
+    expect(await codec(9)).toBe('vp9');
+
+    // An install from before the setting: the encoder falls back to the container's default.
+    await browser.storage.local.remove('ugoiraMP4Codec');
+    await browser._fake.flush();
+    expect(await codec(10)).toBeUndefined();
+  });
+
   test('a resource already in the manager is refused by name, so the page can offer to redownload', async () => {
     await send('download:addDownload', addDownloadArgs(1));
 

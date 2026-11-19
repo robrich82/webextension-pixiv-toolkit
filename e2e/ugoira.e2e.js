@@ -2,7 +2,7 @@ const fs = require('fs');
 const JSZip = require('jszip');
 const {
   test, expect, mockPixiv, collectErrors, openPanel, waitForDownloads, decodeMedia,
-  recordSaveNames, savedFiles
+  recordSaveNames, savedFiles, seedSettings
 } = require('./fixtures');
 
 const UGOIRA_URL = 'https://www.pixiv.net/en/artworks/10000003';
@@ -123,6 +123,17 @@ test('DL MP4 encodes H.264 through WebCodecs, padded to an even size, each frame
 
   expect(await probeVideo(animation.filename)).toEqual({ codec: 'avc', ...ODD_TIMES });
   expect(await decodeMedia(context, animation.filename, 'video/mp4')).toMatchObject({ width: 38, height: 36 });
+  expect(errors).toEqual([]);
+});
+
+test('DL MP4 encodes the codec its setting names', async ({ context, serviceWorker }) => {
+  const errors = collectErrors(context);
+  await seedSettings(serviceWorker, { ugoiraMP4Codec: 'vp9' });
+  const { probeVideo } = await import('../test/helpers/probeVideo.mjs');
+
+  const animation = await convert(context, serviceWorker, 'DL MP4', 'video/mp4');
+
+  expect((await probeVideo(animation.filename)).codec).toBe('vp9');
   expect(errors).toEqual([]);
 });
 
