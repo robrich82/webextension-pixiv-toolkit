@@ -28,8 +28,13 @@ test("each video format offers the codecs it holds, marks the ones Firefox can't
 
     return Boolean(close);
   }, 'the changelog dialog');
-  await bidi.evaluate(page, () => [...document.querySelectorAll('.v-expansion-panel-title')]
-    .find(title => title.textContent.trim() === 'Pixiv Ugoira').click());
+  // The settings can render after the dialog does.
+  await inPage(() => {
+    const panel = [...document.querySelectorAll('.v-expansion-panel-title')].find(title => title.textContent.trim() === 'Pixiv Ugoira');
+    panel?.click();
+
+    return Boolean(panel);
+  }, 'the Pixiv Ugoira settings panel');
   // The rows load until WebCodecs answers, and only then mark anything.
   await inPage(() => document.querySelector('.ugoira-codec-mp4 .v-field')
     && !document.querySelector('[class*="ugoira-codec-"] .v-field--loading'), 'WebCodecs to answer');
