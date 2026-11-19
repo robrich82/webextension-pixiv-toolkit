@@ -86,6 +86,9 @@ describe('DownloadManager', () => {
   test.each([
     [{ type: 'PIXIV_UGOIRA', convertType: 'gif' }, 'Pixiv Ugoira GIF'],
     [{ type: 'PIXIV_UGOIRA', convertType: 'zip' }, 'Pixiv Ugoira ZIP'],
+    [{ type: 'PIXIV_UGOIRA', convertType: 'mp4', fallbackCodec: null }, 'Pixiv Ugoira MP4'],
+    [{ type: 'PIXIV_UGOIRA', convertType: 'mp4', fallbackCodec: 'vp9' }, 'Pixiv Ugoira MP4 · VP9'],
+    [{ type: 'PIXIV_UGOIRA', convertType: 'mkv', fallbackCodec: 'avc' }, 'Pixiv Ugoira MKV · H.264 (AVC)'],
     [{ type: 'PIXIV_ILLUST' }, 'Pixiv Illust'],
     [{ type: 'PIXIV_MANGA' }, 'Pixiv Manga'],
     [{ type: 'PIXIV_NOVEL' }, 'Pixiv Novel'],
@@ -93,6 +96,16 @@ describe('DownloadManager', () => {
     [{ type: 'FANBOX_POST' }, 'Fanbox Post']
   ])('tags %o as %s', (download, tag) => {
     expect(wrapper.vm.getDownloadTaskTag(download)).toBe(tag);
+  });
+
+  test("a task's tag names the codec once a poll brings its fallback", async () => {
+    const tag = () => wrapper.find('.download-task__type-tag').text();
+    await poll(task(1, { type: 'PIXIV_UGOIRA', convertType: 'mp4', fallbackCodec: null }));
+    expect(tag()).toBe('Pixiv Ugoira MP4');
+
+    await poll(task(1, { type: 'PIXIV_UGOIRA', convertType: 'mp4', fallbackCodec: 'vp9' }));
+
+    expect(tag()).toBe('Pixiv Ugoira MP4 · VP9');
   });
 
   test('rejects an unknown download type', () => {

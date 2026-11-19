@@ -141,6 +141,24 @@ test('DL MP4 encodes the codec its setting names', async ({ context, serviceWork
   expect(errors).toEqual([]);
 });
 
+// H.265 encodes only on some hosts (hardware); elsewhere the encoder falls back. Skipped where it encodes.
+test('the download manager names the codec a fallback chose', async ({ context, serviceWorker }) => {
+  const errors = collectErrors(context);
+  await context.unrouteAll();
+  await mockPixiv(context, ugoiraRoutes({ odd: true }));
+  await seedSettings(serviceWorker, { ugoiraMP4Codec: 'hevc' });
+  const { probeVideo } = await import('../test/helpers/probeVideo.mjs');
+
+  const animation = await convert(context, serviceWorker, 'DL MP4', 'video/mp4');
+  const manager = context.pages().find(page => page.url().includes('/options_page/downloads.html'));
+  const { codec } = await probeVideo(animation.filename);
+  test.skip(codec === 'hevc', 'this host encodes H.265, so nothing falls back');
+
+  expect(codec).toBe('avc');
+  await expect(manager.locator('.download-task__type-tag')).toHaveText('Pixiv Ugoira MP4 · H.264 (AVC)');
+  expect(errors).toEqual([]);
+});
+
 // Size is read in Node; Chromium can't decode MOV.
 for (const { label, mime, extension } of [
   { label: 'DL MKV', mime: 'video/x-matroska', extension: '.mkv' },

@@ -106,12 +106,15 @@ export function frameTimes(frames) {
  * @param {object} options
  * @param {{ image: Blob, delay: number }[]} options.frames JPEG or PNG frames, all one size
  * @param {string} options.container A key of VIDEO_CONTAINERS
- * @param {string} [options.codec] The codec to use if the browser can; the container's default otherwise
+ * @param {string} [options.codec] The codec to use if the browser can; the container's default when
+ *   it can't, or when the container can't hold it
+ * @param {(choice: { codec: string, fallback: boolean }) => void} [options.onCodec] With the codec chosen,
+ *   before encoding starts; `fallback` when this browser can't encode the one asked for
  * @param {(progress: number) => void} [options.onProgress] With the share of frames encoded
  * @param {AbortSignal} [options.signal] Cancels the encoding, which then rejects
  * @returns {Promise<{ data: ArrayBuffer, mimeType: string, extension: string, codec: string }>}
  */
-export async function encodeVideo({ frames, container, codec, onProgress, signal }) {
+export async function encodeVideo({ frames, container, codec, onCodec, onProgress, signal }) {
   const { createFormat } = VIDEO_CONTAINERS[container];
   const { defaultCodec } = VIDEO_FORMAT_CODECS[container];
   const times = frameTimes(frames);
@@ -120,7 +123,10 @@ export async function encodeVideo({ frames, container, codec, onProgress, signal
   let chosen, width, height, context, format, output, source;
 
   try {
-    chosen = await chooseCodec(container, codec || defaultCodec, size);
+    // A stored codec the container can't hold reads as its default, as on the settings page.
+    const preferred = containerCodecs(container).includes(codec) ? codec : defaultCodec;
+    chosen = await chooseCodec(container, preferred, size);
+    onCodec?.({ codec: chosen, fallback: chosen !== preferred });
     ({ width, height } = encodedSize(chosen, size));
     const canvas = new OffscreenCanvas(width, height);
     context = canvas.getContext('2d');

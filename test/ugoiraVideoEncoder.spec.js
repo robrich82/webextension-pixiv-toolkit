@@ -248,6 +248,39 @@ describe('encodeVideo', () => {
     expect(allClosed()).toBe(true);
   });
 
+  it('reports the codec before the first frame, not a fallback when it is the one asked for', async () => {
+    const events = [];
+
+    await encodeVideo({
+      frames: FRAMES, container: 'webm',
+      onCodec: choice => events.push(['codec', choice]),
+      onProgress: progress => events.push(['progress', progress])
+    });
+
+    expect(events).toEqual([
+      ['codec', { codec: 'vp9', fallback: false }], ['progress', 1 / 3], ['progress', 2 / 3], ['progress', 1]
+    ]);
+  });
+
+  // WebM's default is VP9. A codec it can't hold reads as the default, as on the settings page.
+  it.each([
+    ['the default', undefined, ['vp8'], 'vp8', true],
+    ['a setting', 'av1', ['vp8'], 'vp8', true],
+    ['a setting', 'av1', ['av1', 'vp9'], 'av1', false],
+    ['a setting, landing on the default', 'av1', ['vp9'], 'vp9', true],
+    ["a codec the format can't hold", 'avc', ['avc', 'vp9'], 'vp9', false],
+    ["a codec the format can't hold", 'avc', ['vp8'], 'vp8', true],
+    ['an unknown codec', 'prores', ['vp9'], 'vp9', false]
+  ])('asked for %s (%s), with %j encodable, reports %s with fallback %s', async (_, codec, codecs, chosen, fallback) => {
+    vi.spyOn(console, 'info').mockImplementation(() => {});
+    encodable(...codecs);
+    const onCodec = vi.fn();
+
+    await encodeVideo({ frames: FRAMES, container: 'webm', codec, onCodec });
+
+    expect(onCodec.mock.calls).toEqual([[{ codec: chosen, fallback }]]);
+  });
+
   it('encodes with the codec chosen when the preferred one fails', async () => {
     vi.spyOn(console, 'info').mockImplementation(() => {});
     encodable('vp8');

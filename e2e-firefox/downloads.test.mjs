@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { afterEach, test } from 'node:test';
 import { PIXEL } from './fakePixiv.mjs';
-import { closeAll, launch } from './firefox.mjs';
+import { closeAll, launch, poll } from './firefox.mjs';
 import { probeVideo, videoSize } from '../test/helpers/probeVideo.mjs';
 
 // End-to-end downloads on Firefox, which Playwright can't load an extension
@@ -166,6 +166,24 @@ test('DL MP4 encodes the codec its setting names', { timeout: TIMEOUT }, async (
 
   assert.equal((await probeVideo(animation.path)).codec, 'vp9');
   assert.deepEqual(await videoSize(animation.path), { width: 37, height: 35 });
+  assertNoErrors();
+});
+
+// H.265 encodes only on some hosts (hardware); elsewhere the encoder falls back. Skipped where it encodes.
+test('the download manager names the codec a fallback chose', { timeout: TIMEOUT }, async t => {
+  const animation = await convertUgoira('DL MP4', 'video/mp4', { odd: true, settings: { ugoiraMP4Codec: 'hevc' } });
+  const { codec } = await probeVideo(animation.path);
+
+  if (codec === 'hevc') {
+    t.skip('this Firefox encodes H.265, so nothing falls back');
+    return;
+  }
+
+  assert.equal(codec, 'avc');
+  // The download manager polls its tasks.
+  const tag = await poll(() => firefox.inDownloadManager(() => document.querySelector('.download-task__type-tag')?.textContent.trim())
+    .then(text => text?.includes('·') && text), "the codec in the task's tag");
+  assert.equal(tag, 'Pixiv Ugoira MP4 · H.264 (AVC)');
   assertNoErrors();
 });
 

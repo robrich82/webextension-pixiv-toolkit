@@ -96,6 +96,12 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
   zip;
 
   /**
+   * The codec encoded instead of the one asked for; null when there was no fallback
+   * @type {string|null}
+   */
+  fallbackCodec = null;
+
+  /**
    * The convertType of a task that saves the frames zip and converts nothing
    */
   static ZIP_CONVERT_TYPE = 'zip';
@@ -529,6 +535,7 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
    */
   async encodeVideo(container) {
     this.encodeController = new AbortController();
+    this.fallbackCodec = null;
 
     try {
       await this.zipLoaded;
@@ -543,6 +550,10 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
         container,
         codec: this.options.codec,
         signal: this.encodeController.signal,
+        // The next progress event marks the task changed, and the download manager's poll reads it.
+        onCodec: ({ codec, fallback }) => {
+          this.fallbackCodec = fallback ? codec : null;
+        },
         onProgress: progress => {
           this.processProgress = progress;
           this.dispatch('progress', [this.processProgress]);
@@ -694,7 +705,8 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
   toJson() {
     return Object.assign({}, super.toJson(), {
       processProgress: this.processProgress,
-      convertType: this.options.convertType
+      convertType: this.options.convertType,
+      fallbackCodec: this.fallbackCodec
     });
   }
 }

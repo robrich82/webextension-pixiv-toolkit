@@ -42,6 +42,7 @@ import 'vue-virtual-scroller/dist/vue-virtual-scroller.css';
 
 import { RecycleScroller } from 'vue-virtual-scroller';
 import { RuntimeError } from '@/errors';
+import { CODEC_LABELS } from '@/options_page/modules/UgoiraEncoders/codecs';
 import { app } from '../DownloadsApplication';
 import DownloadTask from './DownloadTask.vue';
 
@@ -110,7 +111,9 @@ export default {
 
     getDownloadTaskTag(download) {
       if (download.type === 'PIXIV_UGOIRA') {
-        return 'Pixiv Ugoira ' + download.convertType.toUpperCase();
+        const fallback = download.fallbackCodec ? ` · ${CODEC_LABELS[download.fallbackCodec]}` : '';
+
+        return `Pixiv Ugoira ${download.convertType.toUpperCase()}${fallback}`;
       } else if (download.type === 'PIXIV_ILLUST') {
         return 'Pixiv Illust';
       } else if (download.type === 'PIXIV_MANGA') {

@@ -839,6 +839,53 @@ describe('WEBM through WebCodecs', () => {
     expect(encodeVideo.mock.calls[0][0]).toMatchObject({ container: 'webm', codec });
   });
 
+  test.each([
+    ['197', true, 'vp9'],
+    ['198', false, null]
+  ])('task %s carries the codec in toJson when the fallback chose it (%s), from the first progress on', async (id, fallback, shown) => {
+    const task = webmTask(id);
+    const atProgress = [];
+    task.addListener('progress', progress => atProgress.push([progress, task.toJson().fallbackCodec]));
+    encodeVideo.mockImplementation(async ({ onCodec, onProgress }) => {
+      onCodec({ codec: 'vp9', fallback });
+      onProgress(0.5);
+      return { data: new Uint8Array([1]), mimeType: 'video/webm', extension: 'webm', codec: 'vp9' };
+    });
+    expect(task.toJson().fallbackCodec).toBeNull();
+
+    task.start();
+    await completeDownload(task);
+    await vi.waitFor(() => expect(task.isComplete()).toBe(true));
+
+    // A progress event marks the task changed, and the download manager's poll then reads toJson.
+    expect(atProgress.find(([progress]) => progress === 0.5)).toEqual([0.5, shown]);
+    expect(task.toJson().fallbackCodec).toBe(shown);
+  });
+
+  test("a retry that fails before choosing a codec drops the last attempt's", async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const task = webmTask('199');
+    encodeVideo.mockImplementationOnce(async ({ onCodec }) => {
+      onCodec({ codec: 'vp8', fallback: true });
+      throw new Error('encoder crashed');
+    });
+    encodeVideo.mockImplementationOnce(async () => {
+      throw new Error("This browser can't encode WEBM video at 16x16");
+    });
+
+    task.start();
+    await completeDownload(task);
+    await vi.waitFor(() => expect(task.isFailure()).toBe(true));
+    expect(task.toJson().fallbackCodec).toBe('vp8');
+
+    task.changeState(task.PENDING_STATE);
+    await task.start();
+    await vi.waitFor(() => expect(encodeVideo).toHaveBeenCalledTimes(2));
+    await vi.waitFor(() => expect(task.isFailure()).toBe(true));
+
+    expect(task.toJson().fallbackCodec).toBeNull();
+  });
+
   test('reports the encoding progress', async () => {
     const task = webmTask('191');
     const progresses = [];
