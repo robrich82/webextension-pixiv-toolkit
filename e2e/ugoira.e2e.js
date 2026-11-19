@@ -126,14 +126,18 @@ test('DL MP4 encodes H.264 through WebCodecs, padded to an even size, each frame
   expect(errors).toEqual([]);
 });
 
+// The odd size tells the two apart: VP9 keeps 37x35, while the H.264 default would pad it to 38x36.
 test('DL MP4 encodes the codec its setting names', async ({ context, serviceWorker }) => {
   const errors = collectErrors(context);
+  await context.unrouteAll();
+  await mockPixiv(context, ugoiraRoutes({ odd: true }));
   await seedSettings(serviceWorker, { ugoiraMP4Codec: 'vp9' });
-  const { probeVideo } = await import('../test/helpers/probeVideo.mjs');
+  const { probeVideo, videoSize } = await import('../test/helpers/probeVideo.mjs');
 
   const animation = await convert(context, serviceWorker, 'DL MP4', 'video/mp4');
 
   expect((await probeVideo(animation.filename)).codec).toBe('vp9');
+  expect(await videoSize(animation.filename)).toEqual({ width: 37, height: 35 });
   expect(errors).toEqual([]);
 });
 

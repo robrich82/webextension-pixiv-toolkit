@@ -159,10 +159,13 @@ test('DL MP4 encodes H.264 through WebCodecs, padded to an even size, each frame
   assertNoErrors();
 });
 
+// The odd fixture, where H.264 encodes: the 16x16 one would fall back to VP9 without the setting.
+// VP9 keeps 37x35, while the H.264 default would pad it to 38x36.
 test('DL MP4 encodes the codec its setting names', { timeout: TIMEOUT }, async () => {
-  const animation = await convertUgoira('DL MP4', 'video/mp4', { settings: { ugoiraMP4Codec: 'vp9' } });
+  const animation = await convertUgoira('DL MP4', 'video/mp4', { odd: true, settings: { ugoiraMP4Codec: 'vp9' } });
 
   assert.equal((await probeVideo(animation.path)).codec, 'vp9');
+  assert.deepEqual(await videoSize(animation.path), { width: 37, height: 35 });
   assertNoErrors();
 });
 
