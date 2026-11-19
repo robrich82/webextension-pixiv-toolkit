@@ -105,6 +105,31 @@ describe('download:addDownload', () => {
     expect(await storedSetting('statIllustDownloaded')).toBe(1);
   });
 
+  test.each([
+    ['zip', 'zip', ''],
+    ['webm', 'webm', '-f concat -i input.txt -safe 0 output.webm']
+  ])('an ugoira with convert type %s gets its own task, of convert type %s', async (ugoiraConvertType, convertType, args) => {
+    const frames = [{ file: '000000.jpg', delay: 100 }];
+    const resource = IllustResource.create({
+      id: '7',
+      title: 'Work 7',
+      url: 'https://www.pixiv.net/artworks/7',
+      illustType: IllustResource.UGOIRA_TYPE,
+      illustOriginalSrc: 'https://i.pximg.net/img-zip-ugoira/img/7_ugoira1920x1080.zip',
+      illustFrames: frames
+    });
+
+    await send('download:addDownload', JSON.parse(JSON.stringify({
+      unpackedResource: resource.unpack(),
+      options: { selectedIndexes: [], ugoiraConvertType }
+    })));
+
+    const task = manager().getTask(resource.getDownloadTaskId(ugoiraConvertType));
+    expect(task.id).toBe(`pixiv_illust:7:${ugoiraConvertType}`);
+    expect(task.options).toMatchObject({ convertType, ffmpegCommandArgs: args, frames });
+    expect(task.isZipOnly()).toBe(convertType === 'zip');
+  });
+
   test('a resource already in the manager is refused by name, so the page can offer to redownload', async () => {
     await send('download:addDownload', addDownloadArgs(1));
 

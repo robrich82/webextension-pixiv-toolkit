@@ -28,6 +28,9 @@
 
       <ptk-button @click="download({ ugoiraConvertType: 'mp4' })"
       >{{ tl('_download_mp4') }}{{ mp4Progress }}</ptk-button>
+
+      <ptk-button @click="download({ ugoiraConvertType: 'zip' })"
+      >{{ tl('_download_zip') }}{{ zipProgress }}</ptk-button>
     </template>
     <page-selector
       ref="pageSelector"
@@ -65,7 +68,8 @@ const emptyUgoiraTaskProgresses = () => ({
   'gif': { d: 0, p: 0, active: false },
   'apng': { d: 0, p: 0, active: false },
   'webm': { d: 0, p: 0, active: false },
-  'mp4': { d: 0, p: 0, active: false }
+  'mp4': { d: 0, p: 0, active: false },
+  'zip': { d: 0, p: 0, active: false }
 });
 
 export default {
@@ -164,6 +168,10 @@ export default {
 
     mp4Progress() {
       return this.ugoiraProgress('mp4');
+    },
+
+    zipProgress() {
+      return this.ugoiraProgress('zip');
     },
 
     generalTaskProgressText() {
@@ -356,7 +364,7 @@ export default {
     observeDownloadTask() {
       if (this.isUgoira) {
         this.downloadTaskObserver.observeDownloadTasks(
-          ['gif', 'apng', 'mp4', 'webm'].map(type => this.resource.getDownloadTaskId(type))
+          ['gif', 'apng', 'mp4', 'webm', 'zip'].map(type => this.resource.getDownloadTaskId(type))
         );
       } else {
         this.downloadTaskObserver.observeDownloadTasks([this.resource.getDownloadTaskId()]);

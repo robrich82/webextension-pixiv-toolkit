@@ -863,6 +863,9 @@
     "_download_mp4": {
         "message": "下载MP4"
     },
+    "_download_zip": {
+        "message": "下载ZIP"
+    },
     "_download_added": {
         "message": "下载已添加"
     },

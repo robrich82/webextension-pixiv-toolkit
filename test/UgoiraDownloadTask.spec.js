@@ -150,7 +150,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-test('saves the frames zip, then converts the frames and saves the animation', async () => {
+test('converts the frames and saves only the animation, not the frames zip', async () => {
   const task = createTask({ id: '123' });
   const fired = events(task);
 
@@ -159,10 +159,8 @@ test('saves the frames zip, then converts the frames and saves the animation', a
   await completeDownload(task);
   await vi.waitFor(() => expect(task.isComplete()).toBe(true));
 
-  expect(savedNames()).toEqual(['ugoira/123_Moving.zip', 'ugoira/123_Moving.gif']);
-  expect(Object.keys((await RealJSZip.loadAsync(await saved[0].blob.arrayBuffer())).files))
-    .toEqual(['000000.jpg', '000001.jpg']);
-  expect(saved[1].blob.type).toBe('image/gif');
+  expect(savedNames()).toEqual(['ugoira/123_Moving.gif']);
+  expect(saved[0].blob.type).toBe('image/gif');
 
   const [ffmpeg] = ffmpegs;
   expect(new TextDecoder().decode(ffmpeg.files.get('000001.jpg'))).toBe('frame 1');
@@ -179,9 +177,9 @@ test('saves the frames zip, then converts the frames and saves the animation', a
   expect(fired).toEqual(['start', 'complete']);
 });
 
-test('keeps the zip and animation blob urls until their downloads finish (#296)', async () => {
+test.each(['gif', 'zip'])('keeps the %s blob url until its download finishes (#296)', async convertType => {
   vi.spyOn(URL, 'revokeObjectURL');
-  const task = createTask();
+  const task = createTask({ convertType });
 
   task.start();
   await completeDownload(task);
@@ -189,10 +187,60 @@ test('keeps the zip and animation blob urls until their downloads finish (#296)'
   await browser._fake.flush();
 
   expect(URL.revokeObjectURL).not.toHaveBeenCalled();
-  browser._fake.finishDownload(1);
-  browser._fake.finishDownload(2, 'interrupted');
+  browser._fake.finishDownload(background.saves[0].downloadId, 'interrupted');
   await browser._fake.flush();
-  expect(URL.revokeObjectURL.mock.calls).toEqual([[saved[0].url], [saved[1].url]]);
+  expect(URL.revokeObjectURL.mock.calls).toEqual([[saved[0].url]]);
+});
+
+test('a zip task saves the frames zip, converts nothing and is done processing', async () => {
+  const task = createTask({ id: '180', convertType: 'zip' });
+  const fired = events(task);
+  const progresses = [];
+  task.addListener('progress', progress => progresses.push(progress));
+
+  task.start();
+  await completeDownload(task);
+  await vi.waitFor(() => expect(task.isComplete()).toBe(true));
+
+  expect(savedNames()).toEqual(['ugoira/180_Moving.zip']);
+  expect(Object.keys((await RealJSZip.loadAsync(await saved[0].blob.arrayBuffer())).files))
+    .toEqual(['000000.jpg', '000001.jpg']);
+  expect(ffmpegs).toEqual([]);
+  expect(fired).toEqual(['start', 'complete']);
+  // processProgress 1 is what ticks the content script's button.
+  expect(progresses.at(-1)).toBe(1);
+  expect(task.toJson()).toMatchObject({ id: 'pixiv:180:gif', processProgress: 1, convertType: 'zip' });
+});
+
+test('a zip task after a conversion saves the cached zip without downloading it again', async () => {
+  const first = createTask({ id: '181' });
+  first.start();
+  await completeDownload(first);
+  await vi.waitFor(() => expect(first.isComplete()).toBe(true));
+
+  const second = createTask({ id: '181', convertType: 'zip', packAnimationJsonType: 1 });
+  await second.start();
+  await vi.waitFor(() => expect(second.isComplete()).toBe(true));
+
+  expect(background.requests).toHaveLength(1);
+  expect(savedNames()).toEqual(['ugoira/181_Moving.gif', 'ugoira/181_Moving.zip']);
+  const zip = await RealJSZip.loadAsync(await saved[1].blob.arrayBuffer());
+  expect(Object.keys(zip.files)).toEqual(['000000.jpg', '000001.jpg', 'animation.json']);
+});
+
+test('a conversion after a zip task converts the cached zip without downloading it again', async () => {
+  const first = createTask({ id: '182', convertType: 'zip' });
+  first.start();
+  await completeDownload(first);
+  await vi.waitFor(() => expect(first.isComplete()).toBe(true));
+
+  const second = createTask({ id: '182' });
+  await second.start();
+  await vi.waitFor(() => expect(second.isComplete()).toBe(true));
+
+  expect(background.requests).toHaveLength(1);
+  expect(ffmpegs).toHaveLength(1);
+  expect(savedNames()).toEqual(['ugoira/182_Moving.zip', 'ugoira/182_Moving.gif']);
 });
 
 test.each([
@@ -206,7 +254,7 @@ test.each([
     }
   }]
 ])('animation json type %i is packed into the saved zip', async (type, id, json) => {
-  const task = createTask({ id, packAnimationJsonType: type });
+  const task = createTask({ id, packAnimationJsonType: type, convertType: 'zip' });
 
   task.start();
   await completeDownload(task);
@@ -216,20 +264,21 @@ test.each([
   expect(JSON.parse(await zip.file('animation.json').async('string'))).toEqual(json);
 });
 
-test('saves the work information beside the zip when metadata is on', async () => {
+test.each(['gif', 'zip'])('a %s task saves the work information beside it when metadata is on', async convertType => {
   window.$app.settings.enableDownloadMetadata = true;
   const revoke = vi.spyOn(URL, 'revokeObjectURL');
-  const task = createTask({ id: '125' });
+  const task = createTask({ id: convertType === 'gif' ? '125' : '135', convertType });
+  const name = `ugoira/${task.options.context.id}_Moving.info.json`;
 
   task.start();
   await completeDownload(task);
   await vi.waitFor(() => expect(task.isComplete()).toBe(true));
-  // #307: beside the zip, not in the Downloads root.
-  await vi.waitFor(() => expect(savedNames()).toContain('ugoira/125_Moving.info.json'));
+  // #307: beside the saved file, not in the Downloads root.
+  await vi.waitFor(() => expect(savedNames()).toContain(name));
 
-  const info = saved.find(file => file.filename === 'ugoira/125_Moving.info.json');
-  expect(JSON.parse(await info.blob.text())).toMatchObject({ id: '125', title: 'Moving' });
-  const infoSave = background.saves.find(save => save.filename === 'ugoira/125_Moving.info.json');
+  const info = saved.find(file => file.filename === name);
+  expect(JSON.parse(await info.blob.text())).toMatchObject({ id: task.options.context.id, title: 'Moving' });
+  const infoSave = background.saves.find(save => save.filename === name);
   await browser._fake.flush();
   expect(revoke).not.toHaveBeenCalledWith(infoSave.url);
   browser._fake.finishDownload(infoSave.downloadId);
@@ -458,8 +507,8 @@ test('a custom command runs line by line, and its last output names the file', a
     ['-f', 'concat', '-safe', '0', '-i', 'input.txt', 'step.mkv'],
     ['-i', 'step.mkv', 'output.webm']
   ]);
-  expect(savedNames()).toEqual(['ugoira/126_Moving.zip', 'ugoira/126_Moving.webm']);
-  expect(saved[1].blob.type).toBe('video/webm');
+  expect(savedNames()).toEqual(['ugoira/126_Moving.webm']);
+  expect(saved[0].blob.type).toBe('video/webm');
 });
 
 test('reports conversion progress, and toJson carries it with the convert type', async () => {
@@ -482,7 +531,7 @@ test('reports conversion progress, and toJson carries it with the convert type',
   });
 });
 
-test('a conversion that fails fails the task; the frames zip stays saved', async () => {
+test('a conversion that fails fails the task and saves nothing', async () => {
   vi.spyOn(console, 'error').mockImplementation(() => {});
   const task = createTask({ id: '128' });
   const fired = events(task);
@@ -498,7 +547,7 @@ test('a conversion that fails fails the task; the frames zip stays saved', async
   expect(task.toJson()).toMatchObject({ error: 'ffmpeg exited', convertType: expect.anything() });
   expect(fired).toEqual(['start', 'failure']);
   expect(ffmpegs[0].terminated).toBe(true);
-  await vi.waitFor(() => expect(savedNames()).toEqual(['ugoira/128_Moving.zip']));
+  expect(saved).toEqual([]);
   expect(console.error).toHaveBeenCalledWith('Could not convert ugoira pixiv:128:gif', error);
 });
 
@@ -530,7 +579,7 @@ test('a second task for the same work converts the cached zip without downloadin
   expect(second.progress).toBe(1);
   expect(ffmpegs[1].commands)
     .toEqual([['-f', 'concat', '-safe', '0', '-i', 'input.txt', '-final_delay', '250/1000', 'output.apng']]);
-  expect(savedNames()).toEqual(['ugoira/130_Moving.zip', 'ugoira/130_Moving.gif', 'ugoira/130_Moving.apng']);
+  expect(savedNames()).toEqual(['ugoira/130_Moving.gif', 'ugoira/130_Moving.apng']);
 });
 
 test('a second start() while the cached zip loads converts it once', async () => {
@@ -548,7 +597,7 @@ test('a second start() while the cached zip loads converts it once', async () =>
 
   expect(fired).toEqual(['start', 'complete']);
   expect(ffmpegs).toHaveLength(2);
-  expect(savedNames()).toEqual(['ugoira/133_Moving.zip', 'ugoira/133_Moving.gif', 'ugoira/133_Moving.gif']);
+  expect(savedNames()).toEqual(['ugoira/133_Moving.gif', 'ugoira/133_Moving.gif']);
 });
 
 // #311: the task used to stay downloading for good, as the rejection went unhandled.
@@ -566,7 +615,7 @@ describe('a cached zip that will not load', () => {
     await vi.waitFor(() => expect(task.isComplete()).toBe(true));
 
     expect(background.requests).toHaveLength(1);
-    expect(savedNames()).toEqual(['ugoira/160_Moving.zip', 'ugoira/160_Moving.gif']);
+    expect(savedNames()).toEqual(['ugoira/160_Moving.gif']);
     // The download replaced the bad entry, so the next conversion uses it.
     expect(ZipRepo.getDefault().getZip('pixiv:160')).toBeDefined();
     expect(ZipRepo.getDefault().getZip('pixiv:160')).not.toBe(notAZip);
@@ -608,7 +657,7 @@ test('retrying a ugoira whose conversion failed, through the download manager, c
 
   expect(background.requests).toHaveLength(1);
   expect(ffmpegs).toHaveLength(2);
-  expect(savedNames()).toEqual(['ugoira/140_Moving.zip', 'ugoira/140_Moving.gif']);
+  expect(savedNames()).toEqual(['ugoira/140_Moving.gif']);
   expect(manager.lastError).toBeNull();
 });
 
@@ -630,7 +679,7 @@ test('pause aborts the download, and a restarted task fetches the zip again and 
   await completeDownload(task);
   await vi.waitFor(() => expect(task.isComplete()).toBe(true));
 
-  expect(savedNames()).toEqual(['ugoira/131_Moving.zip', 'ugoira/131_Moving.gif']);
+  expect(savedNames()).toEqual(['ugoira/131_Moving.gif']);
 });
 
 test('pause leaves a conversion running; stop terminates it', async () => {
@@ -668,31 +717,30 @@ describe('a save that fails fails the task', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
-  test('the frames zip: nothing is converted, and a retry downloads and saves it again', async () => {
+  test('the frames zip: a retry saves the cached zip again without downloading it', async () => {
     const revoke = vi.spyOn(URL, 'revokeObjectURL');
     let failing = true;
     background.failSaves(save => failing && save.filename.endsWith('.zip'));
-    const task = createTask({ id: '150' });
+    const task = createTask({ id: '150', convertType: 'zip' });
 
     task.start();
     await completeDownload(task);
     await vi.waitFor(() => expect(task.isFailure()).toBe(true));
 
     expect(task.lastError).toEqual(new Error('Could not save "ugoira/150_Moving.zip"'));
-    expect(ffmpegs).toEqual([]);
+    expect(console.error).toHaveBeenCalledWith('Could not save the frames zip of ugoira pixiv:150:gif', task.lastError);
     expect(revoke).toHaveBeenCalledWith(background.saves[0].url);
 
     failing = false;
     task.changeState(task.PENDING_STATE);
-    task.start();
-    await vi.waitFor(() => expect(background.requests).toHaveLength(2));
-    background.requests[1].complete(await framesZip(), 'application/zip');
+    await task.start();
     await vi.waitFor(() => expect(task.isComplete()).toBe(true));
 
-    expect(savedNames()).toEqual(['ugoira/150_Moving.zip', 'ugoira/150_Moving.zip', 'ugoira/150_Moving.gif']);
+    expect(background.requests).toHaveLength(1);
+    expect(savedNames()).toEqual(['ugoira/150_Moving.zip', 'ugoira/150_Moving.zip']);
   });
 
-  test('info.json: nothing is converted, and a retry downloads again but saves the zip once', async () => {
+  test('info.json: nothing is converted, and a retry downloads again', async () => {
     window.$app.settings.enableDownloadMetadata = true;
     let failing = true;
     background.failSaves(save => failing && save.filename === 'ugoira/151_Moving.info.json');
@@ -713,7 +761,7 @@ describe('a save that fails fails the task', () => {
     await vi.waitFor(() => expect(task.isComplete()).toBe(true));
 
     expect(savedNames()).toEqual([
-      'ugoira/151_Moving.zip', 'ugoira/151_Moving.info.json', 'ugoira/151_Moving.info.json', 'ugoira/151_Moving.gif'
+      'ugoira/151_Moving.info.json', 'ugoira/151_Moving.info.json', 'ugoira/151_Moving.gif'
     ]);
   });
 

@@ -1,5 +1,8 @@
+const fs = require('fs');
+const JSZip = require('jszip');
 const {
-  test, expect, mockPixiv, collectErrors, openPanel, waitForDownloads, decodeMedia
+  test, expect, mockPixiv, collectErrors, openPanel, waitForDownloads, decodeMedia,
+  recordSaveNames, savedFiles
 } = require('./fixtures');
 
 const UGOIRA_URL = 'https://www.pixiv.net/en/artworks/10000003';
@@ -19,7 +22,7 @@ test.beforeEach(async ({ context }) => {
 });
 
 /**
- * Click a format button and wait for the frames zip and the animation.
+ * Click a format button and wait for the animation, the only file a conversion saves.
  * @returns {Promise<chrome.downloads.DownloadItem>} The animation
  */
 async function convert(context, serviceWorker, label, mime) {
@@ -27,13 +30,11 @@ async function convert(context, serviceWorker, label, mime) {
 
   await page.getByText(label, { exact: true }).click();
 
-  // The zip is saved as soon as it arrives; the animation follows once
-  // ffmpeg.wasm has converted the frames.
-  const items = await waitForDownloads(serviceWorker, 2);
-  expect(items.map(item => item.mime).sort()).toEqual(['application/zip', mime].sort());
-  expect(items.every(item => item.fileSize > 0)).toBe(true);
+  const items = await waitForDownloads(serviceWorker, 1);
+  expect(items.map(item => item.mime)).toEqual([mime]);
+  expect(items[0].fileSize).toBeGreaterThan(0);
 
-  return items.find(item => item.mime === mime);
+  return items[0];
 }
 
 const formats = [
@@ -44,7 +45,7 @@ const formats = [
 ];
 
 for (const { label, mime } of formats) {
-  test(`${label} saves the frames zip and the converted animation`, async ({ context, serviceWorker }) => {
+  test(`${label} saves the converted animation, without the frames zip`, async ({ context, serviceWorker }) => {
     const errors = collectErrors(context);
 
     const animation = await convert(context, serviceWorker, label, mime);
@@ -57,3 +58,21 @@ for (const { label, mime } of formats) {
     expect(errors).toEqual([]);
   });
 }
+
+test('DL Zip saves the frames zip and converts nothing', async ({ context, serviceWorker }) => {
+  const errors = collectErrors(context);
+  await recordSaveNames(serviceWorker);
+  const page = await openPanel(context, UGOIRA_URL);
+
+  await page.getByText('DL Zip', { exact: true }).click();
+
+  const [file] = await savedFiles(serviceWorker, 1);
+  expect(file.mime).toBe('application/zip');
+  expect(file.name).toBe('10000003_rain loop.zip');
+  const zip = await JSZip.loadAsync(fs.readFileSync(file.path));
+  // With animation.json, which the default animationJsonFormat packs.
+  expect(Object.keys(zip.files)).toEqual(['000000.jpg', '000001.jpg', '000002.jpg', 'animation.json']);
+  // The button ticks once the zip is saved, with no conversion to wait for.
+  await expect(page.getByText('DL Zip ✔', { exact: true })).toBeVisible();
+  expect(errors).toEqual([]);
+});

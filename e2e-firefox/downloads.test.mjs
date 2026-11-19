@@ -53,8 +53,8 @@ test('an illust is downloaded and saved in a zip', { timeout: TIMEOUT }, async (
   assertNoErrors();
 });
 
-/** Launch on the ugoira, click a format button and return the converted animation. */
-async function convertUgoira(label, mime) {
+/** Launch on the ugoira, with the frames zip it downloads. */
+async function launchUgoira() {
   firefox = await launch({
     ajax: {
       '/ajax/illust/10000003': 'pixiv/illust-ugoira.json',
@@ -64,16 +64,20 @@ async function convertUgoira(label, mime) {
       '/img-zip-ugoira/img/2024/06/01/08/00/00/10000003_ugoira1920x1080.zip': 'pixiv/illust-ugoira-frames.zip'
     }
   });
+}
+
+/** Launch on the ugoira, click a format button and return the converted animation. */
+async function convertUgoira(label, mime) {
+  await launchUgoira();
 
   const tab = await firefox.openPanel('https://www.pixiv.net/en/artworks/10000003');
   await firefox.clickButton(tab, label);
 
-  // The frames zip is saved as soon as it arrives; the animation follows once
-  // ffmpeg.wasm has converted the frames.
-  const files = await firefox.savedFiles(2);
-  assert.deepEqual(files.map(file => file.mime).sort(), ['application/zip', mime].sort());
+  // The animation is the only file a conversion saves.
+  const files = await firefox.savedFiles(1);
+  assert.deepEqual(files.map(file => file.mime), [mime]);
 
-  return files.find(file => file.mime === mime);
+  return files[0];
 }
 
 // test/fixtures/pixiv/illust-ugoira-frames.zip: three 16x16 frames.
@@ -96,6 +100,21 @@ for (const { label, mime } of [
     assertNoErrors();
   });
 }
+
+test('DL Zip saves the frames zip and converts nothing', { timeout: TIMEOUT }, async () => {
+  await launchUgoira();
+
+  const tab = await firefox.openPanel('https://www.pixiv.net/en/artworks/10000003');
+  await firefox.clickButton(tab, 'DL Zip');
+
+  const [file] = await firefox.savedFiles(1);
+  assert.equal(file.name, '10000003_rain loop.zip');
+  const entries = await firefox.unzip(file.path);
+  // With animation.json, which the default animationJsonFormat packs.
+  assert.deepEqual(entries.map(entry => entry.name), ['000000.jpg', '000001.jpg', '000002.jpg', 'animation.json']);
+  await firefox.waitForButton(tab, 'DL Zip ✔');
+  assertNoErrors();
+});
 
 test('a novel is saved as a text file with its url, author, title and text', { timeout: TIMEOUT }, async () => {
   const url = 'https://www.pixiv.net/novel/show.php?id=40000001';
