@@ -817,14 +817,14 @@ describe('WEBM through WebCodecs', () => {
 
   test('encodes MP4 through the same encoder', async () => {
     encodeVideo.mockResolvedValue({ data: new Uint8Array([7]), mimeType: 'video/mp4', extension: 'mp4', codec: 'avc' });
-    const task = createTask({ id: '184', taskId: 'pixiv:184:mp4', convertType: 'mp4', ffmpegCommandArgs: '' });
+    const task = createTask({ id: '194', taskId: 'pixiv:194:mp4', convertType: 'mp4', ffmpegCommandArgs: '' });
 
     task.start();
     await completeDownload(task);
     await vi.waitFor(() => expect(task.isComplete()).toBe(true));
 
-    expect(savedNames()).toEqual(['ugoira/184_Moving.zip', 'ugoira/184_Moving.mp4']);
-    expect(saved[1].blob.type).toBe('video/mp4');
+    expect(savedNames()).toEqual(['ugoira/194_Moving.mp4']);
+    expect(saved[0].blob.type).toBe('video/mp4');
     expect(ffmpegs).toEqual([]);
     expect(encodeVideo.mock.calls[0][0].container).toBe('mp4');
   });
