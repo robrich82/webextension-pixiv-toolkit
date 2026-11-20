@@ -90,7 +90,7 @@ test('a frame that fails answers with the error, naming its kind, and logs it', 
   await worker.onmessage({ data: { index: 2, image: new Blob(['not an image']), delay: 40, first: false } });
 
   expect(worker.postMessage).toHaveBeenCalledWith({ index: 2, error: 'EncodingError: The source image cannot be decoded.' });
-  expect(console.error).toHaveBeenCalledWith('Could not encode GIF frame 2', error);
+  expect(console.error).toHaveBeenCalledWith('Could not encode GIF frame', 2, error);
 });
 
 test('a message that is not a frame answers with an error rather than nothing', async () => {

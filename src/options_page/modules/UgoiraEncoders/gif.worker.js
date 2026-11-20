@@ -26,7 +26,7 @@ async function encode({ image, delay, first }) {
 self.onmessage = ({ data }) => encode(data)
   .then(chunk => self.postMessage({ index: data.index, chunk }, [chunk.buffer]))
   .catch(error => {
-    console.error(`Could not encode GIF frame ${data?.index}`, error);
+    console.error('Could not encode GIF frame', data?.index, error);
     // "EncodingError: The source image cannot be decoded."
     self.postMessage({ index: data?.index, error: String(error) });
   })
