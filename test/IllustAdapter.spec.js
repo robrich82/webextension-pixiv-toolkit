@@ -3,7 +3,7 @@
  * command but their codec setting, the rest their preset.
  */
 import { codecSettingKey } from '@/options_page/modules/UgoiraEncoders/video';
-import IllustAdapter, { UGOIRA_FFMPEG_CLI_ARGS } from '@/options_page/modules/DownloadAdapters/Pixiv/IllustAdapter';
+import IllustAdapter from '@/options_page/modules/DownloadAdapters/Pixiv/IllustAdapter';
 import UgoiraDownloadTask from '@/options_page/modules/DownloadTasks/Pixiv/UgoiraDownloadTask';
 import IllustResource from '@/modules/PageResource/Pixiv/IllustResource';
 
@@ -44,14 +44,8 @@ describe('createUgoiraDownloadTask', () => {
     expect(taskOptions('zip')).toMatchObject({ convertType: 'zip', ffmpegCommandArgs: '' });
   });
 
-  it('encodes GIF in the browser, without an FFmpeg command', () => {
-    expect(taskOptions('gif')).toMatchObject({ id: 'pixiv_illust:10000003:gif', convertType: 'gif', ffmpegCommandArgs: '' });
-  });
-
-  it('still converts APNG with its FFmpeg preset', () => {
-    expect(taskOptions('apng')).toMatchObject({
-      convertType: 'apng', ffmpegCommandArgs: UGOIRA_FFMPEG_CLI_ARGS.ugoiraFFmpegAPNGCliArgs
-    });
+  it.each(['gif', 'apng'])('encodes %s in the browser, without an FFmpeg command', type => {
+    expect(taskOptions(type)).toMatchObject({ id: `pixiv_illust:10000003:${type}`, convertType: type, ffmpegCommandArgs: '' });
   });
 
   it.each(['webm', 'mp4', 'mov', 'mkv'])('hands a %s task the codec its setting names', type => {

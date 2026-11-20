@@ -188,7 +188,7 @@ The background reads each finished file with `FileReader`, which Node lacks, so
 really does with a command, `test/helpers/ffmpegCore.cjs` runs it in a child
 Node process (its web-build globals would confuse Vitest's worker), with a fresh
 core per conversion, since one core crashes after a few runs.
-`test/ugoiraFrameTiming.spec.js` uses it to time the frames of each format FFmpeg converts.
+`test/ugoiraFrameTiming.spec.js` uses it to time the frames of the GIF and APNG commands FFmpeg once ran.
 
 WEBM, MP4, MKV and MOV are encoded through WebCodecs, which Node lacks. `test/UgoiraDownloadTask.spec.js`
 fakes `encodeVideo`, `test/ugoiraVideoEncoder.spec.js` covers the codec choice and frame
@@ -199,6 +199,13 @@ GIF is encoded with gifenc in workers, which Node lacks. `test/UgoiraDownloadTas
 fakes `encodeGif`, `test/ugoiraGifEncoder.spec.js` runs the real gifenc and the worker pool over
 fake workers, `test/ugoiraGifWorker.spec.js` runs `gif.worker.js` over stubbed worker globals, and
 the e2e tests read the saved GIF back with `test/helpers/probeGif.mjs`.
+
+APNG works the same way: `test/ugoiraApngEncoder.spec.js` runs the real filters, Node's own
+`CompressionStream` and the muxer, and the worker pool over fake workers,
+`test/ugoiraApngWorker.spec.js` runs `apng.worker.js` over stubbed worker globals, and
+`test/helpers/probeApng.mjs` reads the saved APNG back, checking its CRCs and sequence numbers.
+The e2e tests' `moving` fixture has a square moving over a still background, so each frame after
+the first holds only the area that changed.
 
 ## DOM code, without jsdom
 

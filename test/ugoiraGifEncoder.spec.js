@@ -6,7 +6,8 @@
  */
 import { FALLBACK_DELAY } from '@/options_page/modules/UgoiraEncoders/delay';
 import { encodeGifFrame, gifDelay, gifDelays, joinGif } from '@/options_page/modules/UgoiraEncoders/gifFrame';
-import { encodeGif, workerCount } from '@/options_page/modules/UgoiraEncoders/gif';
+import { encodeGif } from '@/options_page/modules/UgoiraEncoders/gif';
+import { workerCount } from '@/options_page/modules/UgoiraEncoders/pool';
 import { probeGif } from './helpers/probeGif.mjs';
 
 /** A frame of one colour. */
@@ -166,7 +167,7 @@ describe('encodeGif', () => {
         this.onmessage({
           data: FakeWorker.failWith && index === 1 ?
             { index, error: FakeWorker.failWith } :
-            { index, chunk: encodeGifFrame(image.rgba, image.width, image.height, { delay, first }) }
+            { index, result: encodeGifFrame(image.rgba, image.width, image.height, { delay, first }) }
         });
       }, image.wait ?? 0);
     }
@@ -301,7 +302,7 @@ describe('encodeGif', () => {
     const reported = progresses.length;
     const [worker] = FakeWorker.created;
 
-    worker.onmessage({ data: { index: 0, chunk: encodeGifFrame(solid(3, 2, [5, 5, 5]), 3, 2, { delay: 40, first: true }) } });
+    worker.onmessage({ data: { index: 0, result: encodeGifFrame(solid(3, 2, [5, 5, 5]), 3, 2, { delay: 40, first: true }) } });
     expect(progresses).toHaveLength(reported);
   });
 
@@ -339,7 +340,7 @@ describe('encodeGif', () => {
   test('a GIF that cannot be joined rejects instead of hanging', async () => {
     const encoding = encodeGif({
       frames: frames([[1, 2, 3]]),
-      createWorker: workersThat((worker, { index }) => worker.onmessage({ data: { index, chunk: null } }))
+      createWorker: workersThat((worker, { index }) => worker.onmessage({ data: { index, result: null } }))
     });
 
     await expect(encoding).rejects.toThrow(TypeError);

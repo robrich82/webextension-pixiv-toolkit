@@ -5,6 +5,7 @@ import { PIXEL } from './fakePixiv.mjs';
 import { closeAll, launch, poll } from './firefox.mjs';
 import { probeVideo, videoSize } from '../test/helpers/probeVideo.mjs';
 import { nearColors, probeGif } from '../test/helpers/probeGif.mjs';
+import { MOVING, nearColors as nearApngColors, probeApng, zipFrames } from '../test/helpers/probeApng.mjs';
 
 // End-to-end downloads on Firefox, which Playwright can't load an extension
 // into. See docs/testing.md.
@@ -57,24 +58,25 @@ test('an illust is downloaded and saved in a zip', { timeout: TIMEOUT }, async (
 
 /**
  * Launch on the ugoira, with the frames zip it downloads. `odd` serves the twelve 37x35 PNG frames
- * instead.
+ * instead, and `moving` the four of probeApng's MOVING.
  */
-async function launchUgoira({ odd = false } = {}) {
+async function launchUgoira({ odd = false, moving = false } = {}) {
+  const variant = odd ? '-odd' : moving ? '-moving' : '';
+
   firefox = await launch({
     ajax: {
       '/ajax/illust/10000003': 'pixiv/illust-ugoira.json',
-      '/ajax/illust/10000003/ugoira_meta': odd ? 'pixiv/illust-ugoira-meta-odd.json' : 'pixiv/illust-ugoira-meta.json'
+      '/ajax/illust/10000003/ugoira_meta': `pixiv/illust-ugoira-meta${variant}.json`
     },
     pximg: {
-      '/img-zip-ugoira/img/2024/06/01/08/00/00/10000003_ugoira1920x1080.zip':
-        odd ? 'pixiv/illust-ugoira-frames-odd.zip' : 'pixiv/illust-ugoira-frames.zip'
+      '/img-zip-ugoira/img/2024/06/01/08/00/00/10000003_ugoira1920x1080.zip': `pixiv/illust-ugoira-frames${variant}.zip`
     }
   });
 }
 
 /** Launch on the ugoira, with `settings` stored, click a format button and return the converted animation. */
-async function convertUgoira(label, mime, { odd = false, settings } = {}) {
-  await launchUgoira({ odd });
+async function convertUgoira(label, mime, { odd = false, moving = false, settings } = {}) {
+  await launchUgoira({ odd, moving });
 
   if (settings) {
     await firefox.seedSettings(settings);
@@ -153,6 +155,30 @@ test('DL GIF keeps an odd frame size and every frame of a longer PNG ugoira', { 
   assert.deepEqual(gif.frames.map(frame => frame.delay), ODD_DELAYS);
   // Each frame has two colours, which a palette of its own keeps.
   assert.deepEqual(gif.frames.map(frame => frame.distinctColors), ODD_DELAYS.map(() => 2));
+  assertNoErrors();
+});
+
+test('DL APNG gives JPEG frames their delays as RGB, and loops', { timeout: TIMEOUT }, async () => {
+  const animation = await convertUgoira('DL APNG', 'image/apng');
+
+  const apng = probeApng(fs.readFileSync(animation.path));
+  assert.deepEqual({ width: apng.width, height: apng.height, colorType: apng.colorType, plays: apng.plays },
+    { ...FRAME_SIZE, colorType: 2, plays: 0 });
+  // The fixture's frames are red, green and blue, for 100, 100 and 150ms.
+  assert.deepEqual(apng.frames.map(frame => frame.delay), [100, 100, 150]);
+  assert.ok(nearApngColors(apng.frames, [[254, 0, 0], [0, 129, 0], [0, 0, 254]]), 'frame colours');
+  assertNoErrors();
+});
+
+test('DL APNG keeps PNG frames exactly, each after the first holding only what moved', { timeout: TIMEOUT }, async () => {
+  const animation = await convertUgoira('DL APNG', 'image/apng', { moving: true });
+
+  const apng = probeApng(fs.readFileSync(animation.path));
+  assert.deepEqual({ width: apng.width, height: apng.height, colorType: apng.colorType, plays: apng.plays },
+    { width: 37, height: 35, colorType: 6, plays: 0 });
+  assert.deepEqual(apng.frames.map(frame => frame.delay), MOVING.delays);
+  assert.deepEqual(apng.frames.map(({ x, y, width, height }) => [x, y, width, height]), MOVING.areas);
+  assert.deepEqual(apng.frames.map(frame => Array.from(frame.rgba)), await zipFrames(MOVING.zip));
   assertNoErrors();
 });
 

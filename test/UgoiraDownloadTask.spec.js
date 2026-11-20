@@ -11,21 +11,29 @@ import UgoiraDownloadTask, { ZipRepo } from '@/options_page/modules/DownloadTask
 import DownloadManager from '@/options_page/modules/DownloadManager';
 import { encodeVideo } from '@/options_page/modules/UgoiraEncoders/video';
 import { encodeGif } from '@/options_page/modules/UgoiraEncoders/gif';
+import { encodeApng } from '@/options_page/modules/UgoiraEncoders/apng';
 
 // Node has no WebCodecs; test/ugoiraVideoEncoder.spec.js and the e2e tests cover the encoder.
 vi.mock('@/options_page/modules/UgoiraEncoders/video', async importOriginal => ({
   ...await importOriginal(),
   encodeVideo: vi.fn()
 }));
-// Node has no Worker or OffscreenCanvas; test/ugoiraGifEncoder.spec.js and the e2e tests cover the encoder.
+// Node has no Worker or OffscreenCanvas; test/ugoiraGifEncoder.spec.js, test/ugoiraApngEncoder.spec.js
+// and the e2e tests cover the encoders.
 vi.mock('@/options_page/modules/UgoiraEncoders/gif', async importOriginal => ({
   ...await importOriginal(),
   encodeGif: vi.fn()
 }));
+vi.mock('@/options_page/modules/UgoiraEncoders/apng', async importOriginal => ({
+  ...await importOriginal(),
+  encodeApng: vi.fn()
+}));
 
 const resourceUrl = id => `https://i.pximg.net/img-zip-ugoira/img/${id}_ugoira1920x1080.zip`;
 const frames = [{ file: '000000.jpg', delay: 100 }, { file: '000001.jpg', delay: 250 }];
-// The tasks convert through FFmpeg by default: APNG still does, GIF and video encode in the browser.
+// The tasks convert through FFmpeg by default. Every format encodes in the browser now, and IllustAdapter
+// refuses any other convert type, but the task still hands one to FFmpeg for as long as FFmpeg stays.
+const FFMPEG_TYPE = 'ffmpeg';
 const APNG_COMMAND = '-f concat -i input.txt -plays 0 output.apng';
 
 let background;
@@ -98,7 +106,7 @@ const createTask = ({ id = `${nextId++}`, taskId = `pixiv:${id}:apng`, ...option
   packAnimationJsonType: 0,
   renameRule: '{id}_{title}',
   ffmpegCommandArgs: APNG_COMMAND,
-  convertType: 'apng',
+  convertType: FFMPEG_TYPE,
   context: {
     id,
     title: 'Moving',
@@ -192,7 +200,7 @@ test('converts the frames and saves only the animation, not the frames zip', asy
   expect(fired).toEqual(['start', 'complete']);
 });
 
-test.each(['apng', 'zip'])('keeps the %s blob url until its download finishes (#296)', async convertType => {
+test.each([FFMPEG_TYPE, 'zip'])('keeps the %s blob url until its download finishes (#296)', async convertType => {
   vi.spyOn(URL, 'revokeObjectURL');
   const task = createTask({ convertType });
 
@@ -279,10 +287,10 @@ test.each([
   expect(JSON.parse(await zip.file('animation.json').async('string'))).toEqual(json);
 });
 
-test.each(['apng', 'zip'])('a %s task saves the work information beside it when metadata is on', async convertType => {
+test.each([FFMPEG_TYPE, 'zip'])('a %s task saves the work information beside it when metadata is on', async convertType => {
   window.$app.settings.enableDownloadMetadata = true;
   const revoke = vi.spyOn(URL, 'revokeObjectURL');
-  const task = createTask({ id: convertType === 'apng' ? '125' : '135', convertType });
+  const task = createTask({ id: convertType === FFMPEG_TYPE ? '125' : '135', convertType });
   const name = `ugoira/${task.options.context.id}_Moving.info.json`;
 
   task.start();
@@ -541,7 +549,7 @@ test('reports conversion progress, and toJson carries it with the convert type',
     state: task.COMPLETE_STATE,
     progress: 1,
     processProgress: 0.5,
-    convertType: 'apng'
+    convertType: FFMPEG_TYPE
   });
 });
 
@@ -1031,5 +1039,48 @@ describe('GIF in the browser', () => {
     await vi.waitFor(() => expect(task.isFailure()).toBe(true));
     expect(task.processProgress).toBe(0);
     expect(task.encodeController).toBeNull();
+  });
+});
+
+// The GIF tests above cover encodeFrames' progress, failure and stop, which APNG shares.
+describe('APNG in the browser', () => {
+  const apngTask = id => createTask({ id, taskId: `pixiv:${id}:apng`, convertType: 'apng', ffmpegCommandArgs: '' });
+
+  beforeEach(() => {
+    encodeApng.mockReset();
+    encodeApng.mockResolvedValue({ data: new Uint8Array([4, 5, 6]), mimeType: 'image/apng', extension: 'apng' });
+  });
+
+  test('encodes each frame with its delay, without FFmpeg, and saves the APNG', async () => {
+    const task = apngTask('210');
+
+    task.start();
+    await completeDownload(task);
+    await vi.waitFor(() => expect(task.isComplete()).toBe(true));
+
+    expect(savedNames()).toEqual(['ugoira/210_Moving.apng']);
+    expect(saved[0].blob.type).toBe('image/apng');
+    expect(new Uint8Array(await saved[0].blob.arrayBuffer())).toEqual(new Uint8Array([4, 5, 6]));
+    expect(ffmpegs).toEqual([]);
+    expect(encodeGif).not.toHaveBeenCalled();
+    expect(encodeVideo).not.toHaveBeenCalled();
+
+    const [{ frames: encoded, signal }] = encodeApng.mock.calls[0];
+    expect(signal.aborted).toBe(false);
+    expect(encoded.map(frame => frame.delay)).toEqual([100, 250]);
+    expect(await Promise.all(encoded.map(frame => frame.image.text()))).toEqual(['frame 0', 'frame 1']);
+  });
+
+  // encodeApng keeps alpha unless the frames are JPEG, which it reads from their type.
+  test.each([['image/jpeg', '211'], ['image/png', '212']])('hands over %s frames as that type', async (mimeType, id) => {
+    const task = apngTask(id);
+    task.context.illustMimeType = mimeType;
+
+    task.start();
+    await completeDownload(task);
+    await vi.waitFor(() => expect(task.isComplete()).toBe(true));
+
+    const [{ frames: encoded }] = encodeApng.mock.calls[0];
+    expect(encoded.map(frame => frame.image.type)).toEqual([mimeType, mimeType]);
   });
 });

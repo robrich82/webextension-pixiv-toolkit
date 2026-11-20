@@ -15,17 +15,23 @@ const ODD_TIMES = {
   duration: ODD_DELAYS.reduce((sum, delay) => sum + delay, 0) / 1000
 };
 
-/** The ugoira's routes, with `odd` serving the twelve 37x35 PNG frames instead. */
-const ugoiraRoutes = ({ odd = false } = {}) => ({
-  ajax: {
-    '/ajax/illust/10000003': 'pixiv/illust-ugoira.json',
-    '/ajax/illust/10000003/ugoira_meta': odd ? 'pixiv/illust-ugoira-meta-odd.json' : 'pixiv/illust-ugoira-meta.json'
-  },
-  pximg: {
-    '/img-zip-ugoira/img/2024/06/01/08/00/00/10000003_ugoira1920x1080.zip':
-      odd ? 'pixiv/illust-ugoira-frames-odd.zip' : 'pixiv/illust-ugoira-frames.zip'
-  }
-});
+/**
+ * The ugoira's routes, with `odd` serving the twelve 37x35 PNG frames instead, and `moving` the four
+ * of probeApng's MOVING.
+ */
+const ugoiraRoutes = ({ odd = false, moving = false } = {}) => {
+  const variant = odd ? '-odd' : moving ? '-moving' : '';
+
+  return {
+    ajax: {
+      '/ajax/illust/10000003': 'pixiv/illust-ugoira.json',
+      '/ajax/illust/10000003/ugoira_meta': `pixiv/illust-ugoira-meta${variant}.json`
+    },
+    pximg: {
+      '/img-zip-ugoira/img/2024/06/01/08/00/00/10000003_ugoira1920x1080.zip': `pixiv/illust-ugoira-frames${variant}.zip`
+    }
+  };
+};
 
 test.beforeEach(async ({ context }) => {
   await mockPixiv(context, ugoiraRoutes());
@@ -116,6 +122,36 @@ test('DL GIF keeps an odd frame size and every frame of a longer PNG ugoira', as
   expect(gif.frames.map(frame => frame.delay)).toEqual(ODD_DELAYS);
   // Each frame has two colours, which a palette of its own keeps.
   expect(gif.frames.map(frame => frame.distinctColors)).toEqual(ODD_DELAYS.map(() => 2));
+  expect(errors).toEqual([]);
+});
+
+test('DL APNG gives JPEG frames their delays as RGB, and loops', async ({ context, serviceWorker }) => {
+  const errors = collectErrors(context);
+  const { probeApng, nearColors } = await import('../test/helpers/probeApng.mjs');
+
+  const animation = await convert(context, serviceWorker, 'DL APNG', 'image/apng');
+
+  const apng = probeApng(fs.readFileSync(animation.filename));
+  expect(apng).toMatchObject({ ...FRAME_SIZE, colorType: 2, plays: 0 });
+  // The fixture's frames are red, green and blue, for 100, 100 and 150ms.
+  expect(apng.frames.map(frame => frame.delay)).toEqual([100, 100, 150]);
+  expect(nearColors(apng.frames, [[254, 0, 0], [0, 129, 0], [0, 0, 254]])).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test('DL APNG keeps PNG frames exactly, each after the first holding only what moved', async ({ context, serviceWorker }) => {
+  const errors = collectErrors(context);
+  await context.unrouteAll();
+  await mockPixiv(context, ugoiraRoutes({ moving: true }));
+  const { probeApng, zipFrames, MOVING } = await import('../test/helpers/probeApng.mjs');
+
+  const animation = await convert(context, serviceWorker, 'DL APNG', 'image/apng');
+
+  const apng = probeApng(fs.readFileSync(animation.filename));
+  expect(apng).toMatchObject({ width: 37, height: 35, colorType: 6, plays: 0 });
+  expect(apng.frames.map(frame => frame.delay)).toEqual(MOVING.delays);
+  expect(apng.frames.map(({ x, y, width, height }) => [x, y, width, height])).toEqual(MOVING.areas);
+  expect(apng.frames.map(frame => Array.from(frame.rgba))).toEqual(await zipFrames(MOVING.zip));
   expect(errors).toEqual([]);
 });
 

@@ -1,6 +1,9 @@
 /** A frame whose delay isn't a positive number of ms (Pixiv always gives one) lasts this long. */
 export const FALLBACK_DELAY = 100;
 
+/** Browsers play an animated image's frame of 10ms or less for 100ms, so GIF and APNG raise shorter delays to this. */
+export const MIN_IMAGE_DELAY = 20;
+
 /**
  * @param {*} delay A frame's delay from the ugoira's metadata
  * @returns {number} The delay in ms, or FALLBACK_DELAY when it isn't a positive number

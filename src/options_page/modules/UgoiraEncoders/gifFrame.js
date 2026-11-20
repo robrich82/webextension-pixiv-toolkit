@@ -1,8 +1,5 @@
 import { GIFEncoder, applyPalette, quantize } from 'gifenc';
-import { frameDelay } from './delay';
-
-/** Browsers play an animated image's frame of 10ms or less for 100ms, so shorter delays are raised to this. */
-const MIN_DELAY = 20;
+import { MIN_IMAGE_DELAY, frameDelay } from './delay';
 
 /** A GIF frame's delay is a 16-bit count of 10ms. */
 const MAX_DELAY = 655350;
@@ -17,7 +14,7 @@ const TRAILER = 0x3b;
  * @returns {number} The delay in ms the GIF gives the frame, which gifenc rounds to 10ms
  */
 export function gifDelay(delay) {
-  return Math.min(Math.max(frameDelay(delay), MIN_DELAY), MAX_DELAY);
+  return Math.min(Math.max(frameDelay(delay), MIN_IMAGE_DELAY), MAX_DELAY);
 }
 
 /**

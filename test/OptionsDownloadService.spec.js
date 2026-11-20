@@ -108,6 +108,7 @@ describe('download:addDownload', () => {
   test.each([
     ['zip', 'zip', ''],
     ['gif', 'gif', ''],
+    ['apng', 'apng', ''],
     ['webm', 'webm', '']
   ])('an ugoira with convert type %s gets its own task, of convert type %s', async (ugoiraConvertType, convertType, args) => {
     const frames = [{ file: '000000.jpg', delay: 100 }];
@@ -192,7 +193,6 @@ describe('download:addDownload for an ugoira', () => {
 
     const task = manager().getTask('pixiv_illust:3:apng');
     expect(task.options.convertType).toBe('apng');
-    expect(task.options.ffmpegCommandArgs).toMatch(/output\.apng$/);
   });
 
   // The Custom download, which ran a stored FFmpeg command, has gone: no format is refused, not converted somehow.

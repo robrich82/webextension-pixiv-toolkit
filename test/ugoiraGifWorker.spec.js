@@ -67,9 +67,9 @@ test('draws the frame over black, then answers with its chunk, handing over the 
 
   const [[message, transfer]] = worker.postMessage.mock.calls;
   expect(message.index).toBe(0);
-  expect(transfer).toEqual([message.chunk.buffer]);
+  expect(transfer).toEqual([message.result.buffer]);
 
-  const gif = probeGif(joinGif([message.chunk]));
+  const gif = probeGif(joinGif([message.result]));
   expect(gif).toMatchObject({ width: 2, height: 1, loops: 0 });
   expect(gif.frames.map(({ delay, rgb }) => [delay, [...rgb.subarray(0, 3)]])).toEqual([[40, [200, 100, 50]]]);
 });
@@ -77,7 +77,7 @@ test('draws the frame over black, then answers with its chunk, handing over the 
 test('a later frame writes no header', async () => {
   await worker.onmessage({ data: { index: 3, image: new Blob(['jpeg']), delay: 40, first: false } });
 
-  const [[{ index, chunk }]] = worker.postMessage.mock.calls;
+  const [[{ index, result: chunk }]] = worker.postMessage.mock.calls;
   expect(index).toBe(3);
   // The frame's graphic control extension, not the "G" of "GIF89a".
   expect(chunk[0]).toBe(0x21);

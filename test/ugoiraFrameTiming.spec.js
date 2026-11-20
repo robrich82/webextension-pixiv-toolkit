@@ -7,13 +7,13 @@
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import UgoiraDownloadTask from '@/options_page/modules/DownloadTasks/Pixiv/UgoiraDownloadTask';
-import { UGOIRA_FFMPEG_CLI_ARGS } from '@/options_page/modules/DownloadAdapters/Pixiv/IllustAdapter';
 
-// GIF encodes in the browser now (test/ugoiraGifEncoder.spec.js). The gif rows time prepareConversion's
-// GIF handling, which no task reaches any more, for as long as it stays.
+// GIF and APNG encode in the browser now (test/ugoiraGifEncoder.spec.js, test/ugoiraApngEncoder.spec.js).
+// These rows time prepareConversion's GIF and APNG handling, which no task reaches any more, for as
+// long as it stays.
 const COMMANDS = {
   gif: '-f concat -i input.txt -plays 0 out.gif',
-  apng: UGOIRA_FFMPEG_CLI_ARGS.ugoiraFFmpegAPNGCliArgs
+  apng: '-f concat -i input.txt -plays 0 output.apng'
 };
 const UNEVEN = [30, 70, 100, 50, 130, 60];
 const EVEN = [70, 70, 70, 70];

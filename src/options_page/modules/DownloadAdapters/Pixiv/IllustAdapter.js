@@ -9,13 +9,6 @@ import AbstractResource from "@/modules/PageResource/AbstractResource";
 import IllustResource from "@/modules/PageResource/Pixiv/IllustResource";
 import { VIDEO_CONTAINERS, codecSettingKey } from "@/options_page/modules/UgoiraEncoders/video";
 
-/**
- * The ugoira conversions FFmpeg makes; GIF and VIDEO_CONTAINERS are encoded in the browser instead.
- */
-export const UGOIRA_FFMPEG_CLI_ARGS = {
-  ugoiraFFmpegAPNGCliArgs: '-f concat -i input.txt -plays 0 output.apng'
-};
-
 class IllustAdapter {
   /**
    * @type {Object}
@@ -103,15 +96,12 @@ class IllustAdapter {
    */
   createUgoiraDownloadTask(resource, options) {
     const convertType = options?.ugoiraConvertType;
-    // A zip task saves only the frames zip, and the browser encodes GIF and the video containers, so
-    // none of them has an FFmpeg command.
     const isVideo = Object.hasOwn(VIDEO_CONTAINERS, convertType ?? '');
-    const noCommand = isVideo ||
-      [UgoiraDownloadTask.ZIP_CONVERT_TYPE, UgoiraDownloadTask.GIF_CONVERT_TYPE].includes(convertType);
-    const ffmpegCommandArgs = noCommand ? '' : typeof convertType === 'string' &&
-      UGOIRA_FFMPEG_CLI_ARGS[`ugoiraFFmpeg${convertType.toUpperCase()}CliArgs`];
+    const known = isVideo || [
+      UgoiraDownloadTask.ZIP_CONVERT_TYPE, UgoiraDownloadTask.GIF_CONVERT_TYPE, UgoiraDownloadTask.APNG_CONVERT_TYPE
+    ].includes(convertType);
 
-    if (!noCommand && !ffmpegCommandArgs) {
+    if (!known) {
       throw new Error(`Unknown ugoira convert type: ${convertType}`);
     }
 
@@ -123,7 +113,8 @@ class IllustAdapter {
       frames: this.context.illustFrames,
       packAnimationJsonType: this.settings.animationJsonFormat,
       renameRule: this.settings.ugoiraRenameRule,
-      ffmpegCommandArgs,
+      // Every format encodes in the browser, so no task runs FFmpeg.
+      ffmpegCommandArgs: '',
       context: this.context,
       convertType,
       codec: isVideo ? this.settings[codecSettingKey(convertType)] : undefined

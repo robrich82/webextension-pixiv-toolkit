@@ -8,6 +8,7 @@ import MimeType from "@/modules/Util/MimeType";
 import pathjoin from "@/modules/Util/pathjoin";
 import { VIDEO_CONTAINERS, encodeVideo } from "../../UgoiraEncoders/video";
 import { encodeGif } from "../../UgoiraEncoders/gif";
+import { encodeApng } from "../../UgoiraEncoders/apng";
 
 class ZipRepo {
   /**
@@ -53,8 +54,8 @@ class ZipRepo {
  * @property {0|1|2} packAnimationJsonType
  * @property {string} ffmpegCommandArgs
  * @property {any} context
- * @property {string} convertType A button's format: 'zip' saves the frames zip, GIF and the videos encode in
- *   the browser, and APNG converts through FFmpeg
+ * @property {string} convertType A button's format: 'zip' saves the frames zip, and the others encode in
+ *   the browser
  * @property {string} [codec] For a video format, the codec to try first; unset, the container's default
  *
  * @class
@@ -112,6 +113,11 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
    * The convertType of a task that encodes a GIF in workers (UgoiraEncoders/gif)
    */
   static GIF_CONVERT_TYPE = 'gif';
+
+  /**
+   * The convertType of a task that encodes an APNG in workers (UgoiraEncoders/apng)
+   */
+  static APNG_CONVERT_TYPE = 'apng';
 
   /**
    *
@@ -526,6 +532,8 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
 
     if (format === UgoiraDownloadTask.GIF_CONVERT_TYPE) {
       encoded = await this.encodeFrames(encodeGif);
+    } else if (format === UgoiraDownloadTask.APNG_CONVERT_TYPE) {
+      encoded = await this.encodeFrames(encodeApng);
     } else if (Object.hasOwn(VIDEO_CONTAINERS, format ?? '')) {
       encoded = await this.encodeVideo(format);
     } else {
