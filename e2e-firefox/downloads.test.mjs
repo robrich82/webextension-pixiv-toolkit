@@ -170,7 +170,7 @@ test('DL APNG gives JPEG frames their delays as RGB, and loops', { timeout: TIME
   assertNoErrors();
 });
 
-test('DL APNG keeps PNG frames exactly, each after the first holding only what moved', { timeout: TIMEOUT }, async () => {
+test('DL APNG keeps PNG frames exactly, semi-transparent pixels too, each after the first holding only what moved', { timeout: TIMEOUT }, async () => {
   const animation = await convertUgoira('DL APNG', 'image/apng', { moving: true });
 
   const apng = probeApng(fs.readFileSync(animation.path));

@@ -463,7 +463,7 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
   }
 
   /**
-   * When resource is downloaded, then generate animation file using ffmpeg
+   * Once the frames are downloaded, converts them to the task's format
    * @fires UgoiraDownloadTask#progress
    * @fires UgoiraDownloadTask#complete
    * @fires UgoiraDownloadTask#failure

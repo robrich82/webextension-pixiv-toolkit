@@ -1,10 +1,19 @@
 import { encodeApngFrame } from './apngFrame';
+import { decodePng, isPng } from './png';
 
 /**
+ * PNGs are decoded exactly by png.js; a canvas would premultiply their semi-transparent pixels.
+ * JPEGs have no alpha, so the browser decodes them.
  * @param {Blob} image
- * @returns {Promise<{ pixels: Uint8ClampedArray, width: number, height: number }>} Its RGBA pixels
+ * @returns {Promise<{ pixels: Uint8ClampedArray|Uint8Array, width: number, height: number }>} Its RGBA pixels
  */
 async function decode(image) {
+  const bytes = new Uint8Array(await image.slice(0, 8).arrayBuffer());
+
+  if (isPng(bytes)) {
+    return decodePng(new Uint8Array(await image.arrayBuffer()));
+  }
+
   const bitmap = await createImageBitmap(image);
   const { width, height } = bitmap;
   const context = new OffscreenCanvas(width, height).getContext('2d', { willReadFrequently: true });
@@ -21,8 +30,9 @@ async function decode(image) {
  */
 async function encode({ image, previous, alpha }) {
   const { pixels, width, height } = await decode(image);
-  // Decoding the frame before again keeps every frame independent of the other workers.
-  const before = previous && await decode(previous);
+  // Decoding the previous frame here too keeps every frame independent of the other workers. If it
+  // won't decode, this frame is stored whole and the previous frame's own job reports the error.
+  const before = previous && await decode(previous).catch(() => null);
   const sameSize = before?.width === width && before?.height === height;
   const frame = await encodeApngFrame({ pixels, previous: sameSize ? before.pixels : null, width, height, alpha });
 

@@ -1,7 +1,7 @@
 const fs = require('fs');
 const JSZip = require('jszip');
 const {
-  test, expect, mockPixiv, collectErrors, openPanel, waitForDownloads, decodeMedia,
+  test, expect, mockPixiv, collectErrors, openPanel, waitForDownloads, decodeMedia, decodeApngFrames,
   recordSaveNames, savedFiles, seedSettings
 } = require('./fixtures');
 
@@ -139,7 +139,7 @@ test('DL APNG gives JPEG frames their delays as RGB, and loops', async ({ contex
   expect(errors).toEqual([]);
 });
 
-test('DL APNG keeps PNG frames exactly, each after the first holding only what moved', async ({ context, serviceWorker }) => {
+test('DL APNG keeps PNG frames exactly, semi-transparent pixels too, each after the first holding only what moved', async ({ context, serviceWorker }) => {
   const errors = collectErrors(context);
   await context.unrouteAll();
   await mockPixiv(context, ugoiraRoutes({ moving: true }));
@@ -151,7 +151,17 @@ test('DL APNG keeps PNG frames exactly, each after the first holding only what m
   expect(apng).toMatchObject({ width: 37, height: 35, colorType: 6, plays: 0 });
   expect(apng.frames.map(frame => frame.delay)).toEqual(MOVING.delays);
   expect(apng.frames.map(({ x, y, width, height }) => [x, y, width, height])).toEqual(MOVING.areas);
-  expect(apng.frames.map(frame => Array.from(frame.rgba))).toEqual(await zipFrames(MOVING.zip));
+  const expected = await zipFrames(MOVING.zip);
+  expect(apng.frames.map(frame => Array.from(frame.rgba))).toEqual(expected);
+  // Chrome's own decoder composes the cropped frames the same way. It premultiplies them whatever
+  // it is asked, so compare them premultiplied, within its rounding.
+  const premultiplied = frame => frame.map((value, i) => (i % 4 === 3 ? value : value * frame[i - i % 4 + 3] / 255));
+  const decoded = await decodeApngFrames(context, serviceWorker, animation.filename);
+  expect(decoded.length).toBe(expected.length);
+  decoded.forEach((frame, i) => {
+    const want = premultiplied(expected[i]);
+    expect(premultiplied(frame).every((value, at) => Math.abs(value - want[at]) <= 1)).toBe(true);
+  });
   expect(errors).toEqual([]);
 });
 

@@ -1,10 +1,11 @@
 /**
  * The APNG encoder: apngFrame.js's frames, compressed by Node's own CompressionStream and read back
- * with probeApng, and apng.js over fake workers that run the same encodeApngFrame. The pool itself is
- * gif.js's too, and test/ugoiraGifEncoder.spec.js covers its aborts and failures. Node has no Worker,
+ * with probeApng, and apng.js over fake workers that run the same encodeApngFrame. The pool is
+ * pool.js, shared with GIF, and test/ugoiraGifEncoder.spec.js covers its aborts and failures. Node has no Worker,
  * createImageBitmap or OffscreenCanvas: ugoiraApngWorker.spec.js stubs them for apng.worker.js, and
  * the e2e tests run it for real.
  */
+import zlib from 'node:zlib';
 import { FALLBACK_DELAY } from '@/options_page/modules/UgoiraEncoders/delay';
 import {
   apngDelay, changedArea, crc32, encodeApngFrame, filterRows, muxApng
@@ -248,7 +249,28 @@ describe('encodeApng', () => {
     }
   }
 
-  const image = (pixels, width, height, type = 'image/jpeg') => ({ pixels, width, height, type });
+  const pngChunk = (type, data) => {
+    const bytes = Buffer.alloc(12 + data.length);
+
+    bytes.writeUInt32BE(data.length);
+    bytes.write(type, 4, 'latin1');
+    Buffer.from(data).copy(bytes, 8);
+    bytes.writeUInt32BE(zlib.crc32(bytes.subarray(4, 8 + data.length)), 8 + data.length);
+
+    return bytes;
+  };
+  /** A JPEG's first bytes, or a PNG's through its first IDAT: all apng.js reads of a frame. */
+  const head = (colorType, chunks) => colorType === 'jpeg' ?
+    Buffer.from([0xff, 0xd8, 0xff, 0xe0]) :
+    Buffer.concat([
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      pngChunk('IHDR', [0, 0, 0, 1, 0, 0, 0, 1, 8, colorType, 0, 0, 0]),
+      ...chunks,
+      pngChunk('IDAT', [])
+    ]);
+  /** A frame Blob that the fake worker reads as `pixels`; `colorType` 'jpeg' or a PNG colour type. */
+  const image = (pixels, width, height, colorType = 'jpeg', chunks = []) =>
+    Object.assign(new Blob([head(colorType, chunks)]), { pixels, width, height });
   const createWorker = () => new FakeWorker();
 
   beforeEach(() => {
@@ -260,7 +282,7 @@ describe('encodeApng', () => {
     vi.unstubAllGlobals();
   });
 
-  test('muxes the frames in order, sending each worker its frame and the one before', async () => {
+  test('muxes each frame in its place, sending each worker its frame and the one before', async () => {
     const images = [1, 2, 3, 4].map(seed => image(busy(12, 9, { seed }), 12, 9));
     const frames = images.map((img, i) => ({ image: img, delay: 50 * (i + 1) }));
     const progresses = [];
@@ -275,19 +297,48 @@ describe('encodeApng', () => {
     expect(progresses).toEqual([0.25, 0.5, 0.75, 1]);
 
     const posted = FakeWorker.created.flatMap(worker => worker.posted).sort((a, b) => a.index - b.index);
-    expect(posted.map(({ previous }) => previous)).toEqual([null, ...images.slice(0, 3)]);
+    posted.forEach(({ previous }, i) => expect(previous).toBe(i ? images[i - 1] : null));
     expect(posted.every(({ alpha }) => alpha === false)).toBe(true);
     expect(FakeWorker.created.every(worker => worker.terminated)).toBe(true);
   });
 
-  test('keeps alpha for frames that are not JPEG', async () => {
+  test('RGB PNG frames make an RGB APNG, whatever the ugoira says its type is', async () => {
+    const images = [1, 2].map(seed => image(busy(4, 3, { seed }), 4, 3, 2));
+    const apng = probeApng((await encodeApng({ frames: images.map(img => ({ image: img, delay: 100 })), createWorker })).data);
+
+    expect(apng.colorType).toBe(2);
+  });
+
+  test.each([
+    ['an alpha channel', 6, []],
+    ['grey and alpha', 4, []],
+    ['tRNS', 2, [pngChunk('tRNS', [0, 1, 0, 2, 0, 3])]],
+    ['a palette with tRNS', 3, [pngChunk('PLTE', [1, 2, 3]), pngChunk('tRNS', [0])]]
+  ])('one PNG frame with %s makes the whole APNG RGBA', async (_, colorType, chunks) => {
     const pixels = busy(4, 3, { alpha: true });
-    const apng = probeApng((await encodeApng({
-      frames: [{ image: image(pixels, 4, 3, 'image/png'), delay: 100 }], createWorker
-    })).data);
+    const images = [image(busy(4, 3), 4, 3, 2), image(pixels, 4, 3, colorType, chunks)];
+    const apng = probeApng((await encodeApng({ frames: images.map(img => ({ image: img, delay: 100 })), createWorker })).data);
 
     expect(apng.colorType).toBe(6);
-    expect(Array.from(apng.frames[0].rgba)).toEqual(Array.from(pixels));
+    expect(FakeWorker.created.flatMap(worker => worker.posted).every(({ alpha }) => alpha)).toBe(true);
+    expect(Array.from(apng.frames[1].rgba)).toEqual(Array.from(pixels));
+  });
+
+  test("carries the first frame's colour chunks, after IHDR", async () => {
+    const gamma = pngChunk('gAMA', [0, 0, 0xb1, 0x8f]);
+    const srgb = pngChunk('sRGB', [0]);
+    const frames = [image(busy(4, 3), 4, 3, 2, [gamma, srgb, pngChunk('tEXt', [0x41, 0, 0x42])]), image(busy(4, 3), 4, 3, 2)]
+      .map(img => ({ image: img, delay: 100 }));
+    const data = (await encodeApng({ frames, createWorker })).data;
+
+    expect(probeApng(data).chunks.slice(0, 4)).toEqual(['IHDR', 'gAMA', 'sRGB', 'acTL']);
+    expect(Buffer.from(data).includes(Buffer.concat([gamma, srgb]))).toBe(true);
+  });
+
+  test('JPEG frames carry no colour chunks', async () => {
+    const data = (await encodeApng({ frames: [{ image: image(busy(4, 3), 4, 3), delay: 100 }], createWorker })).data;
+
+    expect(probeApng(data).chunks).toEqual(['IHDR', 'acTL', 'fcTL', 'IDAT', 'IEND']);
   });
 
   test('a frame of another size rejects, naming it', async () => {
@@ -310,5 +361,28 @@ describe('encodeApng', () => {
 
   test('no frames rejects', async () => {
     await expect(encodeApng({ frames: [], createWorker })).rejects.toThrow('The ugoira has no frames to encode');
+  });
+});
+
+describe('probeApng refuses', () => {
+  const twoFrames = async second => {
+    const first = await encodeApngFrame({ pixels: solid(2, 2, [1, 2, 3, 255]), previous: null, width: 2, height: 2, alpha: false });
+
+    return muxApng({ width: 2, height: 2, alpha: false, frames: [{ ...first, delay: 100 }, { ...first, ...second, delay: 100 }] });
+  };
+
+  test.each([[10, 'compression 1'], [11, 'filter 1']])('an IHDR with byte %i set', async (byte, message) => {
+    const apng = Buffer.from(await twoFrames({}));
+
+    apng[16 + byte] = 1;
+    apng.writeUInt32BE(zlib.crc32(apng.subarray(12, 29)), 29);
+
+    expect(() => probeApng(apng)).toThrow(message);
+  });
+
+  test('an empty frame', async () => {
+    const apng = await twoFrames({ width: 0, height: 0 });
+
+    expect(() => probeApng(apng)).toThrow('Frame 2 is empty');
   });
 });

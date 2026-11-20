@@ -2,7 +2,8 @@
  * apng.worker.js over stubbed worker globals: Node has no createImageBitmap, OffscreenCanvas or
  * reportError. The e2e tests run it in the browsers.
  */
-import { muxApng } from '@/options_page/modules/UgoiraEncoders/apngFrame';
+import zlib from 'node:zlib';
+import { encodeApngFrame, muxApng } from '@/options_page/modules/UgoiraEncoders/apngFrame';
 import { probeApng } from './helpers/probeApng.mjs';
 
 /** A canvas that logs the drawing calls and reads back the pixels of the image drawn on it. */
@@ -102,15 +103,49 @@ test('a later frame decodes the one before it too, and holds only what changed',
   const [[{ index, result }]] = worker.postMessage.mock.calls;
   expect(index).toBe(5);
   expect(result).toMatchObject({ x: 2, y: 1, width: 1, height: 1, frameWidth: 4, frameHeight: 3 });
+  // One row: its filter byte, then the pixel as RGBA.
+  expect(zlib.inflateSync(result.data).subarray(1)).toEqual(Buffer.from([9, 9, 9, 255]));
 });
 
-test('a frame whose previous is another size is encoded whole, for the page to refuse', async () => {
+test('without alpha a frame is stored as RGB', async () => {
+  const now = bitmap('now', 1, 1, [9, 8, 7, 255]);
+
+  await worker.onmessage({ data: { index: 0, image: frame(now), previous: null, alpha: false } });
+
+  const [[{ result }]] = worker.postMessage.mock.calls;
+  expect(zlib.inflateSync(result.data).subarray(1)).toEqual(Buffer.from([9, 8, 7]));
+});
+
+test.each([[5, 3], [4, 2]])('a frame whose previous is %ix%i is encoded whole, for the page to refuse', async (width, height) => {
   const now = bitmap('now', 4, 3, [1, 1, 1, 255]);
 
-  await worker.onmessage({ data: { index: 1, image: frame(now), previous: frame(bitmap('before', 5, 3, [1, 1, 1, 255])), alpha: false } });
+  await worker.onmessage({ data: { index: 1, image: frame(now), previous: frame(bitmap('before', width, height, [1, 1, 1, 255])), alpha: false } });
 
   const [[{ result }]] = worker.postMessage.mock.calls;
   expect(result).toMatchObject({ x: 0, y: 0, width: 4, height: 3, frameWidth: 4, frameHeight: 3 });
+});
+
+test("a frame whose previous won't decode is encoded whole, leaving the error to the previous frame's job", async () => {
+  const now = bitmap('now', 4, 3, [1, 1, 1, 255]);
+
+  await worker.onmessage({ data: { index: 1, image: frame(now), previous: new Blob(['broken']), alpha: false } });
+
+  const [[{ index, result }]] = worker.postMessage.mock.calls;
+  expect(index).toBe(1);
+  expect(result).toMatchObject({ x: 0, y: 0, width: 4, height: 3 });
+});
+
+test('a PNG frame is decoded exactly, semi-transparent pixels and all, without the canvas', async () => {
+  const pixels = new Uint8Array([200, 100, 50, 3, 10, 20, 30, 255, 0, 0, 0, 0, 255, 1, 2, 128]);
+  const encoded = await encodeApngFrame({ pixels, previous: null, width: 2, height: 2, alpha: true });
+  const png = new Blob([muxApng({ width: 2, height: 2, alpha: true, frames: [{ ...encoded, delay: 100 }] })]);
+
+  await worker.onmessage({ data: { index: 0, image: png, previous: null, alpha: true } });
+
+  expect(createImageBitmap).not.toHaveBeenCalled();
+  const [[{ result }]] = worker.postMessage.mock.calls;
+  const apng = probeApng(muxApng({ width: 2, height: 2, alpha: true, frames: [{ ...result, delay: 100 }] }));
+  expect(Array.from(apng.frames[0].rgba)).toEqual(Array.from(pixels));
 });
 
 test('a frame that fails answers with the error, naming its kind, and logs it', async () => {

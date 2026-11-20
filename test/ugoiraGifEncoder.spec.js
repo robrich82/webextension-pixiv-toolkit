@@ -1,6 +1,6 @@
 /**
  * The GIF encoder: gifFrame.js's frames through the real gifenc, read back with probeGif, and
- * gif.js's worker pool over fake workers that run the same encodeGifFrame. Node has no Worker,
+ * the worker pool (pool.js) over fake workers that run the same encodeGifFrame. Node has no Worker,
  * createImageBitmap or OffscreenCanvas: ugoiraGifWorker.spec.js stubs them for gif.worker.js, and
  * the e2e tests run it for real.
  */

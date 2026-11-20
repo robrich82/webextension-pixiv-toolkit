@@ -1,11 +1,13 @@
 import { muxApng } from './apngFrame';
 import { encodeInWorkers } from './pool';
+import { readPngHeader } from './png';
 
 const createApngWorker = () => new Worker(new URL('./apng.worker.js', import.meta.url));
 
 /**
  * Encodes the frames as a looping APNG, each frame after the first holding only the area that
- * changed, in a pool of workers. JPEG frames make an RGB APNG and PNG frames an RGBA one.
+ * changed, in a pool of workers. It has alpha when a frame does (a PNG with an alpha channel or tRNS),
+ * and carries the first frame's colour chunks.
  * @param {object} options
  * @param {{ image: Blob, delay: number }[]} options.frames JPEG or PNG frames, all one size and type
  * @param {(progress: number) => void} [options.onProgress] With the share of frames encoded
@@ -14,7 +16,9 @@ const createApngWorker = () => new Worker(new URL('./apng.worker.js', import.met
  * @returns {Promise<{ data: Uint8Array, mimeType: string, extension: string }>}
  */
 export async function encodeApng({ frames, onProgress, signal, createWorker = createApngWorker }) {
-  const alpha = frames[0]?.image.type !== 'image/jpeg';
+  const headers = await Promise.all(frames.map(frame => readPngHeader(frame.image)));
+  const alpha = headers.some(header => header.alpha);
+  const colorChunks = headers[0]?.colorChunks ?? [];
   const encoded = await encodeInWorkers({
     name: 'APNG',
     count: frames.length,
@@ -32,7 +36,7 @@ export async function encodeApng({ frames, onProgress, signal, createWorker = cr
   }
 
   return {
-    data: muxApng({ width, height, alpha, frames: encoded.map((frame, i) => ({ ...frame, delay: frames[i].delay })) }),
+    data: muxApng({ width, height, alpha, colorChunks, frames: encoded.map((frame, i) => ({ ...frame, delay: frames[i].delay })) }),
     mimeType: 'image/apng',
     extension: 'apng'
   };

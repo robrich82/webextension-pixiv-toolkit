@@ -204,6 +204,9 @@ APNG works the same way: `test/ugoiraApngEncoder.spec.js` runs the real filters,
 `CompressionStream` and the muxer, and the worker pool over fake workers,
 `test/ugoiraApngWorker.spec.js` runs `apng.worker.js` over stubbed worker globals, and
 `test/helpers/probeApng.mjs` reads the saved APNG back, checking its CRCs and sequence numbers.
+`test/ugoiraPngDecoder.spec.js` checks `png.js`, the worker's PNG frame decoder, against
+`test/fixtures/png/decoder-suite.zip`. The zip holds ImageMagick-written PNGs in every colour type
+and bit depth, with and without tRNS and interlacing, each beside ImageMagick's RGBA decode of it.
 The e2e tests' `moving` fixture has a square moving over a still background, so each frame after
 the first holds only the area that changed.
 

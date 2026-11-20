@@ -199,7 +199,7 @@ export function filterRows(pixels, frameWidth, { x, y, width, height }, alpha) {
  * @param {Uint8Array} bytes
  * @returns {Promise<Uint8Array>} The bytes as a zlib stream, which is what PNG image data is
  */
-export async function deflate(bytes) {
+async function deflate(bytes) {
   const stream = new Blob([bytes]).stream().pipeThrough(new CompressionStream('deflate'));
 
   return new Uint8Array(await new Response(stream).arrayBuffer());
@@ -222,7 +222,7 @@ export async function encodeApngFrame({ pixels, previous, width, height, alpha }
   return { ...area, data: await deflate(filterRows(pixels, width, area, alpha)) };
 }
 
-const CRC_TABLE = Array.from({ length: 256 }, (_, n) => {
+const CRC_TABLE = Uint32Array.from({ length: 256 }, (_, n) => {
   let c = n;
 
   for (let k = 0; k < 8; k++) {
@@ -239,8 +239,8 @@ const CRC_TABLE = Array.from({ length: 256 }, (_, n) => {
 export function crc32(bytes) {
   let crc = 0xffffffff;
 
-  for (const byte of bytes) {
-    crc = CRC_TABLE[(crc ^ byte) & 0xff] ^ (crc >>> 8);
+  for (let i = 0; i < bytes.length; i++) {
+    crc = CRC_TABLE[(crc ^ bytes[i]) & 0xff] ^ (crc >>> 8);
   }
 
   return (crc ^ 0xffffffff) >>> 0;
@@ -273,11 +273,12 @@ function chunk(type, length, write) {
  * @param {number} options.width
  * @param {number} options.height
  * @param {boolean} options.alpha As every frame was encoded
+ * @param {{ type: string, data: Uint8Array }[]} [options.colorChunks] cHRM, gAMA, iCCP or sRGB, as the frames had them
  * @param {{ x: number, y: number, width: number, height: number, data: Uint8Array, delay: number }[]} options.frames
  *   In order, the first one the whole image; `delay` in ms
  * @returns {Uint8Array}
  */
-export function muxApng({ width, height, alpha, frames }) {
+export function muxApng({ width, height, alpha, colorChunks = [], frames }) {
   const chunks = [
     Uint8Array.from(SIGNATURE),
     chunk('IHDR', 13, view => {
@@ -286,6 +287,7 @@ export function muxApng({ width, height, alpha, frames }) {
       view.setUint8(8, 8); // bit depth
       view.setUint8(9, alpha ? 6 : 2); // RGBA or RGB; compression, filter and interlace stay 0
     }),
+    ...colorChunks.map(({ type, data }) => chunk(type, data.length, (_, bytes) => bytes.set(data))),
     chunk('acTL', 8, view => {
       view.setUint32(0, frames.length);
       view.setUint32(4, 0); // plays forever

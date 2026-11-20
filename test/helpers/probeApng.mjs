@@ -5,10 +5,10 @@ import JSZip from 'jszip';
 const SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 
 /**
- * Reads an APNG in Node, for the encoder spec and the e2e tests, checking each chunk's CRC and the
- * sequence numbers on the way: its size, colour type and play count, and each frame's area, delay
- * and the whole image as it shows once the frame is drawn. A PNG that isn't animated reads as one
- * frame with no delay or play count.
+ * Reads an APNG in Node, for the encoder and worker specs and the e2e tests, checking each chunk's
+ * CRC and the sequence numbers on the way. Returns its size, colour type and play count, and each
+ * frame's area, delay and the whole image as it shows once the frame is drawn. A PNG that isn't
+ * animated reads as one frame with no delay or play count.
  * @param {Uint8Array} bytes
  * @returns {{ width: number, height: number, colorType: number, plays: number|undefined, chunks: string[], frames: ApngFrame[] }}
  *
@@ -59,8 +59,9 @@ export function probeApng(bytes) {
   const colorType = ihdr[9];
   const bpp = { 2: 3, 6: 4 }[colorType];
 
-  if (ihdr[8] !== 8 || !bpp || ihdr[12] !== 0) {
-    throw new Error(`Unsupported IHDR: depth ${ihdr[8]}, colour type ${colorType}, interlace ${ihdr[12]}`);
+  if (ihdr[8] !== 8 || !bpp || ihdr[10] || ihdr[11] || ihdr[12]) {
+    throw new Error(`Unsupported IHDR: depth ${ihdr[8]}, colour type ${colorType}, ` +
+      `compression ${ihdr[10]}, filter ${ihdr[11]}, interlace ${ihdr[12]}`);
   }
 
   const actl = chunks.find(chunk => chunk.type === 'acTL')?.body;
@@ -108,6 +109,9 @@ export function probeApng(bytes) {
   frames.forEach((frame, index) => {
     if (index === 0 && (frame.x || frame.y || frame.width !== width || frame.height !== height)) {
       throw new Error('The first frame is not the whole image');
+    }
+    if (!frame.width || !frame.height) {
+      throw new Error(`Frame ${index + 1} is empty`);
     }
     if (frame.x + frame.width > width || frame.y + frame.height > height) {
       throw new Error(`Frame ${index + 1} runs off the image`);
@@ -193,9 +197,10 @@ export function pixelAt(frame, width, x, y) {
 }
 
 /**
- * test/fixtures/pixiv/illust-ugoira-frames-moving.zip: four 37x35 RGB PNG frames, a 5x4 square
- * moving 7px right and 4px down a frame over still stripes, for these delays. Each frame after the
- * first changes the 12x8 area spanning the square before and after.
+ * test/fixtures/pixiv/illust-ugoira-frames-moving.zip: four 37x35 RGBA PNG frames (ImageMagick's),
+ * an opaque 5x4 square moving 7px right and 4px down a frame over still stripes of alpha 3, 128,
+ * 255, 0 (its colour kept) and 200, for these delays. Each frame after the first changes the 12x8
+ * area spanning the square before and after.
  */
 export const MOVING = {
   zip: new URL('../fixtures/pixiv/illust-ugoira-frames-moving.zip', import.meta.url),
