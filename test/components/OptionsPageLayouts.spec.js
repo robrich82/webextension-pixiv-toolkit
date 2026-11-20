@@ -50,7 +50,7 @@ describe('ThirdParty', () => {
     const items = wrapper.findAll('.v-list-item');
 
     expect(items.map(item => item.find('.third-party__name').text())).toEqual([
-      'ffmpeg.wasm', 'Mediabunny', 'gifenc', 'JSZip', 'Dexie.js', 'Vue.js', 'Vue Router', 'Vuetify',
+      'ffmpeg.wasm', 'Mediabunny', 'gifenc', 'fflate', 'JSZip', 'Dexie.js', 'Vue.js', 'Vue Router', 'Vuetify',
       'vue-i18n', 'vue-virtual-scroller', 'Material Design Icons', 'Moment.js', 'mitt', 'md5'
     ]);
 
@@ -68,6 +68,7 @@ describe('ThirdParty', () => {
       'ffmpeg.wasm': installed('@ffmpeg/ffmpeg'),
       Mediabunny: installed('mediabunny'),
       gifenc: installed('gifenc'),
+      fflate: installed('fflate'),
       JSZip: installed('jszip'),
       'Dexie.js': installed('dexie'),
       'Vue.js': installed('vue'),

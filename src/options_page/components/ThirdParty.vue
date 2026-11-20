@@ -48,6 +48,11 @@ export default {
         desc: 'Very fast JS GIF encoder',
         url: 'https://github.com/mattdesl/gifenc'
       }, {
+        name: 'fflate',
+        version: npm.fflate,
+        desc: 'High performance (de)compression in an 8kB package',
+        url: 'https://github.com/101arrowz/fflate'
+      }, {
         name: 'JSZip',
         version: npm.jszip,
         desc: 'Create, read and edit .zip files with JavaScript',

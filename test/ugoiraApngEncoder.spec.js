@@ -320,33 +320,67 @@ describe('encodeApng', () => {
   });
 
   const gamma = pngChunk('gAMA', [0, 0, 0xb1, 0x8f]);
+  const chrm = pngChunk('cHRM', [0, 0, 0x7a, 0x26, 0, 0, 0x80, 0x84, 0, 0, 0xfa, 0, 0, 0, 0x80, 0xe8, 0, 0, 0x75, 0x30, 0, 0, 0xea, 0x60, 0, 0, 0x3a, 0x98, 0, 0, 0x17, 0x70]);
   const srgb = pngChunk('sRGB', [0]);
   const profile = pngChunk('iCCP', [0x70, 0, 0, 0x78, 0x9c, 3, 0, 0, 0, 0, 1]);
+  const colorChunksOf = apng => apng.chunks.filter(type => ['cHRM', 'gAMA', 'iCCP', 'sRGB', 'cICP'].includes(type));
 
   test('carries colour chunks every frame has, after IHDR, keeping the PNG frames exact', async () => {
     const text = pngChunk('tEXt', [0x41, 0, 0x42]);
-    const { data, apng, exact } = await encode([image(busy(4, 3), 4, 3, 2, [gamma, srgb, text]), image(busy(4, 3), 4, 3, 6, [gamma, srgb])]);
+    const { data, apng, exact } = await encode([image(busy(4, 3), 4, 3, 2, [gamma, chrm, text]), image(busy(4, 3), 4, 3, 6, [gamma, chrm])]);
 
-    expect(apng.chunks.slice(0, 4)).toEqual(['IHDR', 'gAMA', 'sRGB', 'acTL']);
-    expect(Buffer.from(data).includes(Buffer.concat([gamma, srgb]))).toBe(true);
+    expect(apng.chunks.slice(0, 4)).toEqual(['IHDR', 'gAMA', 'cHRM', 'acTL']);
+    expect(Buffer.from(data).includes(Buffer.concat([gamma, chrm]))).toBe(true);
+    expect(exact).toEqual([true]);
+  });
+
+  test('grey frames sharing a gAMA stay exact and carry it', async () => {
+    const { apng, exact } = await encode([image(busy(4, 3), 4, 3, 0, [gamma]), image(busy(4, 3), 4, 3, 4, [gamma])]);
+
+    expect(colorChunksOf(apng)).toEqual(['gAMA']);
     expect(exact).toEqual([true]);
   });
 
   test.each([
-    ['frames tagged differently', [[2, [gamma]], [2, [srgb]]]],
-    ['a tagged frame beside an untagged one', [[2, [gamma]], [2, []]]],
-    ['a JPEG beside a tagged PNG', [['jpeg', []], [2, [srgb]]]],
-    ['a grey frame with an ICC profile', [[0, [profile]], [0, [profile]]]],
-    ['cICP', [[2, [pngChunk('cICP', [12, 13, 0, 1])]], [2, [pngChunk('cICP', [12, 13, 0, 1])]]]]
-  ])('with %s, the browser converts every frame to sRGB and nothing is carried', async (_, kinds) => {
+    ['frames tagged differently', [[2, [gamma]], [2, [chrm]]], "frame 2's colour chunks differ from frame 1's"],
+    ['the same chunk with different values', [[2, [gamma]], [2, [pngChunk('gAMA', [0, 1, 0x86, 0xa0])]]], "frame 2's colour chunks differ from frame 1's"],
+    ['a tagged frame beside an untagged one', [[2, []], [2, [gamma]]], "frame 2's colour chunks differ from frame 1's"],
+    ['a JPEG beside a tagged PNG', [['jpeg', []], [2, [gamma]]], "frame 2's colour chunks differ from frame 1's"],
+    ['an sRGB frame beside a gAMA one', [[2, [srgb, gamma]], [2, [gamma]]], "frame 2's colour chunks differ from frame 1's"],
+    ['a grey frame with an ICC profile', [[0, [profile]], [0, [profile]]], 'frame 1 is grey with an ICC profile'],
+    ['a grey-and-alpha frame with an ICC profile', [[2, []], [4, [profile]]], 'frame 2 is grey with an ICC profile'],
+    ['cICP', [[2, [pngChunk('cICP', [12, 13, 0, 1])]], [2, [pngChunk('cICP', [12, 13, 0, 1])]]], 'frame 1 has a cICP chunk'],
+    ['cICP beside sRGB', [[2, []], [2, [srgb, pngChunk('cICP', [1, 13, 0, 1])]]], 'frame 2 has a cICP chunk']
+  ])('with %s, the browser converts every frame to sRGB, nothing is carried, and the console says why', async (_, kinds, reason) => {
+    const info = vi.spyOn(console, 'info').mockImplementation(() => {});
     const { apng, exact } = await encode(kinds.map(([colorType, chunks]) => image(busy(4, 3), 4, 3, colorType, chunks)));
 
     expect(apng.chunks).toEqual(['IHDR', 'acTL', 'fcTL', 'IDAT', 'fcTL', 'fdAT', 'IEND']);
     expect(exact).toEqual([false]);
+    expect(info).toHaveBeenCalledExactlyOnceWith(`APNG: converting every frame to sRGB, because ${reason}`);
   });
 
-  test('untagged PNG frames beside JPEG frames stay exact', async () => {
+  test('untagged PNG frames beside JPEG frames stay exact, saying nothing', async () => {
+    const info = vi.spyOn(console, 'info').mockImplementation(() => {});
+
     expect((await encode([image(busy(4, 3), 4, 3), image(busy(4, 3), 4, 3, 6)])).exact).toEqual([true]);
+    expect(info).not.toHaveBeenCalled();
+  });
+
+  test('sRGB frames, with the gAMA and cHRM it overrides, count as untagged: beside JPEG and untagged frames they stay exact and carry nothing', async () => {
+    const { apng, exact } = await encode([
+      image(busy(4, 3), 4, 3), image(busy(4, 3), 4, 3, 6, [srgb, gamma, chrm]), image(busy(4, 3), 4, 3, 2, [srgb]), image(busy(4, 3), 4, 3, 2)
+    ]);
+
+    expect(colorChunksOf(apng)).toEqual([]);
+    expect(exact).toEqual([true]);
+  });
+
+  test('an ICC profile overrides sRGB, so frames with both carry both', async () => {
+    const { apng, exact } = await encode([image(busy(4, 3), 4, 3, 2, [profile, srgb]), image(busy(4, 3), 4, 3, 2, [profile, srgb])]);
+
+    expect(colorChunksOf(apng)).toEqual(['iCCP', 'sRGB']);
+    expect(exact).toEqual([true]);
   });
 
   test('a frame whose header is broken rejects, naming APNG and the frame', async () => {

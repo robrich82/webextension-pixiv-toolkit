@@ -160,8 +160,10 @@ test('DL APNG keeps PNG frames exactly, semi-transparent pixels too, each after 
   expect(decoded.length).toBe(expected.length);
   decoded.forEach((frame, i) => {
     const want = premultiplied(expected[i]);
-    const off = premultiplied(frame).findIndex((value, at) => Math.abs(value - want[at]) > 1);
-    expect(off, `frame ${i + 1}, byte ${off}`).toBe(-1);
+    const got = premultiplied(frame);
+    const off = got.findIndex((value, at) => Math.abs(value - want[at]) > 1);
+    const pixel = off - off % 4;
+    expect(off, `frame ${i + 1}, byte ${off}: got ${got.slice(pixel, pixel + 4)}, want ${want.slice(pixel, pixel + 4)}`).toBe(-1);
   });
   expect(errors).toEqual([]);
 });

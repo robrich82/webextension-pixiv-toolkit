@@ -3,7 +3,7 @@ import { decodePng, isPng } from './png';
 
 /**
  * @param {Blob} image
- * @param {PredefinedColorSpace|'none'|'default'} colorSpaceConversion
+ * @param {'none'|'default'} colorSpaceConversion
  */
 async function decodeInBrowser(image, colorSpaceConversion) {
   const bitmap = await createImageBitmap(image, { colorSpaceConversion });
@@ -18,19 +18,27 @@ async function decodeInBrowser(image, colorSpaceConversion) {
 
 /**
  * With `exact`, PNGs are decoded by png.js with their colours as stored, for the APNG to carry their
- * colour chunks; a canvas would premultiply semi-transparent pixels. Everything else, and a PNG
- * png.js won't take, goes through the browser, which converts colours to sRGB unless `exact`.
+ * colour chunks; a canvas would premultiply semi-transparent pixels. A PNG png.js won't take goes
+ * through the browser with its colours as stored. Everything else, JPEGs included, goes through the
+ * browser converted to sRGB.
  * @param {Blob} image
  * @param {boolean} exact
+ * @param {number} [frame] The 1-based frame number to warn with when png.js refuses it; none, no warning
  * @returns {Promise<{ pixels: Uint8ClampedArray|Uint8Array, width: number, height: number }>} Its RGBA pixels
  */
-async function decode(image, exact) {
+async function decode(image, exact, frame) {
   if (exact && isPng(new Uint8Array(await image.slice(0, 8).arrayBuffer()))) {
     try {
       return await decodePng(new Uint8Array(await image.arrayBuffer()));
-    } catch (error) {
-      console.warn('png.js could not decode an APNG frame, so the browser decodes it', error);
-      return decodeInBrowser(image, 'none');
+    } catch (pngError) {
+      if (frame) {
+        console.warn('png.js could not decode APNG frame', frame, 'so the browser decodes it', pngError);
+      }
+
+      return decodeInBrowser(image, 'none').catch(error => {
+        throw new Error(`${pngError.message}; the browser could not decode it either (${error.name}: ${error.message})`,
+          { cause: error });
+      });
     }
   }
 
@@ -42,9 +50,10 @@ async function decode(image, exact) {
  * @returns {Promise<{ x: number, y: number, width: number, height: number, frameWidth: number, frameHeight: number, data: Uint8Array }>}
  */
 async function encode({ index, image, previous, alpha, exact }) {
-  const { pixels, width, height } = await decode(image, exact);
+  const { pixels, width, height } = await decode(image, exact, index + 1);
   // Decoding the previous frame here too keeps every frame independent of the other workers. If it
-  // won't decode, this frame is stored whole and the previous frame's own job reports the error.
+  // won't decode, this frame is stored whole, and the previous frame's own job warns about png.js
+  // and reports the error.
   const before = previous && await decode(previous, exact).catch(error => {
     console.warn('APNG frame', index + 1, 'is stored whole: the frame before it would not decode', error);
     return null;

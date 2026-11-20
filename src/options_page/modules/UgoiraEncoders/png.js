@@ -1,7 +1,9 @@
 /**
  * A PNG decoder for the APNG worker. A canvas would premultiply alpha and lose semi-transparent
- * pixels' colour, so PNG frames are read here instead, without premultiplying.
+ * pixels' colour, so when the APNG keeps the frames' colours, PNG frames are read here instead.
  */
+
+import { inflateSync } from 'fflate';
 
 export const SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 
@@ -64,19 +66,24 @@ function eachChunk(bytes, visit, until) {
 }
 
 /**
- * Whether libpng would apply a tRNS chunk: one sample's worth for grey or RGB, at most one entry
- * per colour after the palette, and none with an alpha channel.
+ * Whether libpng would apply a tRNS chunk that follows a valid IHDR: one sample's worth for grey
+ * or RGB, and for a palette at least one entry and no more than the palette's colours, a palette
+ * longer than the bit depth can index counting only as far as it can. Never with an alpha channel.
  */
-function validTransparency(colorType, data, palette) {
+function validTransparency(ihdr, data, palette) {
+  const [depth, colorType] = ihdr.subarray(8, 10);
+
   switch (colorType) {
     case 0: return data.length === 2;
     case 2: return data.length === 6;
-    case 3: return Boolean(palette) && data.length <= palette.length / 3;
+    case 3: return Boolean(palette) && data.length > 0 && data.length <= Math.min(palette.length / 3, 1 << depth);
     default: return false;
   }
 }
 
 /**
+ * Reads chunks as libpng does: the first IHDR, PLTE and valid tRNS count, and colour chunks only
+ * before PLTE.
  * @param {Uint8Array} bytes A PNG
  * @param {(type: string, found: { idat: Uint8Array[] }) => boolean} until Whether to stop at a chunk
  * @returns The chunks that matter for decoding, and whether `until` stopped the walk
@@ -85,14 +92,16 @@ function readChunks(bytes, until) {
   const found = { ihdr: undefined, palette: undefined, transparency: undefined, idat: [], colorChunks: [] };
   const stopped = eachChunk(bytes, (type, data) => {
     if (type === 'IHDR') {
-      found.ihdr ??= data.length === 13 ? data : undefined;
+      found.ihdr ??= data;
     } else if (type === 'PLTE') {
       found.palette ??= data;
     } else if (type === 'tRNS') {
-      found.transparency = found.ihdr && validTransparency(found.ihdr[9], data, found.palette) ? data : undefined;
+      if (!found.transparency && found.ihdr?.length === 13 && validTransparency(found.ihdr, data, found.palette)) {
+        found.transparency = data;
+      }
     } else if (type === 'IDAT') {
       found.idat.push(data);
-    } else if (COLOR_CHUNKS.includes(type)) {
+    } else if (COLOR_CHUNKS.includes(type) && !found.palette) {
       found.colorChunks.push({ type, data: data.slice() });
     }
   }, type => until(type, found));
@@ -100,12 +109,22 @@ function readChunks(bytes, until) {
   return { ...found, stopped };
 }
 
+/** @param {Uint8Array|undefined} ihdr */
+function checkIhdr(ihdr) {
+  if (!ihdr) {
+    throw new Error('The PNG has no IHDR chunk');
+  }
+  if (ihdr.length !== 13) {
+    throw new Error(`The PNG's IHDR chunk is ${ihdr.length} bytes, not 13`);
+  }
+}
+
 /**
  * What a frame's header says, read from the start of the file only.
  * @param {Blob} image
  * @returns {Promise<{ alpha: boolean, colorType?: number, colorChunks: { type: string, data: Uint8Array }[] }>}
- *   Whether it has alpha (a PNG with colour type 4 or 6, or tRNS; anything but a JPEG otherwise),
- *   and for a PNG its colour type and colour chunks (cHRM, gAMA, iCCP, sRGB, cICP)
+ *   Whether it has alpha (a PNG with colour type 4 or 6, or a valid tRNS; anything but a JPEG
+ *   otherwise), and for a PNG its colour type and the colour chunks before any PLTE
  */
 export async function readPngHeader(image) {
   // Everything before the image data, ICC profile and all, which can take more than one read.
@@ -132,9 +151,8 @@ export async function readPngHeader(image) {
 function scanHeader(bytes) {
   const { ihdr, transparency, colorChunks, stopped } = readChunks(bytes, type => type === 'IDAT');
 
-  if (!ihdr) {
-    throw new Error('The PNG has no IHDR chunk');
-  }
+  checkIhdr(ihdr);
+
   if (!stopped) {
     throw new Error('The PNG has no image data');
   }
@@ -150,31 +168,51 @@ function scanHeader(bytes) {
  * @returns {Promise<Uint8Array>} Up to `length` bytes
  */
 async function inflate(parts, length) {
+  try {
+    return await inflateNatively(parts, length);
+  } catch (error) {
+    // The browsers' DecompressionStream refuses bytes after the zlib stream, dropping output it
+    // hasn't handed over yet; libpng ignores them, and so does fflate, which also skips the checksum.
+    try {
+      return inflateSync(concat(parts).subarray(2), { out: new Uint8Array(length) });
+    } catch {
+      throw new Error(`The PNG's image data won't inflate: ${error.message || error.name}`, { cause: error });
+    }
+  }
+}
+
+/** inflate() through the browser's DecompressionStream, which is faster than fflate. */
+async function inflateNatively(parts, length) {
   const reader = new Blob(parts).stream().pipeThrough(new DecompressionStream('deflate')).getReader();
   const out = new Uint8Array(length);
   let filled = 0;
 
-  try {
-    while (filled < length) {
-      const { done, value } = await reader.read();
+  while (filled < length) {
+    const { done, value } = await reader.read();
 
-      if (done) {
-        break;
-      }
-
-      const take = Math.min(value.length, length - filled);
-
-      out.set(value.subarray(0, take), filled);
-      filled += take;
+    if (done) {
+      break;
     }
-  } catch (error) {
-    throw new Error(`The PNG's image data won't inflate: ${error.message || error.name}`, { cause: error });
+
+    const take = Math.min(value.length, length - filled);
+
+    out.set(value.subarray(0, take), filled);
+    filled += take;
   }
 
-  // Anything after the image's bytes is ignored, as libpng does.
+  // Inflated bytes past what the image needs are ignored, as libpng does.
   reader.cancel().catch(() => {});
 
   return out.subarray(0, filled);
+}
+
+/** @param {Uint8Array[]} parts */
+function concat(parts) {
+  const out = new Uint8Array(parts.reduce((sum, part) => sum + part.length, 0));
+
+  parts.reduce((at, part) => (out.set(part, at), at + part.length), 0);
+
+  return out;
 }
 
 /**
@@ -259,9 +297,7 @@ export async function decodePng(bytes) {
 
   const { ihdr, palette, transparency, idat } = readChunks(bytes, (type, found) => found.idat.length > 0 && type !== 'IDAT');
 
-  if (!ihdr) {
-    throw new Error('The PNG has no IHDR chunk');
-  }
+  checkIhdr(ihdr);
 
   const header = new DataView(ihdr.buffer, ihdr.byteOffset, 13);
   const width = header.getUint32(0);

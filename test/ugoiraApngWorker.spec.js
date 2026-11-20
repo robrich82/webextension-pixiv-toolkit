@@ -4,7 +4,7 @@
  */
 import zlib from 'node:zlib';
 import { encodeApngFrame, muxApng } from '@/options_page/modules/UgoiraEncoders/apngFrame';
-import { probeApng } from './helpers/probeApng.mjs';
+import { pngChunk, probeApng } from './helpers/probeApng.mjs';
 
 /** A canvas that logs the drawing calls and reads back the pixels of the image drawn on it. */
 class FakeCanvas {
@@ -176,18 +176,52 @@ test('without exact, a PNG frame goes through the browser, colours converted', a
   expect(createImageBitmap).toHaveBeenCalledWith(image, { colorSpaceConversion: 'default' });
 });
 
-test("a PNG png.js won't take goes through the browser with its colours as stored, and says so", async () => {
-  // A PNG whose image data is cut short.
-  const bytes = new Uint8Array(await (await pngOf(new Uint8Array(16).fill(7), 2, 2)).arrayBuffer());
-  const image = new Blob([bytes.subarray(0, 33), bytes.subarray(bytes.length - 12)]);
-  bitmaps.set(image, bitmap('broken', 2, 2, [7, 7, 7, 7]));
+test('with exact, a JPEG frame still goes through the browser, colours converted', async () => {
+  const image = new Blob([new Uint8Array([0xff, 0xd8, 0xff, 0xe0])]);
+  bitmaps.set(image, bitmap('jpeg', 1, 1, [1, 2, 3, 255]));
 
-  await worker.onmessage({ data: { index: 0, image, previous: null, alpha: true, exact: true } });
+  await worker.onmessage({ data: { index: 0, image, previous: null, alpha: false, exact: true } });
 
-  expect(createImageBitmap).toHaveBeenCalledWith(image, { colorSpaceConversion: 'none' });
-  expect(console.warn).toHaveBeenCalledWith('png.js could not decode an APNG frame, so the browser decodes it', expect.any(Error));
+  expect(createImageBitmap).toHaveBeenCalledWith(image, { colorSpaceConversion: 'default' });
+});
+
+/** A 2x2 palette PNG using colour 5 of a one-colour palette: its header reads fine, but png.js refuses its pixels. */
+const paletteOverrun = name => new Blob([new Uint8Array(Buffer.concat([
+  Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+  pngChunk('IHDR', [0, 0, 0, 2, 0, 0, 0, 2, 8, 3, 0, 0, 0]),
+  pngChunk('PLTE', [1, 2, 3]),
+  pngChunk('IDAT', zlib.deflateSync(Buffer.from([0, 5, 5, 0, 5, 5]))),
+  pngChunk('IEND', [])
+]))], { type: name });
+
+test("a PNG png.js won't take goes through the browser with its colours as stored, warning once with its frame number", async () => {
+  const image = paletteOverrun('now');
+  const previous = paletteOverrun('before');
+  bitmaps.set(image, bitmap('now', 2, 2, [7, 6, 5, 4]));
+  bitmaps.set(previous, bitmap('before', 2, 2, [0, 0, 0, 255]));
+
+  await worker.onmessage({ data: { index: 3, image, previous, alpha: true, exact: true } });
+
+  expect(createImageBitmap.mock.calls).toEqual([[image, { colorSpaceConversion: 'none' }], [previous, { colorSpaceConversion: 'none' }]]);
+  // The previous frame's own job warns about it.
+  expect(console.warn).toHaveBeenCalledExactlyOnceWith('png.js could not decode APNG frame', 4, 'so the browser decodes it',
+    new Error('The PNG uses colour 5 of a palette of 1'));
   const [[{ result }]] = worker.postMessage.mock.calls;
-  expect(result).toMatchObject({ width: 2, height: 2 });
+  expect(result).toMatchObject({ x: 0, y: 0, width: 2, height: 2 });
+  const apng = probeApng(muxApng({ width: 2, height: 2, alpha: true, frames: [{ ...result, delay: 1 }] }));
+  expect(Array.from(apng.frames[0].rgba)).toEqual(Array.from(bitmap('now', 2, 2, [7, 6, 5, 4]).pixels));
+});
+
+test("when the browser can't decode a PNG png.js refused either, the error gives both reasons", async () => {
+  createImageBitmap.mockRejectedValueOnce(new DOMException('The source image could not be decoded.', 'InvalidStateError'));
+
+  await worker.onmessage({ data: { index: 0, image: paletteOverrun('broken'), previous: null, alpha: true, exact: true } });
+
+  expect(worker.postMessage).toHaveBeenCalledWith({
+    index: 0,
+    error: 'Error: The PNG uses colour 5 of a palette of 1; the browser could not decode it either ' +
+      '(InvalidStateError: The source image could not be decoded.)'
+  });
 });
 
 test('a frame that fails answers with the error, naming its kind, and logs it', async () => {

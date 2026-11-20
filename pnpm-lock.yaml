@@ -192,6 +192,9 @@ importers:
       dexie:
         specifier: ^4.4.7
         version: 4.4.7
+      fflate:
+        specifier: ^0.8.3
+        version: 0.8.3
       gifenc:
         specifier: ^1.0.3
         version: 1.0.3
@@ -256,9 +259,6 @@ importers:
       fake-indexeddb:
         specifier: ^6.2.7
         version: 6.2.8
-      fflate:
-        specifier: ^0.8.3
-        version: 0.8.3
       jsdom:
         specifier: ^31.0.0
         version: 31.0.1

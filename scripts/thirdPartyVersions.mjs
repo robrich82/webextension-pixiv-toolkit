@@ -4,7 +4,7 @@ import path from 'node:path';
 // Shipped npm packages whose installed version the Third Party page shows. @ffmpeg/ffmpeg is a
 // devDependency, but build.mjs copies its UMD build into lib/ffmpeg, and ffmpeg.wasm releases follow its version.
 export const THIRD_PARTY_PACKAGES = [
-  '@ffmpeg/ffmpeg', '@mdi/font', 'dexie', 'gifenc', 'jszip', 'md5', 'mediabunny', 'mitt', 'moment',
+  '@ffmpeg/ffmpeg', '@mdi/font', 'dexie', 'fflate', 'gifenc', 'jszip', 'md5', 'mediabunny', 'mitt', 'moment',
   'vue', 'vue-i18n', 'vue-router', 'vue-virtual-scroller', 'vuetify'
 ];
 

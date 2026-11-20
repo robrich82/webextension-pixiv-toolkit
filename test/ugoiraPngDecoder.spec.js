@@ -59,7 +59,7 @@ const replaceChunk = (bytes, type, ...replacements) => {
   return new Uint8Array(Buffer.concat([bytes.subarray(0, at), ...replacements, bytes.subarray(at + 12 + length)]));
 };
 
-test('the suite covers every colour type and bit depth, tRNS and interlacing', async () => {
+test('the suite covers every colour type and bit depth, and interlacing', async () => {
   const seen = new Set();
 
   for (const name of names) {
@@ -143,10 +143,13 @@ describe('tRNS', () => {
   // libpng ignores these, so browsers show the pixels opaque.
   test.each([
     ['too short for grey', 0, [pngChunk('tRNS', [0])]],
+    ['too long for grey', 0, [pngChunk('tRNS', [0, 0, 0, 0])]],
     ['too short for RGB', 2, [pngChunk('tRNS', [0, 0])]],
+    ['too long for RGB', 2, [pngChunk('tRNS', [0, 0, 0, 0, 0, 0, 0, 0])]],
     ['empty, on RGB', 2, [pngChunk('tRNS', [])]],
     ['on RGBA', 6, [pngChunk('tRNS', [0, 0, 0, 0, 0, 0])]],
     ['longer than the palette', 3, [pngChunk('PLTE', [0, 0, 0]), pngChunk('tRNS', [10, 20])]],
+    ['empty, on a palette', 3, [pngChunk('PLTE', [0, 0, 0]), pngChunk('tRNS', [])]],
     ['before the palette', 3, [pngChunk('tRNS', [10]), pngChunk('PLTE', [0, 0, 0])]]
   ])('one %s is ignored, and gives no alpha', async (_, colorType, chunks) => {
     const bpp = { 0: 1, 2: 3, 3: 1, 6: 4 }[colorType];
@@ -154,6 +157,69 @@ describe('tRNS', () => {
 
     expect((await decodePng(bytes)).pixels[3]).toBe(colorType === 6 ? 0 : 255);
     expect((await readPngHeader(new Blob([bytes]))).alpha).toBe(colorType === 6);
+  });
+
+  test('a palette counts only as far as the bit depth can index, as libpng truncates it', async () => {
+    // A 1-bit image indexes two colours, so of this three-colour palette's tRNS only two entries can count.
+    const palette = pngChunk('PLTE', [1, 1, 1, 2, 2, 2, 3, 3, 3]);
+    const of = trns => png({ width: 1, height: 1, depth: 1, colorType: 3 }, [0, 0], [palette, pngChunk('tRNS', trns)]);
+
+    expect((await decodePng(of([7, 8, 9]))).pixels[3]).toBe(255);
+    expect((await readPngHeader(new Blob([of([7, 8, 9])]))).alpha).toBe(false);
+    expect((await decodePng(of([7, 8]))).pixels[3]).toBe(7);
+  });
+
+  test.each([
+    ['a later valid one', [0, 20]],
+    ['a later invalid one', [0]]
+  ])('the first valid one applies, and %s changes nothing', async (_, later) => {
+    const bytes = png({ width: 2, height: 1, colorType: 0 }, [0, 19, 20], [pngChunk('tRNS', [0, 19]), pngChunk('tRNS', later)]);
+
+    expect(Array.from((await decodePng(bytes)).pixels)).toEqual([19, 19, 19, 0, 20, 20, 20, 255]);
+  });
+
+  test('an invalid one does not stop a later valid one', async () => {
+    const bytes = png({ width: 2, height: 1, colorType: 0 }, [0, 19, 20], [pngChunk('tRNS', [0]), pngChunk('tRNS', [0, 19])]);
+
+    expect(Array.from((await decodePng(bytes)).pixels)).toEqual([19, 19, 19, 0, 20, 20, 20, 255]);
+    expect((await readPngHeader(new Blob([bytes]))).alpha).toBe(true);
+  });
+});
+
+describe('image data', () => {
+  const rgb = png({ width: 1, height: 1, colorType: 2 }, [0, 1, 2, 3]);
+  const withIdat = (...data) => replaceChunk(rgb, 'IDAT', pngChunk('IDAT', Buffer.concat(data.map(part => Buffer.from(part)))));
+  const zlibOf = rows => zlib.deflateSync(Uint8Array.from(rows));
+  /** A DecompressionStream that refuses its input, as the browsers' does bytes after the zlib stream. */
+  const refusing = () => vi.stubGlobal('DecompressionStream', class {
+    constructor() {
+      return new TransformStream({ transform() { throw new TypeError('Junk found after end of compressed data.'); } });
+    }
+  });
+
+  afterEach(() => vi.unstubAllGlobals());
+
+  test('bytes after the zlib stream are ignored', async () => {
+    expect(Array.from((await decodePng(withIdat(zlibOf([0, 1, 2, 3]), [1, 2, 3, 4]))).pixels)).toEqual([1, 2, 3, 255]);
+  });
+
+  test.each([
+    ['bytes after the zlib stream', withIdat(zlibOf([0, 1, 2, 3]), [1, 2, 3, 4])],
+    ['no checksum', withIdat(zlibOf([0, 1, 2, 3]).subarray(0, -4))],
+    ['more than the image needs', withIdat(zlibOf([0, 1, 2, 3, 9, 9, 9, 9]))]
+  ])('when the browser refuses them, fflate inflates %s', async (_, bytes) => {
+    refusing();
+
+    expect(Array.from((await decodePng(bytes)).pixels)).toEqual([1, 2, 3, 255]);
+  });
+
+  test("when neither will inflate it, the error gives the browser's reason", async () => {
+    refusing();
+
+    const error = await decodePng(withIdat([0x78, 0x9c, 0xff, 0xff, 0xff, 0xff])).catch(e => e);
+
+    expect(error.message).toBe("The PNG's image data won't inflate: Junk found after end of compressed data.");
+    expect(error.cause).toBeInstanceOf(TypeError);
   });
 });
 
@@ -186,16 +252,26 @@ describe('readPngHeader', () => {
     expect(await readPngHeader(new Blob(['RIFF....WEBP']))).toEqual({ alpha: true, colorChunks: [] });
   });
 
-  test('keeps the colour chunks, cICP too, reading past the first 64KB when an ICC profile is that big', async () => {
+  test('keeps the colour chunks, cHRM and cICP too, reading past the first 64KB when an ICC profile is that big', async () => {
     const profile = new Uint8Array(100 * 1024).map((_, i) => i);
     const bytes = png({ width: 1, height: 1, colorType: 2 }, [0, 0, 0, 0], [
-      pngChunk('gAMA', [0, 0, 0xb1, 0x8f]), pngChunk('cICP', [12, 13, 0, 1]), pngChunk('tEXt', [0x41, 0, 0x42]), pngChunk('iCCP', profile)
+      pngChunk('gAMA', [0, 0, 0xb1, 0x8f]), pngChunk('cHRM', new Array(32).fill(1)), pngChunk('cICP', [12, 13, 0, 1]),
+      pngChunk('tEXt', [0x41, 0, 0x42]), pngChunk('iCCP', profile)
     ]);
 
     const header = await readPngHeader(new Blob([bytes]));
 
-    expect(header.colorChunks.map(({ type, data }) => [type, data.length])).toEqual([['gAMA', 4], ['cICP', 4], ['iCCP', profile.length]]);
-    expect(header.colorChunks[2].data).toEqual(profile);
+    expect(header.colorChunks.map(({ type, data }) => [type, data.length]))
+      .toEqual([['gAMA', 4], ['cHRM', 32], ['cICP', 4], ['iCCP', profile.length]]);
+    expect(header.colorChunks[3].data).toEqual(profile);
+  });
+
+  test('colour chunks after PLTE are out of place and ignored, as libpng does', async () => {
+    const bytes = png({ width: 1, height: 1, colorType: 2 }, [0, 0, 0, 0], [
+      pngChunk('sRGB', [0]), pngChunk('PLTE', [1, 2, 3]), pngChunk('gAMA', [0, 1, 0x86, 0xa0])
+    ]);
+
+    expect((await readPngHeader(new Blob([bytes]))).colorChunks.map(({ type }) => type)).toEqual(['sRGB']);
   });
 
   test.each([
@@ -203,6 +279,19 @@ describe('readPngHeader', () => {
     ['no IHDR', bytes => replaceChunk(bytes, 'IHDR'), 'no IHDR']
   ])('a PNG with %s is refused', async (_, edit, message) => {
     await expect(readPngHeader(new Blob([edit(await file('rgb8.png'))]))).rejects.toThrow(message);
+  });
+});
+
+describe('an IHDR of the wrong length', () => {
+  const ihdr = Buffer.from([0, 0, 0, 1, 0, 0, 0, 1, 8, 2, 0, 0, 0]);
+  const of = (...chunks) => replaceChunk(png({ width: 1, height: 1, colorType: 2 }, [0, 1, 2, 3]), 'IHDR', ...chunks);
+
+  test.each([
+    ['decodePng', bytes => decodePng(bytes)],
+    ['readPngHeader', bytes => readPngHeader(new Blob([bytes]))]
+  ])('is refused by %s, saying so, even with a good one after it', async (_, read) => {
+    await expect(read(of(pngChunk('IHDR', ihdr.subarray(0, 12))))).rejects.toThrow("The PNG's IHDR chunk is 12 bytes, not 13");
+    await expect(read(of(pngChunk('IHDR', [1, 2, 3]), pngChunk('IHDR', ihdr)))).rejects.toThrow("The PNG's IHDR chunk is 3 bytes, not 13");
   });
 });
 
@@ -229,10 +318,17 @@ describe('decodePng refuses', () => {
   });
 
   test('more pixels than it decodes, before allocating them', async () => {
-    const huge = png({ width: 100000, height: 100000, colorType: 6 }, [0]);
+    await expect(decodePng(png({ width: 100000, height: 100000, colorType: 6 }, [0]))).rejects.toThrow('100000x100000, more than the');
+  });
 
-    expect(100000 * 100000).toBeGreaterThan(MAX_PIXELS);
-    await expect(decodePng(huge)).rejects.toThrow('100000x100000, more than the');
+  test('one row past 4096x4096, while 4096x4096 itself gets as far as inflating', async () => {
+    expect(MAX_PIXELS).toBe(4096 * 4096);
+    await expect(decodePng(png({ width: 4096, height: 4096, colorType: 0 }, [0]))).rejects.toThrow('too short');
+    await expect(decodePng(png({ width: 4096, height: 4097, colorType: 0 }, [0]))).rejects.toThrow('4096x4097, more than the');
+  });
+
+  test('image data one byte short', async () => {
+    await expect(decodePng(png({ width: 1, height: 1, colorType: 2 }, [0, 1, 2]))).rejects.toThrow('too short');
   });
 
   test('a chunk that runs past the end', async () => {
@@ -249,7 +345,7 @@ describe('decodePng refuses', () => {
     const bytes = png({ width: 1, height: 1, colorType: 2 }, [0, 1, 2, 3]);
     const corrupt = replaceChunk(bytes, 'IDAT', pngChunk('IDAT', [0x78, 0x9c, 0xff, 0xff, 0xff, 0xff]));
 
-    await expect(decodePng(corrupt)).rejects.toThrow("The PNG's image data won't inflate");
+    await expect(decodePng(corrupt)).rejects.toThrow(/^The PNG's image data won't inflate: \S/);
   });
 
   test('a palette colour type with no palette', async () => {
