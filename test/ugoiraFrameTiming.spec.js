@@ -1,16 +1,13 @@
 /**
- * The ugoira conversions run through the bundled FFmpeg.wasm core (FFmpeg 5.1), timed with its
- * ffprobe. The download task's own spec fakes FFmpeg; this one checks what the real core does with
- * the input.txt and commands the task builds: each frame lasts its own delay (#322), the last
- * frame too (#325).
+ * prepareConversion's FFmpeg input.txt and commands, run through the bundled FFmpeg.wasm core
+ * (FFmpeg 5.1) and timed with its ffprobe: each frame lasts its own delay (#322), the last frame
+ * too (#325). No task reaches this code any more, as every format now encodes in the browser
+ * (test/ugoiraGifEncoder.spec.js, test/ugoiraApngEncoder.spec.js); it stays until FFmpeg goes.
  */
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import UgoiraDownloadTask from '@/options_page/modules/DownloadTasks/Pixiv/UgoiraDownloadTask';
 
-// GIF and APNG encode in the browser now (test/ugoiraGifEncoder.spec.js, test/ugoiraApngEncoder.spec.js).
-// These rows time prepareConversion's GIF and APNG handling, which no task reaches any more, for as
-// long as it stays.
 const COMMANDS = {
   gif: '-f concat -i input.txt -plays 0 out.gif',
   apng: '-f concat -i input.txt -plays 0 output.apng'

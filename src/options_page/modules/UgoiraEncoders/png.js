@@ -1,9 +1,10 @@
 /**
  * A PNG decoder for the APNG worker. A canvas would premultiply alpha and lose semi-transparent
  * pixels' colour, so when the APNG keeps the frames' colours, PNG frames are read here instead.
+ * apng.js also reads the frames' headers with readPngHeader, on the page.
  */
 
-import { inflateSync } from 'fflate';
+import { Inflate } from 'fflate';
 
 export const SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 
@@ -66,9 +67,8 @@ function eachChunk(bytes, visit, until) {
 }
 
 /**
- * Whether libpng would apply a tRNS chunk that follows a valid IHDR: one sample's worth for grey
- * or RGB, and for a palette at least one entry and no more than the palette's colours, a palette
- * longer than the bit depth can index counting only as far as it can. Never with an alpha channel.
+ * Whether libpng would apply this tRNS: one sample per channel for grey or RGB; for a palette,
+ * 1 to as many entries as the bit depth can index of the palette's colours; never with alpha.
  */
 function validTransparency(ihdr, data, palette) {
   const [depth, colorType] = ihdr.subarray(8, 10);
@@ -82,8 +82,8 @@ function validTransparency(ihdr, data, palette) {
 }
 
 /**
- * Reads chunks as libpng does: the first IHDR, PLTE and valid tRNS count, and colour chunks only
- * before PLTE.
+ * Reads chunks after libpng's rules: a second PLTE is an error, the first valid tRNS counts and
+ * colour chunks count only before PLTE. Unlike libpng it takes the first of several IHDRs.
  * @param {Uint8Array} bytes A PNG
  * @param {(type: string, found: { idat: Uint8Array[] }) => boolean} until Whether to stop at a chunk
  * @returns The chunks that matter for decoding, and whether `until` stopped the walk
@@ -94,7 +94,10 @@ function readChunks(bytes, until) {
     if (type === 'IHDR') {
       found.ihdr ??= data;
     } else if (type === 'PLTE') {
-      found.palette ??= data;
+      if (found.palette) {
+        throw new Error('The PNG has a second PLTE chunk');
+      }
+      found.palette = data;
     } else if (type === 'tRNS') {
       if (!found.transparency && found.ihdr?.length === 13 && validTransparency(found.ihdr, data, found.palette)) {
         found.transparency = data;
@@ -123,8 +126,8 @@ function checkIhdr(ihdr) {
  * What a frame's header says, read from the start of the file only.
  * @param {Blob} image
  * @returns {Promise<{ alpha: boolean, colorType?: number, colorChunks: { type: string, data: Uint8Array }[] }>}
- *   Whether it has alpha (a PNG with colour type 4 or 6, or a valid tRNS; anything but a JPEG
- *   otherwise), and for a PNG its colour type and the colour chunks before any PLTE
+ *   `alpha`: for a PNG, whether it has colour type 4 or 6 or a valid tRNS; otherwise, whether it
+ *   is anything but a JPEG. For a PNG, also its colour type and its colour chunks before any PLTE.
  */
 export async function readPngHeader(image) {
   // Everything before the image data, ICC profile and all, which can take more than one read.
@@ -171,14 +174,62 @@ async function inflate(parts, length) {
   try {
     return await inflateNatively(parts, length);
   } catch (error) {
-    // The browsers' DecompressionStream refuses bytes after the zlib stream, dropping output it
-    // hasn't handed over yet; libpng ignores them, and so does fflate, which also skips the checksum.
+    // The browsers' DecompressionStream refuses bytes after the zlib stream, a bad or missing
+    // checksum and a stream with no final block, dropping output it hasn't handed over yet. libpng
+    // stops reading once the image is filled, so it takes all of these, and so does fflate here.
+    const reason = error.message || error.name;
+    let out;
+
     try {
-      return inflateSync(concat(parts).subarray(2), { out: new Uint8Array(length) });
-    } catch {
-      throw new Error(`The PNG's image data won't inflate: ${error.message || error.name}`, { cause: error });
+      out = inflateLeniently(new Uint8Array(await new Blob(parts).arrayBuffer()), length);
+    } catch (fallbackError) {
+      throw new Error(`The PNG's image data won't inflate: ${reason} (fflate: ${fallbackError.message})`, { cause: error });
     }
+    if (out.length < length) {
+      throw new Error(`The PNG's image data won't inflate: ${reason} (fflate: ${out.length} of ${length} bytes)`, { cause: error });
+    }
+
+    console.debug(`PNG: inflated the image data with fflate, as the browser refused it: ${reason}`);
+
+    return out;
   }
+}
+
+/** How many compressed bytes inflateLeniently gives fflate at a time. */
+const PUSH_BYTES = 16 * 1024;
+
+/**
+ * inflate() through fflate, pushing a bit at a time until the image is filled, so neither what
+ * comes after that nor how the stream ends matters, and a stream that inflates to far more than
+ * the image needs stops early.
+ * @param {Uint8Array} data A zlib stream
+ * @returns {Uint8Array} Up to `length` bytes
+ */
+function inflateLeniently(data, length) {
+  const [cmf, flags] = data;
+
+  if (data.length < 2 || (cmf & 0x0f) !== 8 || cmf >> 4 > 7 || ((cmf << 8) | flags) % 31) {
+    throw new Error('not a zlib header');
+  }
+  if (flags & 0x20) {
+    throw new Error('the stream needs a preset dictionary');
+  }
+
+  const out = new Uint8Array(length);
+  let filled = 0;
+  const inflater = new Inflate(chunk => {
+    const take = Math.min(chunk.length, length - filled);
+
+    out.set(chunk.subarray(0, take), filled);
+    filled += take;
+  });
+
+  // Never pushed as final, as fflate would then want the stream's end.
+  for (let at = 2; at < data.length && filled < length; at += PUSH_BYTES) {
+    inflater.push(data.subarray(at, at + PUSH_BYTES));
+  }
+
+  return out.subarray(0, filled);
 }
 
 /** inflate() through the browser's DecompressionStream, which is faster than fflate. */
@@ -204,15 +255,6 @@ async function inflateNatively(parts, length) {
   reader.cancel().catch(() => {});
 
   return out.subarray(0, filled);
-}
-
-/** @param {Uint8Array[]} parts */
-function concat(parts) {
-  const out = new Uint8Array(parts.reduce((sum, part) => sum + part.length, 0));
-
-  parts.reduce((at, part) => (out.set(part, at), at + part.length), 0);
-
-  return out;
 }
 
 /**

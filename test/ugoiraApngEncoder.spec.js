@@ -347,6 +347,7 @@ describe('encodeApng', () => {
     ['a tagged frame beside an untagged one', [[2, []], [2, [gamma]]], "frame 2's colour chunks differ from frame 1's"],
     ['a JPEG beside a tagged PNG', [['jpeg', []], [2, [gamma]]], "frame 2's colour chunks differ from frame 1's"],
     ['an sRGB frame beside a gAMA one', [[2, [srgb, gamma]], [2, [gamma]]], "frame 2's colour chunks differ from frame 1's"],
+    ["an ICC profile that is the start of frame 1's", [[2, [profile]], [2, [pngChunk('iCCP', [0x70, 0, 0, 0x78, 0x9c, 3])]]], "frame 2's colour chunks differ from frame 1's"],
     ['a grey frame with an ICC profile', [[0, [profile]], [0, [profile]]], 'frame 1 is grey with an ICC profile'],
     ['a grey-and-alpha frame with an ICC profile', [[2, []], [4, [profile]]], 'frame 2 is grey with an ICC profile'],
     ['cICP', [[2, [pngChunk('cICP', [12, 13, 0, 1])]], [2, [pngChunk('cICP', [12, 13, 0, 1])]]], 'frame 1 has a cICP chunk'],
@@ -367,13 +368,33 @@ describe('encodeApng', () => {
     expect(info).not.toHaveBeenCalled();
   });
 
-  test('sRGB frames, with the gAMA and cHRM it overrides, count as untagged: beside JPEG and untagged frames they stay exact and carry nothing', async () => {
-    const { apng, exact } = await encode([
-      image(busy(4, 3), 4, 3), image(busy(4, 3), 4, 3, 6, [srgb, gamma, chrm]), image(busy(4, 3), 4, 3, 2, [srgb]), image(busy(4, 3), 4, 3, 2)
+  test('sRGB frames count as untagged, gAMA and cHRM too, so beside JPEG and untagged frames they stay exact and carry only sRGB', async () => {
+    const intent = pngChunk('sRGB', [1]);
+    const { data, apng, exact } = await encode([
+      image(busy(4, 3), 4, 3), image(busy(4, 3), 4, 3, 6, [intent, gamma, chrm]), image(busy(4, 3), 4, 3, 2, [srgb]), image(busy(4, 3), 4, 3, 2)
     ]);
 
-    expect(colorChunksOf(apng)).toEqual([]);
+    expect(colorChunksOf(apng)).toEqual(['sRGB']);
+    expect(Buffer.from(data).includes(intent)).toBe(true);
     expect(exact).toEqual([true]);
+  });
+
+  test('a tagged first frame carries only sRGB when every frame says sRGB', async () => {
+    const { apng, exact } = await encode([image(busy(4, 3), 4, 3, 2, [srgb, gamma]), image(busy(4, 3), 4, 3, 2, [srgb])]);
+
+    expect(colorChunksOf(apng)).toEqual(['sRGB']);
+    expect(exact).toEqual([true]);
+  });
+
+  test.each([
+    ['two bytes long', [0, 0]],
+    ['an unknown intent', [4]]
+  ])('an sRGB chunk %s does not count, as libpng ignores it, so the gAMA beside it does', async (_, data) => {
+    const info = vi.spyOn(console, 'info').mockImplementation(() => {});
+    const { exact } = await encode([image(busy(4, 3), 4, 3, 2, [pngChunk('sRGB', data), gamma]), image(busy(4, 3), 4, 3, 2, [srgb])]);
+
+    expect(exact).toEqual([false]);
+    expect(info).toHaveBeenCalledExactlyOnceWith("APNG: converting every frame to sRGB, because frame 2's colour chunks differ from frame 1's");
   });
 
   test('an ICC profile overrides sRGB, so frames with both carry both', async () => {
@@ -383,13 +404,14 @@ describe('encodeApng', () => {
     expect(exact).toEqual([true]);
   });
 
-  test('a frame whose header is broken rejects, naming APNG and the frame', async () => {
+  test('a frame whose header is broken rejects, naming APNG and the frame, with png.js\'s error as the cause', async () => {
     const broken = Object.assign(new Blob([head(2, []).subarray(0, 20)]), { pixels: busy(4, 3), width: 4, height: 3 });
+    const error = await encodeApng({ frames: [image(busy(4, 3), 4, 3, 2), broken].map(img => ({ image: img, delay: 100 })), createWorker })
+      .catch(e => e);
 
-    await expect(encodeApng({ frames: [image(busy(4, 3), 4, 3, 2), broken].map(img => ({ image: img, delay: 100 })), createWorker }))
-      .rejects.toThrow('Could not read APNG frame 2: The PNG');
+    expect(error.message).toMatch(/^Could not read APNG frame 2: The PNG/);
+    expect(error.message).toBe(`Could not read APNG frame 2: ${error.cause.message}`);
   });
-
 
   test('JPEG frames carry no colour chunks', async () => {
     const data = (await encodeApng({ frames: [{ image: image(busy(4, 3), 4, 3), delay: 100 }], createWorker })).data;
@@ -415,8 +437,11 @@ describe('encodeApng', () => {
       .rejects.toThrow('Could not encode APNG frame 1: EncodingError: no');
   });
 
-  test('no frames rejects', async () => {
+  test('no frames rejects, giving no colour reason', async () => {
+    const info = vi.spyOn(console, 'info').mockImplementation(() => {});
+
     await expect(encodeApng({ frames: [], createWorker })).rejects.toThrow('The ugoira has no frames to encode');
+    expect(info).not.toHaveBeenCalled();
   });
 });
 

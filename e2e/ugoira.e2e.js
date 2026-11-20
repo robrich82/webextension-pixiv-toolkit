@@ -153,8 +153,8 @@ test('DL APNG keeps PNG frames exactly, semi-transparent pixels too, each after 
   expect(apng.frames.map(({ x, y, width, height }) => [x, y, width, height])).toEqual(MOVING.areas);
   const expected = await zipFrames(MOVING.zip);
   expect(apng.frames.map(frame => Array.from(frame.rgba))).toEqual(expected);
-  // Chrome's own decoder composes the cropped frames the same way. It premultiplies internally
-  // whatever it is asked, so semi-transparent colours come back rounded: compare premultiplied.
+  // Chrome's own decoder composes the cropped frames the same way. It premultiplies internally even
+  // with premultiplyAlpha 'none', so semi-transparent colours come back rounded: compare premultiplied.
   const premultiplied = frame => frame.map((value, i) => Math.round(i % 4 === 3 ? value : value * frame[i - i % 4 + 3] / 255));
   const decoded = await decodeApngFrames(context, serviceWorker, animation.filename);
   expect(decoded.length).toBe(expected.length);
