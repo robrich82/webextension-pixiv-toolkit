@@ -11,7 +11,7 @@ import {
   apngDelay, changedArea, crc32, encodeApngFrame, filterRows, muxApng
 } from '@/options_page/modules/UgoiraEncoders/apngFrame';
 import { encodeApng } from '@/options_page/modules/UgoiraEncoders/apng';
-import { pixelAt, probeApng } from './helpers/probeApng.mjs';
+import { pixelAt, pngChunk, probeApng } from './helpers/probeApng.mjs';
 
 /** A frame of one colour. */
 const solid = (width, height, rgba) => {
@@ -249,16 +249,6 @@ describe('encodeApng', () => {
     }
   }
 
-  const pngChunk = (type, data) => {
-    const bytes = Buffer.alloc(12 + data.length);
-
-    bytes.writeUInt32BE(data.length);
-    bytes.write(type, 4, 'latin1');
-    Buffer.from(data).copy(bytes, 8);
-    bytes.writeUInt32BE(zlib.crc32(bytes.subarray(4, 8 + data.length)), 8 + data.length);
-
-    return bytes;
-  };
   /** A JPEG's first bytes, or a PNG's through its first IDAT: all apng.js reads of a frame. */
   const head = (colorType, chunks) => colorType === 'jpeg' ?
     Buffer.from([0xff, 0xd8, 0xff, 0xe0]) :
@@ -269,8 +259,14 @@ describe('encodeApng', () => {
       pngChunk('IDAT', [])
     ]);
   /** A frame Blob that the fake worker reads as `pixels`; `colorType` 'jpeg' or a PNG colour type. */
-  const image = (pixels, width, height, colorType = 'jpeg', chunks = []) =>
-    Object.assign(new Blob([head(colorType, chunks)]), { pixels, width, height });
+  const image = (pixels, width, height, colorType = 'jpeg', chunks = [], type = '') =>
+    Object.assign(new Blob([head(colorType, chunks)], { type }), { pixels, width, height });
+  const encode = async images => {
+    const { data } = await encodeApng({ frames: images.map(img => ({ image: img, delay: 100 })), createWorker });
+    const posted = FakeWorker.created.flatMap(worker => worker.posted);
+
+    return { data, apng: probeApng(data), exact: [...new Set(posted.map(message => message.exact))] };
+  };
   const createWorker = () => new FakeWorker();
 
   beforeEach(() => {
@@ -303,10 +299,9 @@ describe('encodeApng', () => {
   });
 
   test('RGB PNG frames make an RGB APNG, whatever the ugoira says its type is', async () => {
-    const images = [1, 2].map(seed => image(busy(4, 3, { seed }), 4, 3, 2));
-    const apng = probeApng((await encodeApng({ frames: images.map(img => ({ image: img, delay: 100 })), createWorker })).data);
+    const images = [1, 2].map(seed => image(busy(4, 3, { seed }), 4, 3, 2, [], 'image/png'));
 
-    expect(apng.colorType).toBe(2);
+    expect((await encode(images)).apng.colorType).toBe(2);
   });
 
   test.each([
@@ -324,16 +319,43 @@ describe('encodeApng', () => {
     expect(Array.from(apng.frames[1].rgba)).toEqual(Array.from(pixels));
   });
 
-  test("carries the first frame's colour chunks, after IHDR", async () => {
-    const gamma = pngChunk('gAMA', [0, 0, 0xb1, 0x8f]);
-    const srgb = pngChunk('sRGB', [0]);
-    const frames = [image(busy(4, 3), 4, 3, 2, [gamma, srgb, pngChunk('tEXt', [0x41, 0, 0x42])]), image(busy(4, 3), 4, 3, 2)]
-      .map(img => ({ image: img, delay: 100 }));
-    const data = (await encodeApng({ frames, createWorker })).data;
+  const gamma = pngChunk('gAMA', [0, 0, 0xb1, 0x8f]);
+  const srgb = pngChunk('sRGB', [0]);
+  const profile = pngChunk('iCCP', [0x70, 0, 0, 0x78, 0x9c, 3, 0, 0, 0, 0, 1]);
 
-    expect(probeApng(data).chunks.slice(0, 4)).toEqual(['IHDR', 'gAMA', 'sRGB', 'acTL']);
+  test('carries colour chunks every frame has, after IHDR, keeping the PNG frames exact', async () => {
+    const text = pngChunk('tEXt', [0x41, 0, 0x42]);
+    const { data, apng, exact } = await encode([image(busy(4, 3), 4, 3, 2, [gamma, srgb, text]), image(busy(4, 3), 4, 3, 6, [gamma, srgb])]);
+
+    expect(apng.chunks.slice(0, 4)).toEqual(['IHDR', 'gAMA', 'sRGB', 'acTL']);
     expect(Buffer.from(data).includes(Buffer.concat([gamma, srgb]))).toBe(true);
+    expect(exact).toEqual([true]);
   });
+
+  test.each([
+    ['frames tagged differently', [[2, [gamma]], [2, [srgb]]]],
+    ['a tagged frame beside an untagged one', [[2, [gamma]], [2, []]]],
+    ['a JPEG beside a tagged PNG', [['jpeg', []], [2, [srgb]]]],
+    ['a grey frame with an ICC profile', [[0, [profile]], [0, [profile]]]],
+    ['cICP', [[2, [pngChunk('cICP', [12, 13, 0, 1])]], [2, [pngChunk('cICP', [12, 13, 0, 1])]]]]
+  ])('with %s, the browser converts every frame to sRGB and nothing is carried', async (_, kinds) => {
+    const { apng, exact } = await encode(kinds.map(([colorType, chunks]) => image(busy(4, 3), 4, 3, colorType, chunks)));
+
+    expect(apng.chunks).toEqual(['IHDR', 'acTL', 'fcTL', 'IDAT', 'fcTL', 'fdAT', 'IEND']);
+    expect(exact).toEqual([false]);
+  });
+
+  test('untagged PNG frames beside JPEG frames stay exact', async () => {
+    expect((await encode([image(busy(4, 3), 4, 3), image(busy(4, 3), 4, 3, 6)])).exact).toEqual([true]);
+  });
+
+  test('a frame whose header is broken rejects, naming APNG and the frame', async () => {
+    const broken = Object.assign(new Blob([head(2, []).subarray(0, 20)]), { pixels: busy(4, 3), width: 4, height: 3 });
+
+    await expect(encodeApng({ frames: [image(busy(4, 3), 4, 3, 2), broken].map(img => ({ image: img, delay: 100 })), createWorker }))
+      .rejects.toThrow('Could not read APNG frame 2: The PNG');
+  });
+
 
   test('JPEG frames carry no colour chunks', async () => {
     const data = (await encodeApng({ frames: [{ image: image(busy(4, 3), 4, 3), delay: 100 }], createWorker })).data;

@@ -1071,8 +1071,7 @@ describe('APNG in the browser', () => {
     expect(await Promise.all(encoded.map(frame => frame.image.text()))).toEqual(['frame 0', 'frame 1']);
   });
 
-  // encodeApng keeps alpha unless the frames are JPEG, which it reads from their type.
-  test.each([['image/jpeg', '211'], ['image/png', '212']])('hands over %s frames as that type', async (mimeType, id) => {
+  test.each([['image/jpeg', '211'], ['image/png', '212']])("labels %s frames with the ugoira's mime type", async (mimeType, id) => {
     const task = apngTask(id);
     task.context.illustMimeType = mimeType;
 

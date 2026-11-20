@@ -1,9 +1,9 @@
 /**
  * A PNG decoder for the APNG worker. A canvas would premultiply alpha and lose semi-transparent
- * pixels' colour, so PNG frames are read here instead, exactly.
+ * pixels' colour, so PNG frames are read here instead, without premultiplying.
  */
 
-const SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+export const SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 
 /** Colour type → samples per pixel. */
 const CHANNELS = { 0: 1, 2: 3, 3: 1, 4: 2, 6: 4 };
@@ -14,8 +14,11 @@ const DEPTHS = { 0: [1, 2, 4, 8, 16], 2: [8, 16], 3: [1, 2, 4, 8], 4: [8, 16], 6
 /** Adam7's passes: x and y of the first pixel, then the step between pixels. */
 const ADAM7 = [[0, 0, 8, 8], [4, 0, 8, 8], [0, 4, 4, 8], [2, 0, 4, 4], [0, 2, 2, 4], [1, 0, 2, 2], [0, 1, 1, 2]];
 
-/** The chunks that say how to read the colours, which the APNG carries over from the frames. */
-export const COLOR_CHUNKS = ['cHRM', 'gAMA', 'iCCP', 'sRGB'];
+/** The most pixels decodePng takes on, bounding its memory; the browser decodes anything bigger. */
+export const MAX_PIXELS = 4096 * 4096;
+
+/** The chunks that say how to read the colours. */
+const COLOR_CHUNKS = ['cHRM', 'gAMA', 'iCCP', 'sRGB', 'cICP'];
 
 /**
  * @param {Uint8Array} bytes
@@ -23,20 +26,22 @@ export const COLOR_CHUNKS = ['cHRM', 'gAMA', 'iCCP', 'sRGB'];
  */
 export const isPng = bytes => SIGNATURE.every((byte, i) => bytes[i] === byte);
 
+const isJpeg = bytes => bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+
 /**
  * @param {Uint8Array} bytes A PNG
  * @param {(type: string, data: Uint8Array) => void} visit Called for each chunk in order
- * @param {string} [stopAt] A chunk type to stop at without reading it, so it may be cut short
- * @returns {boolean} Whether it reached `stopAt`
+ * @param {(type: string) => boolean} until Whether to stop at a chunk, before reading it
+ * @returns {boolean} Whether `until` stopped it
  */
-function eachChunk(bytes, visit, stopAt) {
+function eachChunk(bytes, visit, until) {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.length);
 
   for (let at = 8; at + 8 <= bytes.length;) {
     const length = view.getUint32(at);
     const type = String.fromCharCode(...bytes.subarray(at + 4, at + 8));
 
-    if (type === stopAt) {
+    if (until(type)) {
       return true;
     }
 
@@ -59,70 +64,117 @@ function eachChunk(bytes, visit, stopAt) {
 }
 
 /**
+ * Whether libpng would apply a tRNS chunk: one sample's worth for grey or RGB, at most one entry
+ * per colour after the palette, and none with an alpha channel.
+ */
+function validTransparency(colorType, data, palette) {
+  switch (colorType) {
+    case 0: return data.length === 2;
+    case 2: return data.length === 6;
+    case 3: return Boolean(palette) && data.length <= palette.length / 3;
+    default: return false;
+  }
+}
+
+/**
+ * @param {Uint8Array} bytes A PNG
+ * @param {(type: string, found: { idat: Uint8Array[] }) => boolean} until Whether to stop at a chunk
+ * @returns The chunks that matter for decoding, and whether `until` stopped the walk
+ */
+function readChunks(bytes, until) {
+  const found = { ihdr: undefined, palette: undefined, transparency: undefined, idat: [], colorChunks: [] };
+  const stopped = eachChunk(bytes, (type, data) => {
+    if (type === 'IHDR') {
+      found.ihdr ??= data.length === 13 ? data : undefined;
+    } else if (type === 'PLTE') {
+      found.palette ??= data;
+    } else if (type === 'tRNS') {
+      found.transparency = found.ihdr && validTransparency(found.ihdr[9], data, found.palette) ? data : undefined;
+    } else if (type === 'IDAT') {
+      found.idat.push(data);
+    } else if (COLOR_CHUNKS.includes(type)) {
+      found.colorChunks.push({ type, data: data.slice() });
+    }
+  }, type => until(type, found));
+
+  return { ...found, stopped };
+}
+
+/**
  * What a frame's header says, read from the start of the file only.
  * @param {Blob} image
- * @returns {Promise<{ png: boolean, alpha: boolean, colorChunks: { type: string, data: Uint8Array }[] }>}
- *   Whether it is a PNG, whether it has alpha (colour type 4 or 6, or a tRNS chunk), and its colour chunks
+ * @returns {Promise<{ alpha: boolean, colorType?: number, colorChunks: { type: string, data: Uint8Array }[] }>}
+ *   Whether it has alpha (a PNG with colour type 4 or 6, or tRNS; anything but a JPEG otherwise),
+ *   and for a PNG its colour type and colour chunks (cHRM, gAMA, iCCP, sRGB, cICP)
  */
 export async function readPngHeader(image) {
-  // Everything before the image data: IHDR, the palette and the colour chunks, ICC profile and all.
-  let bytes = new Uint8Array(await image.slice(0, 64 * 1024).arrayBuffer());
+  // Everything before the image data, ICC profile and all, which can take more than one read.
+  for (let size = 64 * 1024; ; size *= 4) {
+    const bytes = new Uint8Array(await image.slice(0, size).arrayBuffer());
 
-  if (!isPng(bytes)) {
-    return { png: false, alpha: false, colorChunks: [] };
-  }
+    if (!isPng(bytes)) {
+      return { alpha: !isJpeg(bytes), colorChunks: [] };
+    }
 
-  let header;
-
-  for (;;) {
     try {
-      header = scanHeader(bytes);
-      break;
+      return scanHeader(bytes);
     } catch (error) {
-      if (bytes.length >= image.size) {
+      if (size >= image.size) {
         throw error;
       }
-
-      bytes = new Uint8Array(await image.slice(0, bytes.length * 4).arrayBuffer());
     }
   }
-
-  return { png: true, ...header };
 }
 
 /**
  * @param {Uint8Array} bytes The start of a PNG, through its first IDAT chunk's header
- * @returns {{ alpha: boolean, colorChunks: { type: string, data: Uint8Array }[] }}
  */
 function scanHeader(bytes) {
-  let colorType;
-  let transparency = false;
-  const colorChunks = [];
-  const reachedData = eachChunk(bytes, (type, data) => {
-    if (type === 'IHDR') {
-      colorType = data[9];
-    } else if (type === 'tRNS') {
-      transparency = true;
-    } else if (COLOR_CHUNKS.includes(type)) {
-      colorChunks.push({ type, data: data.slice() });
-    }
-  }, 'IDAT');
+  const { ihdr, transparency, colorChunks, stopped } = readChunks(bytes, type => type === 'IDAT');
 
-  if (!reachedData || colorType === undefined) {
+  if (!ihdr) {
+    throw new Error('The PNG has no IHDR chunk');
+  }
+  if (!stopped) {
     throw new Error('The PNG has no image data');
   }
 
-  return { alpha: colorType === 4 || colorType === 6 || transparency, colorChunks };
+  const colorType = ihdr[9];
+
+  return { alpha: colorType === 4 || colorType === 6 || Boolean(transparency), colorType, colorChunks };
 }
 
 /**
- * @param {Uint8Array} bytes
- * @returns {Promise<Uint8Array>} The zlib stream inflated
+ * @param {Uint8Array[]} parts One zlib stream, split up as the IDAT chunks were
+ * @param {number} length How many bytes the image needs; inflating stops there
+ * @returns {Promise<Uint8Array>} Up to `length` bytes
  */
-async function inflate(bytes) {
-  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate'));
+async function inflate(parts, length) {
+  const reader = new Blob(parts).stream().pipeThrough(new DecompressionStream('deflate')).getReader();
+  const out = new Uint8Array(length);
+  let filled = 0;
 
-  return new Uint8Array(await new Response(stream).arrayBuffer());
+  try {
+    while (filled < length) {
+      const { done, value } = await reader.read();
+
+      if (done) {
+        break;
+      }
+
+      const take = Math.min(value.length, length - filled);
+
+      out.set(value.subarray(0, take), filled);
+      filled += take;
+    }
+  } catch (error) {
+    throw new Error(`The PNG's image data won't inflate: ${error.message || error.name}`, { cause: error });
+  }
+
+  // Anything after the image's bytes is ignored, as libpng does.
+  reader.cancel().catch(() => {});
+
+  return out.subarray(0, filled);
 }
 
 /**
@@ -136,13 +188,14 @@ async function inflate(bytes) {
  */
 function unfilter(data, rows, rowBytes, bpp, at) {
   const out = new Uint8Array(rows * rowBytes);
+  const left = Math.min(bpp, rowBytes);
   let prior = new Uint8Array(rowBytes);
 
   for (let y = 0; y < rows; y++) {
-    const filter = data[at + y * (rowBytes + 1)];
-    const from = at + y * (rowBytes + 1) + 1;
+    const start = at + y * (rowBytes + 1);
+    const filter = data[start];
+    const from = start + 1;
     const row = y * rowBytes;
-    const left = Math.min(bpp, rowBytes);
 
     // Bytes in the first pixel have nothing to their left; the arrays wrap sums to a byte.
     switch (filter) {
@@ -195,7 +248,7 @@ function unfilter(data, rows, rowBytes, bpp, at) {
 
 /**
  * Decodes a PNG to 8-bit RGBA without touching its colours: no premultiplying and no colour
- * management. 16-bit samples round to 8 bits.
+ * management. 16-bit samples round to 8 bits. Chunks after the image data are not read.
  * @param {Uint8Array} bytes
  * @returns {Promise<{ pixels: Uint8Array, width: number, height: number }>}
  */
@@ -204,24 +257,9 @@ export async function decodePng(bytes) {
     throw new Error('Not a PNG');
   }
 
-  let ihdr;
-  let palette;
-  let transparency;
-  const idat = [];
+  const { ihdr, palette, transparency, idat } = readChunks(bytes, (type, found) => found.idat.length > 0 && type !== 'IDAT');
 
-  eachChunk(bytes, (type, data) => {
-    if (type === 'IHDR') {
-      ihdr = data;
-    } else if (type === 'PLTE') {
-      palette = data;
-    } else if (type === 'tRNS') {
-      transparency = data;
-    } else if (type === 'IDAT') {
-      idat.push(data);
-    }
-  });
-
-  if (!ihdr || ihdr.length < 13) {
+  if (!ihdr) {
     throw new Error('The PNG has no IHDR chunk');
   }
 
@@ -234,6 +272,9 @@ export async function decodePng(bytes) {
     throw new Error(`The PNG's IHDR is not one PNG allows: ${width}x${height}, depth ${depth}, ` +
       `colour type ${colorType}, compression ${compression}, filter ${filterMethod}, interlace ${interlace}`);
   }
+  if (width * height > MAX_PIXELS) {
+    throw new Error(`The PNG is ${width}x${height}, more than the ${MAX_PIXELS} pixels decoded here`);
+  }
   if (colorType === 3 && !palette) {
     throw new Error('The PNG has a palette colour type but no palette');
   }
@@ -241,36 +282,33 @@ export async function decodePng(bytes) {
     throw new Error('The PNG has no image data');
   }
 
-  const data = await inflate(idat.length === 1 ? idat[0] : concat(idat));
-  const channels = CHANNELS[colorType];
-  const bitsPerPixel = channels * depth;
+  const bitsPerPixel = CHANNELS[colorType] * depth;
   const bpp = Math.max(1, bitsPerPixel >> 3);
+  const passes = (interlace ? ADAM7 : [[0, 0, 1, 1]]).map(([x0, y0, dx, dy]) => {
+    const passWidth = Math.max(0, Math.ceil((width - x0) / dx));
+    const passHeight = Math.max(0, Math.ceil((height - y0) / dy));
+
+    return { x0, y0, dx, dy, passWidth, passHeight, rowBytes: Math.ceil(passWidth * bitsPerPixel / 8) };
+  }).filter(pass => pass.passWidth && pass.passHeight);
+  const length = passes.reduce((sum, pass) => sum + pass.passHeight * (pass.rowBytes + 1), 0);
+  const data = await inflate(idat, length);
+
+  if (data.length < length) {
+    throw new Error('The PNG\'s image data is too short');
+  }
+
   const pixels = new Uint8Array(width * height * 4);
   const writePixel = pixelWriter({ colorType, depth, palette, transparency, pixels });
-  const passes = interlace ? ADAM7 : [[0, 0, 1, 1]];
   let at = 0;
 
-  for (const [x0, y0, dx, dy] of passes) {
-    const passWidth = Math.ceil((width - x0) / dx);
-    const passHeight = Math.ceil((height - y0) / dy);
-
-    if (passWidth <= 0 || passHeight <= 0) {
-      continue;
-    }
-
-    const rowBytes = Math.ceil(passWidth * bitsPerPixel / 8);
-
-    if (at + passHeight * (rowBytes + 1) > data.length) {
-      throw new Error('The PNG\'s image data is too short');
-    }
-
+  for (const { x0, y0, dx, dy, passWidth, passHeight, rowBytes } of passes) {
     const rows = unfilter(data, passHeight, rowBytes, bpp, at);
 
     for (let y = 0; y < passHeight; y++) {
       const row = y * rowBytes;
       const to = ((y0 + y * dy) * width + x0) * 4;
 
-      // 8-bit RGBA and RGB, the PNGs Pixiv serves, outside interlacing's scattered pixels.
+      // Fast paths for whole rows of 8-bit RGBA, and of RGB without tRNS; the rest go pixel by pixel.
       if (dx === 1 && depth === 8 && colorType === 6) {
         pixels.set(rows.subarray(row, row + rowBytes), to);
       } else if (dx === 1 && depth === 8 && colorType === 2 && !transparency) {
@@ -293,20 +331,36 @@ export async function decodePng(bytes) {
   return { pixels, width, height };
 }
 
-/**
- * @param {Uint8Array[]} parts
- * @returns {Uint8Array}
- */
-function concat(parts) {
-  const out = new Uint8Array(parts.reduce((length, part) => length + part.length, 0));
-  let offset = 0;
-
-  for (const part of parts) {
-    out.set(part, offset);
-    offset += part.length;
+/** @returns {(rows: Uint8Array, row: number, index: number) => number} The `index`th sample of a row, as stored */
+function sampleReader(depth) {
+  if (depth === 16) {
+    return (rows, row, index) => (rows[row + index * 2] << 8) | rows[row + index * 2 + 1];
+  }
+  if (depth === 8) {
+    return (rows, row, index) => rows[row + index];
   }
 
-  return out;
+  const max = (1 << depth) - 1;
+
+  return (rows, row, index) => {
+    const bit = index * depth;
+
+    return (rows[row + (bit >> 3)] >> (8 - depth - (bit & 7))) & max;
+  };
+}
+
+/** @returns {(value: number) => number} A sample scaled to 8 bits, rounding */
+function scaleTo8(depth) {
+  if (depth === 16) {
+    return value => ((value + 128) / 257) | 0;
+  }
+  if (depth === 8) {
+    return value => value;
+  }
+
+  const max = (1 << depth) - 1;
+
+  return value => value * 255 / max;
 }
 
 /**
@@ -314,23 +368,12 @@ function concat(parts) {
  *   of the row starting at `row` as RGBA at `to`
  */
 function pixelWriter({ colorType, depth, palette, transparency, pixels }) {
-  const channels = CHANNELS[colorType];
+  const sample = sampleReader(depth);
+  const to8 = scaleTo8(depth);
   const max = (1 << depth) - 1;
-  /** The `index`th sample of the row, as it is stored: up to 16 bits. */
-  const sample = depth === 16 ?
-    (rows, row, index) => (rows[row + index * 2] << 8) | rows[row + index * 2 + 1] :
-    depth === 8 ?
-      (rows, row, index) => rows[row + index] :
-      (rows, row, index) => {
-        const bit = index * depth;
-
-        return (rows[row + (bit >> 3)] >> (8 - depth - (bit & 7))) & max;
-      };
-  /** A sample scaled to 8 bits, rounding. */
-  const to8 = depth === 16 ? value => ((value + 128) / 257) | 0 : depth === 8 ? value => value : value => value * 255 / max;
   // tRNS for grey or RGB names one colour, in samples, that is fully transparent.
   const key = transparency && (colorType === 0 || colorType === 2) ?
-    Array.from({ length: channels }, (_, i) => ((transparency[i * 2] << 8) | transparency[i * 2 + 1]) & max) :
+    Array.from({ length: CHANNELS[colorType] }, (_, i) => ((transparency[i * 2] << 8) | transparency[i * 2 + 1]) & max) :
     null;
 
   switch (colorType) {

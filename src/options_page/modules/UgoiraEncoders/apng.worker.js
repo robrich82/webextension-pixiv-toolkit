@@ -2,19 +2,11 @@ import { encodeApngFrame } from './apngFrame';
 import { decodePng, isPng } from './png';
 
 /**
- * PNGs are decoded exactly by png.js; a canvas would premultiply their semi-transparent pixels.
- * JPEGs have no alpha, so the browser decodes them.
  * @param {Blob} image
- * @returns {Promise<{ pixels: Uint8ClampedArray|Uint8Array, width: number, height: number }>} Its RGBA pixels
+ * @param {PredefinedColorSpace|'none'|'default'} colorSpaceConversion
  */
-async function decode(image) {
-  const bytes = new Uint8Array(await image.slice(0, 8).arrayBuffer());
-
-  if (isPng(bytes)) {
-    return decodePng(new Uint8Array(await image.arrayBuffer()));
-  }
-
-  const bitmap = await createImageBitmap(image);
+async function decodeInBrowser(image, colorSpaceConversion) {
+  const bitmap = await createImageBitmap(image, { colorSpaceConversion });
   const { width, height } = bitmap;
   const context = new OffscreenCanvas(width, height).getContext('2d', { willReadFrequently: true });
 
@@ -25,14 +17,38 @@ async function decode(image) {
 }
 
 /**
- * @param {{ image: Blob, previous: Blob|null, alpha: boolean }} frame
+ * With `exact`, PNGs are decoded by png.js with their colours as stored, for the APNG to carry their
+ * colour chunks; a canvas would premultiply semi-transparent pixels. Everything else, and a PNG
+ * png.js won't take, goes through the browser, which converts colours to sRGB unless `exact`.
+ * @param {Blob} image
+ * @param {boolean} exact
+ * @returns {Promise<{ pixels: Uint8ClampedArray|Uint8Array, width: number, height: number }>} Its RGBA pixels
+ */
+async function decode(image, exact) {
+  if (exact && isPng(new Uint8Array(await image.slice(0, 8).arrayBuffer()))) {
+    try {
+      return await decodePng(new Uint8Array(await image.arrayBuffer()));
+    } catch (error) {
+      console.warn('png.js could not decode an APNG frame, so the browser decodes it', error);
+      return decodeInBrowser(image, 'none');
+    }
+  }
+
+  return decodeInBrowser(image, 'default');
+}
+
+/**
+ * @param {{ index: number, image: Blob, previous: Blob|null, alpha: boolean, exact: boolean }} frame
  * @returns {Promise<{ x: number, y: number, width: number, height: number, frameWidth: number, frameHeight: number, data: Uint8Array }>}
  */
-async function encode({ image, previous, alpha }) {
-  const { pixels, width, height } = await decode(image);
+async function encode({ index, image, previous, alpha, exact }) {
+  const { pixels, width, height } = await decode(image, exact);
   // Decoding the previous frame here too keeps every frame independent of the other workers. If it
   // won't decode, this frame is stored whole and the previous frame's own job reports the error.
-  const before = previous && await decode(previous).catch(() => null);
+  const before = previous && await decode(previous, exact).catch(error => {
+    console.warn('APNG frame', index + 1, 'is stored whole: the frame before it would not decode', error);
+    return null;
+  });
   const sameSize = before?.width === width && before?.height === height;
   const frame = await encodeApngFrame({ pixels, previous: sameSize ? before.pixels : null, width, height, alpha });
 
@@ -40,14 +56,14 @@ async function encode({ image, previous, alpha }) {
 }
 
 /**
- * Encodes each frame it is sent, { index, image, previous, alpha }, into the APNG frame apng.js
+ * Encodes each frame it is sent, { index, image, previous, alpha, exact }, into the APNG frame apng.js
  * muxes, and answers { index, result } or { index, error }. Whatever it can't answer goes to
  * reportError(), which reaches the page's onerror; a rejection here would not.
  */
 self.onmessage = ({ data }) => encode(data)
   .then(result => self.postMessage({ index: data.index, result }, [result.data.buffer]))
   .catch(error => {
-    console.error('Could not encode APNG frame', data?.index, error);
+    console.error('Could not encode APNG frame', data ? data.index + 1 : data, error);
     self.postMessage({ index: data?.index, error: String(error) });
   })
   .catch(error => reportError(error));

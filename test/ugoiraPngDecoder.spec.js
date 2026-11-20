@@ -1,23 +1,69 @@
 /**
  * png.js against PNGs ImageMagick 7.1 wrote in every colour type and bit depth, with and without
  * tRNS and Adam7 interlacing, and its RGBA decode of each (`magick <f>.png -depth 8 rgba:<f>.rgba`).
+ * Those images are smooth, so every filter is also run over noise, from PNGs built here.
  */
 import fs from 'node:fs';
+import zlib from 'node:zlib';
 import JSZip from 'jszip';
-import { decodePng, isPng, readPngHeader } from '@/options_page/modules/UgoiraEncoders/png';
+import { MAX_PIXELS, decodePng, isPng, readPngHeader } from '@/options_page/modules/UgoiraEncoders/png';
+import { pngChunk } from './helpers/probeApng.mjs';
 
 const suite = await JSZip.loadAsync(fs.readFileSync(new URL('./fixtures/png/decoder-suite.zip', import.meta.url)));
 const names = Object.keys(suite.files).filter(name => name.endsWith('.png')).map(name => name.slice(0, -4));
 const file = name => suite.file(name).async('uint8array');
 
-/** The IHDR fields a fixture was written with, so the table shows what each row covers. */
-const ihdr = bytes => ({ depth: bytes[24], colorType: bytes[25], interlace: bytes[28] });
+const SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+
+/** A PNG of `rows` (each its filter byte, then its bytes), with `chunks` between IHDR and IDAT. */
+const png = ({ width, height, depth = 8, colorType, interlace = 0 }, rows, chunks = [], after = []) => {
+  const ihdr = Buffer.alloc(13);
+
+  ihdr.writeUInt32BE(width);
+  ihdr.writeUInt32BE(height, 4);
+  ihdr.set([depth, colorType, 0, 0, interlace], 8);
+
+  return new Uint8Array(Buffer.concat([
+    Buffer.from(SIGNATURE), pngChunk('IHDR', ihdr), ...chunks, pngChunk('IDAT', zlib.deflateSync(Uint8Array.from(rows))), pngChunk('IEND', []),
+    Buffer.from(after)
+  ]));
+};
+
+/** Filters raw rows with one PNG filter type, as an encoder would. */
+const filterRows = (raw, rows, rowBytes, bpp, filter) => {
+  const out = new Uint8Array(rows * (rowBytes + 1));
+
+  for (let y = 0; y < rows; y++) {
+    out[y * (rowBytes + 1)] = filter;
+    for (let i = 0; i < rowBytes; i++) {
+      const a = i >= bpp ? raw[y * rowBytes + i - bpp] : 0;
+      const b = y ? raw[(y - 1) * rowBytes + i] : 0;
+      const c = y && i >= bpp ? raw[(y - 1) * rowBytes + i - bpp] : 0;
+      const p = a + b - c;
+      const [pa, pb, pc] = [Math.abs(p - a), Math.abs(p - b), Math.abs(p - c)];
+      const predicted = [0, a, b, (a + b) >> 1, pa <= pb && pa <= pc ? a : pb <= pc ? b : c][filter];
+
+      out[y * (rowBytes + 1) + 1 + i] = (raw[y * rowBytes + i] - predicted) & 255;
+    }
+  }
+
+  return out;
+};
+
+const ihdrOf = bytes => ({ depth: bytes[24], colorType: bytes[25], interlace: bytes[28] });
+
+/** The PNG with the first `type` chunk replaced by `replacements`, or removed. */
+const replaceChunk = (bytes, type, ...replacements) => {
+  const { at, length } = findChunk(bytes, type);
+
+  return new Uint8Array(Buffer.concat([bytes.subarray(0, at), ...replacements, bytes.subarray(at + 12 + length)]));
+};
 
 test('the suite covers every colour type and bit depth, tRNS and interlacing', async () => {
   const seen = new Set();
 
   for (const name of names) {
-    const { depth, colorType, interlace } = ihdr(await file(`${name}.png`));
+    const { depth, colorType, interlace } = ihdrOf(await file(`${name}.png`));
     seen.add(`${colorType}/${depth}`);
     seen.add(`interlace ${interlace}`);
   }
@@ -29,68 +75,134 @@ test('the suite covers every colour type and bit depth, tRNS and interlacing', a
 });
 
 test.each(names)('%s decodes as ImageMagick does', async name => {
-  const bytes = await file(`${name}.png`);
   const expected = await file(`${name}.rgba`);
-  const { pixels, width, height } = await decodePng(bytes);
+  const { pixels, width, height } = await decodePng(await file(`${name}.png`));
 
   expect(width * height * 4).toBe(expected.length);
   expect(Buffer.from(pixels).equals(Buffer.from(expected))).toBe(true);
 });
 
-test('image data split over several IDAT chunks, as libpng writes it, decodes the same', async () => {
-  const png = await file('rgba16-i.png');
-  const { at, length } = findChunk(png, 'IDAT');
-  const data = png.subarray(at + 8, at + 8 + length);
-  const thirds = [0, 1, 2].map(i => data.subarray(Math.floor(i * length / 3), Math.floor((i + 1) * length / 3)));
-  const split = new Uint8Array([...png.subarray(0, at), ...thirds.flatMap(part => [...chunk('IDAT', part)]), ...png.subarray(at + 12 + length)]);
+describe.each([
+  ['RGBA', 6, 8, 4], ['RGB', 2, 8, 3], ['grey', 0, 8, 1], ['grey and alpha', 4, 8, 2], ['16-bit RGBA', 6, 16, 8]
+])('%s noise', (_, colorType, depth, bpp) => {
+  test.each([0, 1, 2, 3, 4])('under filter %i decodes exactly', async filter => {
+    const [width, height] = [11, 7];
+    let seed = filter * 97 + colorType * 13 + depth;
+    const raw = Uint8Array.from({ length: width * height * bpp }, () => (seed = (seed * 1664525 + 1013904223) >>> 0) >>> 24);
+    const sample = (pixel, i) => depth === 16 ?
+      ((((raw[pixel * bpp + i * 2] << 8) | raw[pixel * bpp + i * 2 + 1]) + 128) / 257) | 0 :
+      raw[pixel * bpp + i];
+    const expected = Array.from({ length: width * height }, (_, p) => ({
+      6: [sample(p, 0), sample(p, 1), sample(p, 2), sample(p, 3)],
+      2: [sample(p, 0), sample(p, 1), sample(p, 2), 255],
+      0: [sample(p, 0), sample(p, 0), sample(p, 0), 255],
+      4: [sample(p, 0), sample(p, 0), sample(p, 0), sample(p, 1)]
+    })[colorType]).flat();
 
-  expect((await decodePng(split)).pixels).toEqual((await decodePng(png)).pixels);
+    const { pixels } = await decodePng(png({ width, height, depth, colorType }, filterRows(raw, height, width * bpp, bpp, filter)));
+
+    expect(Array.from(pixels)).toEqual(expected);
+  });
 });
 
-test('semi-transparent pixels keep their colour', async () => {
-  const { pixels } = await decodePng(await file('rgba8.png'));
-  const expected = await file('rgba8.rgba');
-  const partial = [];
+test('image data split over several IDAT chunks, as libpng writes it, decodes the same', async () => {
+  const bytes = await file('rgba16-i.png');
+  const { at, length } = findChunk(bytes, 'IDAT');
+  const data = bytes.subarray(at + 8, at + 8 + length);
+  const thirds = [0, 1, 2].map(i => pngChunk('IDAT', data.subarray(Math.floor(i * length / 3), Math.floor((i + 1) * length / 3))));
 
-  for (let i = 3; i < pixels.length; i += 4) {
-    if (expected[i] > 0 && expected[i] < 64) {
-      partial.push(i);
-    }
-  }
+  expect((await decodePng(replaceChunk(bytes, 'IDAT', ...thirds))).pixels).toEqual((await decodePng(bytes)).pixels);
+});
 
-  // A canvas would premultiply these and lose most of their colour.
-  expect(partial.length).toBeGreaterThan(5);
-  expect(partial.map(i => [...pixels.subarray(i - 3, i + 1)])).toEqual(partial.map(i => [...expected.subarray(i - 3, i + 1)]));
+describe('tRNS', () => {
+  test('a grey key makes the pixels of that value transparent', async () => {
+    const { pixels } = await decodePng(png({ width: 3, height: 1, colorType: 0 }, [0, 19, 20, 19], [pngChunk('tRNS', [0, 19])]));
+
+    expect(Array.from(pixels)).toEqual([19, 19, 19, 0, 20, 20, 20, 255, 19, 19, 19, 0]);
+  });
+
+  test('a 2-bit grey key', async () => {
+    const { pixels } = await decodePng(png({ width: 4, height: 1, depth: 2, colorType: 0 }, [0, 0b00011011], [pngChunk('tRNS', [0, 2])]));
+
+    expect(Array.from(pixels)).toEqual([0, 0, 0, 255, 85, 85, 85, 255, 170, 170, 170, 0, 255, 255, 255, 255]);
+  });
+
+  test('a 16-bit grey key compares all 16 bits, not the rounded value', async () => {
+    // 0x1300 and 0x1301 both round to 19.
+    const { pixels } = await decodePng(png({ width: 2, height: 1, depth: 16, colorType: 0 }, [0, 0x13, 0x00, 0x13, 0x01], [pngChunk('tRNS', [0x13, 0x01])]));
+
+    expect([pixels[3], pixels[7]]).toEqual([255, 0]);
+  });
+
+  test('an RGB key needs all three samples to match', async () => {
+    const { pixels } = await decodePng(png({ width: 2, height: 1, colorType: 2 }, [0, 0, 255, 0, 0, 1, 1], [pngChunk('tRNS', [0, 0, 0, 255, 0, 0])]));
+
+    expect(Array.from(pixels)).toEqual([0, 255, 0, 0, 0, 1, 1, 255]);
+  });
+
+  // libpng ignores these, so browsers show the pixels opaque.
+  test.each([
+    ['too short for grey', 0, [pngChunk('tRNS', [0])]],
+    ['too short for RGB', 2, [pngChunk('tRNS', [0, 0])]],
+    ['empty, on RGB', 2, [pngChunk('tRNS', [])]],
+    ['on RGBA', 6, [pngChunk('tRNS', [0, 0, 0, 0, 0, 0])]],
+    ['longer than the palette', 3, [pngChunk('PLTE', [0, 0, 0]), pngChunk('tRNS', [10, 20])]],
+    ['before the palette', 3, [pngChunk('tRNS', [10]), pngChunk('PLTE', [0, 0, 0])]]
+  ])('one %s is ignored, and gives no alpha', async (_, colorType, chunks) => {
+    const bpp = { 0: 1, 2: 3, 3: 1, 6: 4 }[colorType];
+    const bytes = png({ width: 1, height: 1, colorType }, [0, ...new Array(bpp).fill(0)], chunks);
+
+    expect((await decodePng(bytes)).pixels[3]).toBe(colorType === 6 ? 0 : 255);
+    expect((await readPngHeader(new Blob([bytes]))).alpha).toBe(colorType === 6);
+  });
+});
+
+test('chunks after the image data are not read, nor bytes after IEND, as browsers do', async () => {
+  const truncated = [...pngChunk('tEXt', [0x41, 0, 0x42, 0x43])].slice(0, 9);
+  const rgb = png({ width: 1, height: 1, colorType: 2 }, [0, 1, 2, 3]);
+  const withBrokenText = new Uint8Array([...rgb.subarray(0, rgb.length - 12), ...truncated]);
+
+  expect(Array.from((await decodePng(withBrokenText)).pixels)).toEqual([1, 2, 3, 255]);
+  expect(Array.from((await decodePng(png({ width: 1, height: 1, colorType: 2 }, [0, 1, 2, 3], [], new Array(64).fill(0xab)))).pixels))
+    .toEqual([1, 2, 3, 255]);
+});
+
+test('inflated data past what the image needs is ignored', async () => {
+  const { pixels } = await decodePng(png({ width: 1, height: 1, colorType: 2 }, [0, 1, 2, 3, 9, 9, 9, 9]));
+
+  expect(Array.from(pixels)).toEqual([1, 2, 3, 255]);
 });
 
 describe('readPngHeader', () => {
   test.each([
-    ['rgb8', false], ['rgba8', true], ['ga8', true], ['g8', false], ['gt8', true], ['rgbt8', true],
-    ['p4', false], ['pt8', true], ['pa8', true]
-  ])('%s has alpha: %s', async (name, alpha) => {
-    expect(await readPngHeader(new Blob([await file(`${name}.png`)]))).toMatchObject({ png: true, alpha });
+    ['rgb8', false, 2], ['rgba8', true, 6], ['ga8', true, 4], ['g8', false, 0], ['gt8', true, 0], ['rgbt8', true, 2],
+    ['p4', false, 3], ['pt8', true, 3], ['pa8', true, 3]
+  ])('%s has alpha: %s', async (name, alpha, colorType) => {
+    expect(await readPngHeader(new Blob([await file(`${name}.png`)]))).toEqual({ alpha, colorType, colorChunks: [] });
   });
 
-  test('a JPEG is not a PNG and has no alpha', async () => {
-    expect(await readPngHeader(new Blob([new Uint8Array([0xff, 0xd8, 0xff, 0xe0])]))).toEqual({ png: false, alpha: false, colorChunks: [] });
+  test('a JPEG has no alpha; anything else that is not a PNG might', async () => {
+    expect(await readPngHeader(new Blob([new Uint8Array([0xff, 0xd8, 0xff, 0xe0])]))).toEqual({ alpha: false, colorChunks: [] });
+    expect(await readPngHeader(new Blob(['RIFF....WEBP']))).toEqual({ alpha: true, colorChunks: [] });
   });
 
-  test('keeps the colour chunks, reading past the first 64KB when an ICC profile is that big', async () => {
-    const png = await file('rgb8.png');
+  test('keeps the colour chunks, cICP too, reading past the first 64KB when an ICC profile is that big', async () => {
     const profile = new Uint8Array(100 * 1024).map((_, i) => i);
-    const withProfile = insertChunks(png, [chunk('gAMA', new Uint8Array([0, 0, 0xb1, 0x8f])), chunk('iCCP', profile)]);
+    const bytes = png({ width: 1, height: 1, colorType: 2 }, [0, 0, 0, 0], [
+      pngChunk('gAMA', [0, 0, 0xb1, 0x8f]), pngChunk('cICP', [12, 13, 0, 1]), pngChunk('tEXt', [0x41, 0, 0x42]), pngChunk('iCCP', profile)
+    ]);
 
-    const header = await readPngHeader(new Blob([withProfile]));
+    const header = await readPngHeader(new Blob([bytes]));
 
-    expect(header.alpha).toBe(false);
-    expect(header.colorChunks.map(({ type, data }) => [type, data.length])).toEqual([['gAMA', 4], ['iCCP', profile.length]]);
-    expect(header.colorChunks[1].data).toEqual(profile);
+    expect(header.colorChunks.map(({ type, data }) => [type, data.length])).toEqual([['gAMA', 4], ['cICP', 4], ['iCCP', profile.length]]);
+    expect(header.colorChunks[2].data).toEqual(profile);
   });
 
-  test('a PNG with no image data is refused', async () => {
-    const png = await file('rgb8.png');
-
-    await expect(readPngHeader(new Blob([png.subarray(0, 33)]))).rejects.toThrow('no image data');
+  test.each([
+    ['no image data', bytes => bytes.subarray(0, 33), 'no image data'],
+    ['no IHDR', bytes => replaceChunk(bytes, 'IHDR'), 'no IHDR']
+  ])('a PNG with %s is refused', async (_, edit, message) => {
+    await expect(readPngHeader(new Blob([edit(await file('rgb8.png'))]))).rejects.toThrow(message);
   });
 });
 
@@ -113,96 +225,61 @@ describe('decodePng refuses', () => {
   });
 
   test.each([['IHDR', 'no IHDR'], ['IDAT', 'no image data']])('a PNG with no %s chunk', async (type, message) => {
-    const png = await file('rgb8.png');
-    const { at, length } = findChunk(png, type);
+    await expect(decodePng(replaceChunk(await file('rgb8.png'), type))).rejects.toThrow(message);
+  });
 
-    await expect(decodePng(new Uint8Array([...png.subarray(0, at), ...png.subarray(at + 12 + length)]))).rejects.toThrow(message);
+  test('more pixels than it decodes, before allocating them', async () => {
+    const huge = png({ width: 100000, height: 100000, colorType: 6 }, [0]);
+
+    expect(100000 * 100000).toBeGreaterThan(MAX_PIXELS);
+    await expect(decodePng(huge)).rejects.toThrow('100000x100000, more than the');
   });
 
   test('a chunk that runs past the end', async () => {
-    const png = await file('rgb8.png');
+    const bytes = await file('rgb8.png');
 
-    await expect(decodePng(png.subarray(0, png.length - 20))).rejects.toThrow('runs past its end');
+    await expect(decodePng(bytes.subarray(0, bytes.length - 20))).rejects.toThrow('runs past its end');
   });
 
   test('image data that inflates short', async () => {
-    const png = await file('rgb8.png');
-    const short = insertChunks(png.subarray(0, 33), [chunk('IDAT', new Uint8Array([0x78, 0x9c, 0x63, 0, 0, 0, 1, 0, 1])), chunk('IEND', new Uint8Array())], 33);
+    await expect(decodePng(png({ width: 13, height: 9, colorType: 2 }, [0, 0, 0]))).rejects.toThrow('too short');
+  });
 
-    await expect(decodePng(short)).rejects.toThrow('too short');
+  test('image data that will not inflate, saying so', async () => {
+    const bytes = png({ width: 1, height: 1, colorType: 2 }, [0, 1, 2, 3]);
+    const corrupt = replaceChunk(bytes, 'IDAT', pngChunk('IDAT', [0x78, 0x9c, 0xff, 0xff, 0xff, 0xff]));
+
+    await expect(decodePng(corrupt)).rejects.toThrow("The PNG's image data won't inflate");
   });
 
   test('a palette colour type with no palette', async () => {
-    const png = await file('p4.png');
-    const { at, length } = findChunk(png, 'PLTE');
-    const noPalette = new Uint8Array([...png.subarray(0, at), ...png.subarray(at + 12 + length)]);
-
-    await expect(decodePng(noPalette)).rejects.toThrow('no palette');
+    await expect(decodePng(replaceChunk(await file('p4.png'), 'PLTE'))).rejects.toThrow('no palette');
   });
 
   test('a pixel past the end of the palette', async () => {
-    const png = await file('p4.png');
-    const { at, length } = findChunk(png, 'PLTE');
-    // Keep only the first colour.
-    const shortPalette = new Uint8Array([...png.subarray(0, at), ...chunk('PLTE', png.subarray(at + 8, at + 11)), ...png.subarray(at + 12 + length)]);
+    const bytes = await file('p4.png');
+    const { at, length } = findChunk(bytes, 'PLTE');
 
     expect(length).toBeGreaterThan(3);
-    await expect(decodePng(shortPalette)).rejects.toThrow('of a palette of 1');
+    await expect(decodePng(replaceChunk(bytes, 'PLTE', pngChunk('PLTE', bytes.subarray(at + 8, at + 11)))))
+      .rejects.toThrow('of a palette of 1');
   });
 
   test('a row with an unknown filter', async () => {
-    const zlib = await import('node:zlib');
-    const png = await file('g8.png');
-    // 13x9 grey: rows of 1 filter byte + 13 samples; the first row's filter is 5.
-    const rows = new Uint8Array(9 * 14);
-    rows[0] = 5;
-    const bad = insertChunks(png.subarray(0, 33), [chunk('IDAT', zlib.deflateSync(rows)), chunk('IEND', new Uint8Array())], 33);
-
-    await expect(decodePng(bad)).rejects.toThrow('unknown filter, 5');
+    await expect(decodePng(png({ width: 2, height: 1, colorType: 0 }, [5, 0, 0]))).rejects.toThrow('unknown filter, 5');
   });
 });
 
 test('isPng', () => {
-  expect(isPng(new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0]))).toBe(true);
+  expect(isPng(new Uint8Array([...SIGNATURE, 0]))).toBe(true);
   expect(isPng(new Uint8Array([0xff, 0xd8, 0xff]))).toBe(false);
 });
 
-/** A whole chunk: length, type, data and CRC. */
-function chunk(type, data) {
-  const bytes = new Uint8Array(12 + data.length);
-  const view = new DataView(bytes.buffer);
+function findChunk(bytes, type) {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.length);
 
-  view.setUint32(0, data.length);
-  bytes.set([...type].map(char => char.charCodeAt(0)), 4);
-  bytes.set(data, 8);
-  view.setUint32(8 + data.length, crc(bytes.subarray(4, 8 + data.length)));
-
-  return bytes;
-}
-
-function crc(bytes) {
-  let value = ~0;
-
-  for (const byte of bytes) {
-    value ^= byte;
-    for (let k = 0; k < 8; k++) {
-      value = value & 1 ? 0xedb88320 ^ (value >>> 1) : value >>> 1;
-    }
-  }
-
-  return ~value >>> 0;
-}
-
-/** The PNG with `chunks` inserted at `at`, right after IHDR by default. */
-function insertChunks(png, chunks, at = 33) {
-  return new Uint8Array([...png.subarray(0, at), ...chunks.flatMap(part => [...part]), ...png.subarray(at)]);
-}
-
-function findChunk(png, type) {
-  const view = new DataView(png.buffer, png.byteOffset, png.length);
-
-  for (let at = 8; at < png.length; at += 12 + view.getUint32(at)) {
-    if (String.fromCharCode(...png.subarray(at + 4, at + 8)) === type) {
+  for (let at = 8; at < bytes.length; at += 12 + view.getUint32(at)) {
+    if (String.fromCharCode(...bytes.subarray(at + 4, at + 8)) === type) {
       return { at, length: view.getUint32(at) };
     }
   }

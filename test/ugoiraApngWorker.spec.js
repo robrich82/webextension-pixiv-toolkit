@@ -53,6 +53,7 @@ beforeEach(async () => {
   vi.stubGlobal('createImageBitmap', vi.fn(async image => bitmaps.get(image)));
   vi.stubGlobal('reportError', vi.fn());
   vi.spyOn(console, 'error').mockImplementation(() => {});
+  vi.spyOn(console, 'warn').mockImplementation(() => {});
   vi.resetModules();
   await import('@/options_page/modules/UgoiraEncoders/apng.worker.js');
 });
@@ -75,7 +76,7 @@ test('the first frame is the whole image, and its buffer is handed over', async 
 
   await worker.onmessage({ data: { index: 0, image, previous: null, alpha: false } });
 
-  expect(createImageBitmap).toHaveBeenCalledWith(image);
+  expect(createImageBitmap).toHaveBeenCalledWith(image, { colorSpaceConversion: 'default' });
   expect(FakeCanvas.log).toEqual([
     ['canvas', 3, 2],
     ['getContext', '2d', { willReadFrequently: true }],
@@ -132,20 +133,61 @@ test("a frame whose previous won't decode is encoded whole, leaving the error to
 
   const [[{ index, result }]] = worker.postMessage.mock.calls;
   expect(index).toBe(1);
+  expect(console.warn).toHaveBeenCalledWith('APNG frame', 2, 'is stored whole: the frame before it would not decode', expect.any(TypeError));
   expect(result).toMatchObject({ x: 0, y: 0, width: 4, height: 3 });
 });
 
-test('a PNG frame is decoded exactly, semi-transparent pixels and all, without the canvas', async () => {
-  const pixels = new Uint8Array([200, 100, 50, 3, 10, 20, 30, 255, 0, 0, 0, 0, 255, 1, 2, 128]);
-  const encoded = await encodeApngFrame({ pixels, previous: null, width: 2, height: 2, alpha: true });
-  const png = new Blob([muxApng({ width: 2, height: 2, alpha: true, frames: [{ ...encoded, delay: 100 }] })]);
+/** A PNG of RGBA `pixels`, as png.js reads it. */
+const pngOf = async (pixels, width, height) => {
+  const encoded = await encodeApngFrame({ pixels, previous: null, width, height, alpha: true });
 
-  await worker.onmessage({ data: { index: 0, image: png, previous: null, alpha: true } });
+  return new Blob([muxApng({ width, height, alpha: true, frames: [{ ...encoded, delay: 100 }] })]);
+};
+
+test('with exact, a PNG frame is decoded exactly, semi-transparent pixels and all, without the canvas', async () => {
+  const pixels = new Uint8Array([200, 100, 50, 3, 10, 20, 30, 255, 0, 0, 0, 0, 255, 1, 2, 128]);
+
+  await worker.onmessage({ data: { index: 0, image: await pngOf(pixels, 2, 2), previous: null, alpha: true, exact: true } });
 
   expect(createImageBitmap).not.toHaveBeenCalled();
   const [[{ result }]] = worker.postMessage.mock.calls;
   const apng = probeApng(muxApng({ width: 2, height: 2, alpha: true, frames: [{ ...result, delay: 100 }] }));
   expect(Array.from(apng.frames[0].rgba)).toEqual(Array.from(pixels));
+});
+
+test('with exact, the PNG frame before is decoded by png.js too, so only what changed is stored', async () => {
+  const before = new Uint8Array([200, 100, 50, 3, 10, 20, 30, 255, 0, 0, 0, 0, 255, 1, 2, 128]);
+  const now = before.slice();
+  now.set([9, 9, 9, 255], 8);
+
+  await worker.onmessage({ data: { index: 1, image: await pngOf(now, 2, 2), previous: await pngOf(before, 2, 2), alpha: true, exact: true } });
+
+  expect(createImageBitmap).not.toHaveBeenCalled();
+  const [[{ result }]] = worker.postMessage.mock.calls;
+  expect(result).toMatchObject({ x: 0, y: 1, width: 1, height: 1 });
+});
+
+test('without exact, a PNG frame goes through the browser, colours converted', async () => {
+  const image = await pngOf(new Uint8Array([1, 2, 3, 255]), 1, 1);
+  bitmaps.set(image, bitmap('png', 1, 1, [1, 2, 3, 255]));
+
+  await worker.onmessage({ data: { index: 0, image, previous: null, alpha: true, exact: false } });
+
+  expect(createImageBitmap).toHaveBeenCalledWith(image, { colorSpaceConversion: 'default' });
+});
+
+test("a PNG png.js won't take goes through the browser with its colours as stored, and says so", async () => {
+  // A PNG whose image data is cut short.
+  const bytes = new Uint8Array(await (await pngOf(new Uint8Array(16).fill(7), 2, 2)).arrayBuffer());
+  const image = new Blob([bytes.subarray(0, 33), bytes.subarray(bytes.length - 12)]);
+  bitmaps.set(image, bitmap('broken', 2, 2, [7, 7, 7, 7]));
+
+  await worker.onmessage({ data: { index: 0, image, previous: null, alpha: true, exact: true } });
+
+  expect(createImageBitmap).toHaveBeenCalledWith(image, { colorSpaceConversion: 'none' });
+  expect(console.warn).toHaveBeenCalledWith('png.js could not decode an APNG frame, so the browser decodes it', expect.any(Error));
+  const [[{ result }]] = worker.postMessage.mock.calls;
+  expect(result).toMatchObject({ width: 2, height: 2 });
 });
 
 test('a frame that fails answers with the error, naming its kind, and logs it', async () => {
@@ -155,7 +197,7 @@ test('a frame that fails answers with the error, naming its kind, and logs it', 
   await worker.onmessage({ data: { index: 2, image: new Blob(['not an image']), previous: null, alpha: false } });
 
   expect(worker.postMessage).toHaveBeenCalledWith({ index: 2, error: 'EncodingError: The source image cannot be decoded.' });
-  expect(console.error).toHaveBeenCalledWith('Could not encode APNG frame', 2, error);
+  expect(console.error).toHaveBeenCalledWith('Could not encode APNG frame', 3, error);
 });
 
 test('a message that is not a frame answers with an error rather than nothing', async () => {

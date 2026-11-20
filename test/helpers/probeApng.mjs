@@ -218,3 +218,19 @@ export async function zipFrames(zip) {
   return Promise.all(Object.values(frames.files).map(async file =>
     Array.from(probeApng(await file.async('uint8array')).frames[0].rgba)));
 }
+
+/**
+ * @param {string} type
+ * @param {ArrayLike<number>} data
+ * @returns {Buffer} A whole PNG chunk: length, type, data and CRC
+ */
+export function pngChunk(type, data) {
+  const bytes = Buffer.alloc(12 + data.length);
+
+  bytes.writeUInt32BE(data.length);
+  bytes.write(type, 4, 'latin1');
+  Buffer.from(data).copy(bytes, 8);
+  bytes.writeUInt32BE(zlib.crc32(bytes.subarray(4, 8 + data.length)), 8 + data.length);
+
+  return bytes;
+}

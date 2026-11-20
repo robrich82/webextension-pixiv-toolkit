@@ -147,8 +147,8 @@ async function decodeMedia(context, file, mime) {
 
 /**
  * Decode every frame of an APNG with Chrome's own decoder, as it shows once drawn.
- * @returns {Promise<number[][]>} Each frame's RGBA. Chrome premultiplies the frames of an APNG
- *   despite `premultiplyAlpha: 'none'`, so semi-transparent pixels' colours are approximate.
+ * @returns {Promise<number[][]>} Each frame's RGBA. Chrome premultiplies an APNG's frames internally
+ *   despite `premultiplyAlpha: 'none'`, so semi-transparent pixels' colours come back rounded.
  */
 async function decodeApngFrames(context, serviceWorker, file) {
   const page = await context.newPage();

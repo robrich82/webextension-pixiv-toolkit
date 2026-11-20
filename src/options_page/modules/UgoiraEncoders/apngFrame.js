@@ -1,6 +1,5 @@
 import { MIN_IMAGE_DELAY, frameDelay } from './delay';
-
-const SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+import { SIGNATURE } from './png';
 
 /** fcTL's dispose op: leave the frame where it is for the next one to draw over. */
 const DISPOSE_NONE = 0;
@@ -273,7 +272,7 @@ function chunk(type, length, write) {
  * @param {number} options.width
  * @param {number} options.height
  * @param {boolean} options.alpha As every frame was encoded
- * @param {{ type: string, data: Uint8Array }[]} [options.colorChunks] cHRM, gAMA, iCCP or sRGB, as the frames had them
+ * @param {{ type: string, data: Uint8Array }[]} [options.colorChunks] cHRM, gAMA, iCCP or sRGB, as every frame had them
  * @param {{ x: number, y: number, width: number, height: number, data: Uint8Array, delay: number }[]} options.frames
  *   In order, the first one the whole image; `delay` in ms
  * @returns {Uint8Array}
