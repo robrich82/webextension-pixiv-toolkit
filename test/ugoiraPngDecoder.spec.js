@@ -192,24 +192,67 @@ describe('image data', () => {
   const zlibOf = rows => zlib.deflateSync(Uint8Array.from(rows));
   /**
    * A DecompressionStream that refuses its input, as the browsers' does bytes after the zlib stream,
-   * and refuses no input at all when it ends.
+   * and also on flush, so empty input is refused too.
    */
-  const refusing = () => vi.stubGlobal('DecompressionStream', class {
+  const refusing = (error = new TypeError('Junk found after end of compressed data.')) => vi.stubGlobal('DecompressionStream', class {
     constructor() {
-      const refuse = () => { throw new TypeError('Junk found after end of compressed data.'); };
+      const refuse = () => { throw error; };
 
       return new TransformStream({ transform: refuse, flush: refuse });
     }
   });
-  const debug = () => vi.spyOn(console, 'debug').mockImplementation(() => {});
 
-  afterEach(() => {
-    vi.unstubAllGlobals();
-    vi.restoreAllMocks();
-  });
+  afterEach(() => vi.unstubAllGlobals());
 
   test('bytes after the zlib stream are ignored', async () => {
-    expect(Array.from((await decodePng(withIdat(zlibOf([0, 1, 2, 3]), [1, 2, 3, 4]))).pixels)).toEqual([1, 2, 3, 255]);
+    const decoded = await decodePng(withIdat(zlibOf([0, 1, 2, 3]), [1, 2, 3, 4]));
+
+    expect(Array.from(decoded.pixels)).toEqual([1, 2, 3, 255]);
+    expect(decoded).not.toHaveProperty('refused');
+  });
+
+  test('an image that fills over many of fflate\'s outputs inflates whole', async () => {
+    const [width, height] = [100, 100];
+    let seed = 7;
+    const raw = Uint8Array.from({ length: width * height * 4 }, () => (seed = (seed * 1664525 + 1013904223) >>> 0) >>> 24);
+    const rows = Array.from({ length: height }, (_, y) => [0, ...raw.subarray(y * width * 4, (y + 1) * width * 4)]).flat();
+    const bytes = replaceChunk(png({ width, height, colorType: 6 }, rows), 'IDAT',
+      pngChunk('IDAT', zlib.deflateSync(Buffer.concat([Buffer.from(rows), Buffer.alloc(20000, 5)]))));
+
+    refusing();
+
+    expect(Array.from((await decodePng(bytes)).pixels)).toEqual(Array.from(raw));
+  });
+
+  test('a RangeError, such as running out of memory, is not blamed on the image data', async () => {
+    const error = new RangeError('Array buffer allocation failed');
+
+    refusing(error);
+
+    await expect(decodePng(rgb)).rejects.toBe(error);
+  });
+
+  test('a refusal that is not an Error still names why the browser refused', async () => {
+    refusing('out of memory');
+
+    expect((await decodePng(rgb)).refused).toBe('out of memory');
+  });
+
+  test.each([
+    ['an unknown filter', withIdat(zlibOf([9, 1, 2, 3])), 'The PNG has a row with an unknown filter, 9'],
+    ['a palette index past the palette', replaceChunk(png({ width: 1, height: 1, colorType: 3 }, [0, 5], [pngChunk('PLTE', [1, 2, 3])]),
+      'IDAT', pngChunk('IDAT', zlibOf([0, 5]).subarray(0, -4))), 'The PNG uses colour 5 of a palette of 1']
+  ])('when image data fflate inflated has %s, the error says why the browser refused it', async (_, bytes, message) => {
+    refusing();
+
+    const error = await decodePng(bytes).catch(e => e);
+
+    expect(error.message).toBe(`${message} (fflate inflated the image data, as the browser refused it: Junk found after end of compressed data.)`);
+    expect(error.cause.message).toBe(message);
+  });
+
+  test('when the browser inflated the image data, an error in it is not about inflating', async () => {
+    await expect(decodePng(withIdat(zlibOf([9, 1, 2, 3])))).rejects.toThrow(/^The PNG has a row with an unknown filter, 9$/);
   });
 
   test.each([
@@ -218,14 +261,12 @@ describe('image data', () => {
     ['more than the image needs', withIdat(zlibOf([0, 1, 2, 3, 9, 9, 9, 9]))],
     ['a stored block holding more than the image needs', withIdat(zlib.deflateSync(Uint8Array.from([0, 1, 2, 3, 9, 9, 9, 9]), { level: 0 }))],
     ['a stream with no final block', withIdat(zlib.deflateSync(Uint8Array.from([0, 1, 2, 3]), { finishFlush: zlib.constants.Z_SYNC_FLUSH }))]
-  ])('when the browser refuses them, fflate inflates %s, and the console says why', async (_, bytes) => {
+  ])('when the browser refuses them, fflate inflates %s, saying why the browser refused', async (_, bytes) => {
     refusing();
-    const log = debug();
 
-    expect(Array.from((await decodePng(bytes)).pixels)).toEqual([1, 2, 3, 255]);
-    expect(log).toHaveBeenCalledExactlyOnceWith(
-      'PNG: inflated the image data with fflate, as the browser refused it: Junk found after end of compressed data.'
-    );
+    expect(await decodePng(bytes)).toEqual({
+      pixels: Uint8Array.from([1, 2, 3, 255]), width: 1, height: 1, refused: 'Junk found after end of compressed data.'
+    });
   });
 
   test('image data split over several IDAT chunks, the zlib header too, inflates whole through fflate', async () => {
@@ -238,7 +279,6 @@ describe('image data', () => {
       ...cuts.slice(1).map((end, i) => pngChunk('IDAT', stream.subarray(cuts[i], end))));
 
     refusing();
-    debug();
 
     expect(Array.from((await decodePng(bytes)).pixels)).toEqual(Array.from(raw));
   });

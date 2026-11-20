@@ -12,18 +12,21 @@ const sameChunks = (a, b) => a.length === b.length && a.every(({ type, data }, i
 const isSrgb = ({ type, data }) => type === 'sRGB' && data.length === 1 && data[0] <= 3;
 
 /**
- * A frame's colour chunks, none when they say sRGB: sRGB overrides gAMA and cHRM, and an untagged
- * frame is read as sRGB anyway. iCCP and cICP override sRGB, so a frame with either keeps them all.
+ * A frame's colour chunks without any invalid sRGB, and none when they say sRGB: sRGB overrides
+ * gAMA and cHRM, and an untagged frame is read as sRGB anyway. iCCP and cICP override sRGB, so a
+ * frame with either keeps them all.
  */
 function effectiveColorChunks(colorChunks) {
-  const types = colorChunks.map(({ type }) => type);
+  const valid = colorChunks.filter(chunk => chunk.type !== 'sRGB' || isSrgb(chunk));
+  const types = valid.map(({ type }) => type);
 
-  return colorChunks.some(isSrgb) && !types.includes('iCCP') && !types.includes('cICP') ? [] : colorChunks;
+  return types.includes('sRGB') && !types.includes('iCCP') && !types.includes('cICP') ? [] : valid;
 }
 
 /**
- * The colour chunks of frames that agree, or for frames that count as untagged, an sRGB chunk when
- * one had it: by default Firefox colour-manages only tagged images.
+ * Frame 1's effective colour chunks, which colorMismatch has found every frame agrees on. When there
+ * are none, the first valid sRGB chunk any frame had: Firefox's default colour management leaves
+ * untagged images alone.
  */
 function carriedColorChunks(headers) {
   const chunks = effectiveColorChunks(headers[0].colorChunks);

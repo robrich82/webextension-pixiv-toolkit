@@ -386,6 +386,28 @@ describe('encodeApng', () => {
     expect(exact).toEqual([true]);
   });
 
+  test('intent 3, the last there is, counts as sRGB', async () => {
+    const intent = pngChunk('sRGB', [3]);
+    const { data, apng, exact } = await encode([image(busy(4, 3), 4, 3, 2, [intent, gamma]), image(busy(4, 3), 4, 3, 2)]);
+
+    expect(colorChunksOf(apng)).toEqual(['sRGB']);
+    expect(Buffer.from(data).includes(intent)).toBe(true);
+    expect(exact).toEqual([true]);
+  });
+
+  test.each([
+    ['beside an untagged frame', [[2, [pngChunk('sRGB', [4])]], [2, []]]],
+    ['beside a JPEG', [['jpeg', []], [2, [pngChunk('sRGB', [0, 0])]]]],
+    ['beside the same ICC profile', [[2, [profile, pngChunk('sRGB', [9])]], [2, [profile]]]]
+  ])('an invalid sRGB chunk is ignored, as libpng ignores it: %s the frames stay exact', async (_, kinds) => {
+    const info = vi.spyOn(console, 'info').mockImplementation(() => {});
+    const { apng, exact } = await encode(kinds.map(([colorType, chunks]) => image(busy(4, 3), 4, 3, colorType, chunks)));
+
+    expect(exact).toEqual([true]);
+    expect(colorChunksOf(apng)).not.toContain('sRGB');
+    expect(info).not.toHaveBeenCalled();
+  });
+
   test.each([
     ['two bytes long', [0, 0]],
     ['an unknown intent', [4]]

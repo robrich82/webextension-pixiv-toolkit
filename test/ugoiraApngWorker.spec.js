@@ -212,6 +212,30 @@ test("a PNG png.js won't take goes through the browser with its colours as store
   expect(Array.from(apng.frames[0].rgba)).toEqual(Array.from(bitmap('now', 2, 2, [7, 6, 5, 4]).pixels));
 });
 
+test('a PNG fflate inflates for png.js is logged once, with its frame number and the browser\'s reason', async () => {
+  const junkAfter = pixel => new Blob([new Uint8Array(Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    pngChunk('IHDR', [0, 0, 0, 1, 0, 0, 0, 1, 8, 6, 0, 0, 0]),
+    pngChunk('IDAT', Buffer.concat([zlib.deflateSync(Buffer.from([0, ...pixel])), Buffer.from([1, 2, 3, 4])])),
+    pngChunk('IEND', [])
+  ]))]);
+  vi.stubGlobal('DecompressionStream', class {
+    constructor() {
+      return new TransformStream({ transform() { throw new TypeError('Junk found after end of compressed data.'); } });
+    }
+  });
+  vi.spyOn(console, 'info').mockImplementation(() => {});
+
+  await worker.onmessage({ data: { index: 3, image: junkAfter([9, 9, 9, 128]), previous: junkAfter([1, 2, 3, 4]), alpha: true, exact: true } });
+
+  expect(createImageBitmap).not.toHaveBeenCalled();
+  // The previous frame's own job logs it.
+  expect(console.info).toHaveBeenCalledExactlyOnceWith('APNG frame', 4, 'was inflated with fflate, as the browser refused its image data:',
+    'Junk found after end of compressed data.');
+  const [[{ result }]] = worker.postMessage.mock.calls;
+  expect(zlib.inflateSync(result.data).subarray(1)).toEqual(Buffer.from([9, 9, 9, 128]));
+});
+
 test("when the browser can't decode a PNG png.js refused either, the error gives both reasons", async () => {
   createImageBitmap.mockRejectedValueOnce(new DOMException('The source image could not be decoded.', 'InvalidStateError'));
 

@@ -25,8 +25,6 @@ test('stops pushing once the image is filled, and never pushes as final', async 
       return new TransformStream({ transform() { throw new TypeError('Junk'); } });
     }
   });
-  vi.spyOn(console, 'debug').mockImplementation(() => {});
-
   let seed = 1;
   const noise = Uint8Array.from({ length: 100 * 1024 }, () => (seed = (seed * 1664525 + 1013904223) >>> 0) >>> 24);
   const stream = zlib.deflateSync(Buffer.concat([Buffer.from([0, 1, 2, 3]), noise]));
@@ -37,10 +35,10 @@ test('stops pushing once the image is filled, and never pushes as final', async 
 
   expect(stream.length).toBeGreaterThan(5 * 16 * 1024);
   expect(Array.from((await decodePng(bytes)).pixels)).toEqual([1, 2, 3, 255]);
-  // fflate holds output back until it has input to spare, so the first push may give nothing.
+  // zlib stores noise in blocks of 16383 bytes plus a 5-byte header, one more than a 16 KB push, and
+  // fflate gives nothing of a block until it is all in, so the first push may give nothing.
   expect(pushes.length).toBeLessThanOrEqual(2);
   expect(pushes.every(push => push.length === 16 * 1024 && !push.final)).toBe(true);
 
   vi.unstubAllGlobals();
-  vi.restoreAllMocks();
 });

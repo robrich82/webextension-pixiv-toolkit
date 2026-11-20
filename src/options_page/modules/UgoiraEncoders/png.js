@@ -1,7 +1,7 @@
 /**
  * A PNG decoder for the APNG worker. A canvas would premultiply alpha and lose semi-transparent
  * pixels' colour, so when the APNG keeps the frames' colours, PNG frames are read here instead.
- * apng.js also reads the frames' headers with readPngHeader, on the page.
+ * apng.js also uses readPngHeader, on the page.
  */
 
 import { Inflate } from 'fflate';
@@ -82,7 +82,7 @@ function validTransparency(ihdr, data, palette) {
 }
 
 /**
- * Reads chunks after libpng's rules: a second PLTE is an error, the first valid tRNS counts and
+ * Reads chunks by libpng's rules: a second PLTE is an error, the first valid tRNS counts and
  * colour chunks count only before PLTE. Unlike libpng it takes the first of several IHDRs.
  * @param {Uint8Array} bytes A PNG
  * @param {(type: string, found: { idat: Uint8Array[] }) => boolean} until Whether to stop at a chunk
@@ -168,30 +168,34 @@ function scanHeader(bytes) {
 /**
  * @param {Uint8Array[]} parts One zlib stream, split up as the IDAT chunks were
  * @param {number} length How many bytes the image needs; inflating stops there
- * @returns {Promise<Uint8Array>} Up to `length` bytes
+ * @returns {Promise<{ data: Uint8Array, refused?: string }>} Up to `length` bytes, and when fflate
+ *   inflated them, why the browser refused to
  */
 async function inflate(parts, length) {
   try {
-    return await inflateNatively(parts, length);
+    return { data: await inflateNatively(parts, length) };
   } catch (error) {
+    // An allocation failing is no fault of the image data, and fflate would need the memory too.
+    if (error instanceof RangeError) {
+      throw error;
+    }
+
     // The browsers' DecompressionStream refuses bytes after the zlib stream, a bad or missing
-    // checksum and a stream with no final block, dropping output it hasn't handed over yet. libpng
-    // stops reading once the image is filled, so it takes all of these, and so does fflate here.
-    const reason = error.message || error.name;
-    let out;
+    // checksum and a stream with no final block, dropping output it hasn't handed over yet.
+    // libpng stops once the image is filled; fflate here stops between 16 KB pushes.
+    const refused = error?.message || error?.name || String(error);
+    let data;
 
     try {
-      out = inflateLeniently(new Uint8Array(await new Blob(parts).arrayBuffer()), length);
+      data = inflateLeniently(new Uint8Array(await new Blob(parts).arrayBuffer()), length);
     } catch (fallbackError) {
-      throw new Error(`The PNG's image data won't inflate: ${reason} (fflate: ${fallbackError.message})`, { cause: error });
+      throw new Error(`The PNG's image data won't inflate: ${refused} (fflate: ${fallbackError.message})`, { cause: error });
     }
-    if (out.length < length) {
-      throw new Error(`The PNG's image data won't inflate: ${reason} (fflate: ${out.length} of ${length} bytes)`, { cause: error });
+    if (data.length < length) {
+      throw new Error(`The PNG's image data won't inflate: ${refused} (fflate: ${data.length} of ${length} bytes)`, { cause: error });
     }
 
-    console.debug(`PNG: inflated the image data with fflate, as the browser refused it: ${reason}`);
-
-    return out;
+    return { data, refused };
   }
 }
 
@@ -199,10 +203,13 @@ async function inflate(parts, length) {
 const PUSH_BYTES = 16 * 1024;
 
 /**
- * inflate() through fflate, pushing a bit at a time until the image is filled, so neither what
- * comes after that nor how the stream ends matters, and a stream that inflates to far more than
- * the image needs stops early.
+ * Inflates a zlib stream through fflate in 16 KB pushes, stopping once `length` bytes are out.
+ * Bytes after a final block, a bad or missing checksum and a missing final block never matter.
+ * Bytes fflate reads as more deflate data (corrupt data after the image's, or junk after a stream
+ * with no final block) throw only when they share the push that fills the image, as fflate throws
+ * before handing over that push's output.
  * @param {Uint8Array} data A zlib stream
+ * @param {number} length How many bytes the image needs
  * @returns {Uint8Array} Up to `length` bytes
  */
 function inflateLeniently(data, length) {
@@ -330,7 +337,8 @@ function unfilter(data, rows, rowBytes, bpp, at) {
  * Decodes a PNG to 8-bit RGBA without touching its colours: no premultiplying and no colour
  * management. 16-bit samples round to 8 bits. Chunks after the image data are not read.
  * @param {Uint8Array} bytes
- * @returns {Promise<{ pixels: Uint8Array, width: number, height: number }>}
+ * @returns {Promise<{ pixels: Uint8Array, width: number, height: number, refused?: string }>}
+ *   `refused`: why the browser refused the image data, when fflate inflated it instead
  */
 export async function decodePng(bytes) {
   if (!isPng(bytes)) {
@@ -369,13 +377,27 @@ export async function decodePng(bytes) {
     return { x0, y0, dx, dy, passWidth, passHeight, rowBytes: Math.ceil(passWidth * bitsPerPixel / 8) };
   }).filter(pass => pass.passWidth && pass.passHeight);
   const length = passes.reduce((sum, pass) => sum + pass.passHeight * (pass.rowBytes + 1), 0);
-  const data = await inflate(idat, length);
+  const { data, refused } = await inflate(idat, length);
 
   if (data.length < length) {
     throw new Error('The PNG\'s image data is too short');
   }
 
   const pixels = new Uint8Array(width * height * 4);
+
+  try {
+    writePasses(data, passes, { width, bpp, colorType, depth, palette, transparency, pixels });
+  } catch (error) {
+    // The browser's refusal may be the better clue to what broke the image data.
+    throw refused ? new Error(`${error.message} (fflate inflated the image data, as the browser refused it: ${refused})`,
+      { cause: error }) : error;
+  }
+
+  return refused ? { pixels, width, height, refused } : { pixels, width, height };
+}
+
+/** Unfilters each pass's rows of inflated image data and writes them into `pixels` as RGBA. */
+function writePasses(data, passes, { width, bpp, colorType, depth, palette, transparency, pixels }) {
   const writePixel = pixelWriter({ colorType, depth, palette, transparency, pixels });
   let at = 0;
 
@@ -405,8 +427,6 @@ export async function decodePng(bytes) {
 
     at += passHeight * (rowBytes + 1);
   }
-
-  return { pixels, width, height };
 }
 
 /** @returns {(rows: Uint8Array, row: number, index: number) => number} The `index`th sample of a row, as stored */

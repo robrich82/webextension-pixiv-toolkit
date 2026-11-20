@@ -23,13 +23,17 @@ async function decodeInBrowser(image, colorSpaceConversion) {
  * browser converted to sRGB.
  * @param {Blob} image
  * @param {boolean} exact
- * @param {number} [frame] The 1-based frame number to warn with when png.js refuses it; none, no warning
- * @returns {Promise<{ pixels: Uint8ClampedArray|Uint8Array, width: number, height: number }>} Its RGBA pixels
+ * @param {number} [frame] The 1-based frame number to log with when png.js refuses it or fflate
+ *   inflates it; none, no logging
+ * @returns {Promise<{ pixels: Uint8ClampedArray|Uint8Array, width: number, height: number, refused?: string }>}
+ *   Its RGBA pixels, and when fflate inflated a PNG's image data, why the browser refused to
  */
 async function decode(image, exact, frame) {
   if (exact && isPng(new Uint8Array(await image.slice(0, 8).arrayBuffer()))) {
+    let decoded;
+
     try {
-      return await decodePng(new Uint8Array(await image.arrayBuffer()));
+      decoded = await decodePng(new Uint8Array(await image.arrayBuffer()));
     } catch (pngError) {
       if (frame) {
         console.warn('png.js could not decode APNG frame', frame, 'so the browser decodes it', pngError);
@@ -40,6 +44,12 @@ async function decode(image, exact, frame) {
           { cause: error });
       });
     }
+
+    if (frame && decoded.refused) {
+      console.info('APNG frame', frame, 'was inflated with fflate, as the browser refused its image data:', decoded.refused);
+    }
+
+    return decoded;
   }
 
   return decodeInBrowser(image, 'default');

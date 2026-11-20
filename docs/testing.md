@@ -207,9 +207,10 @@ APNG works the same way: `test/ugoiraApngEncoder.spec.js` runs the real filters,
 `test/ugoiraPngDecoder.spec.js` checks `png.js`, the worker's PNG frame decoder, against
 `test/fixtures/png/decoder-suite.zip`. The zip holds ImageMagick-written PNGs in every colour type
 and bit depth, with and without tRNS and interlacing, each beside ImageMagick's RGBA decode of it.
-Node's `DecompressionStream` hands over all the output before refusing bytes after the zlib stream,
-and png.js has stopped reading by then, so the spec stubs a refusing one to reach the fflate
-fallback. `test/ugoiraPngInflateBound.spec.js` mocks fflate to count what the fallback pushes.
+Node's `DecompressionStream` hands over all the output before refusing bytes after the zlib
+stream, a missing checksum or a stream with no final block, and png.js has stopped reading by
+then, so the spec stubs one that refuses up front to reach the fflate fallback.
+`test/ugoiraPngInflateBound.spec.js` mocks fflate to count what the fallback pushes.
 The e2e tests' `moving` fixture has a square moving over a still background, so each frame after
 the first holds only the area that changed.
 
