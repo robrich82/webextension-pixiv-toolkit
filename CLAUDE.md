@@ -23,7 +23,7 @@ pnpm run test:e2e:firefox  # node --test in real Firefox; needs `pnpm run build:
 
 There is no linter, formatter or type check. `eslint` and `eslint-plugin-compat` only check the built bundles against the browserslist floor, from `test/build.spec.js`. The `typescript` devDependency is there only for editors' language servers (and Claude's LSP tool), through TypeScript 7's own `tsc --lsp`; nothing in the build or tests uses it. CI (`.github/workflows/ci.yml`) runs `pnpm audit`, `pnpm test`, both builds and the e2e tests, skipping on a PR the jobs whose paths it doesn't touch. A suite that starts reading or importing a file outside its own directory needs a matching rule in `scripts/ciChanges.mjs`.
 
-`pnpm run release:firefox` (`scripts/release-firefox.js`) builds, signs through AMO and publishes a GitHub release with `updates.json`. AMO signs a given version only once, so don't run it without being asked. Releases go through the user-invoked `/release-firefox` skill (`.claude/skills/release-firefox/SKILL.md`), which has the pre-flight checks.
+`pnpm run release:firefox` (`scripts/release-firefox.js`) builds, signs through AMO and publishes a GitHub release with `updates.json`. AMO signs a given version only once, so don't run it without being asked. Releases go through two user-invoked skills: `/release-bump` opens the version bump PR, and once it has merged, `/release-firefox` (`.claude/skills/release-firefox/SKILL.md`) runs the pre-flight checks and the release.
 
 ## Architecture
 
