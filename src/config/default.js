@@ -235,6 +235,9 @@ export default Object.assign({}, {
     ugoiraMOVCodec: 'avc',
     ugoiraMKVCodec: 'avc',
 
+    /**
+     * @since 6.3.0
+     */
     dontCreateWorkFolder: 0,
     combinWRRuleAndIRRuleWhenDontCreateWorkFolder: 0,
 

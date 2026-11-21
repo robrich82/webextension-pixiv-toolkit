@@ -53,6 +53,18 @@ test('leaves every other setting alone', async () => {
   expect(await browser.storage.local.get(null)).toEqual({ language: 'ja', downloadSaveMode: 1 });
 });
 
+test('an update from 6.4.6 clears them through onInstalled', async () => {
+  browser._fake.setManifest({ version: '6.4.7', manifest_version: 3 });
+  await browser.storage.local.set({
+    ...Object.fromEntries(REMOVED.map(key => [key, 'stale'])), version: '6.4.6', language: 'ja'
+  });
+
+  await Application.app().onInstalled({ reason: 'update' });
+
+  expect(REMOVED.filter(key => key in browser.storage.local.items)).toEqual([]);
+  expect(browser.storage.local.items).toMatchObject({ version: '6.4.7', language: 'ja' });
+});
+
 test('is a no-op when the key was never there', async () => {
   await browser.storage.local.set({ language: 'ja' });
 
