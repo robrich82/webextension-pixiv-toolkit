@@ -1,12 +1,12 @@
 import GlobalSettings from "@/modules/GlobalSettings";
 import AbstractDownloadTask from "../AbstractDownloadTask";
-import browser from "@/modules/Extension/browser";
 import Downloader from "@/modules/Net/Downloader";
 import FileSystem from "../../FileSystem";
 import NameFormatter from "@/modules/Util/NameFormatter";
-import MimeType from "@/modules/Util/MimeType";
 import pathjoin from "@/modules/Util/pathjoin";
 import { VIDEO_CONTAINERS, encodeVideo } from "../../UgoiraEncoders/video";
+import { encodeGif } from "../../UgoiraEncoders/gif";
+import { encodeApng } from "../../UgoiraEncoders/apng";
 
 class ZipRepo {
   /**
@@ -50,9 +50,10 @@ class ZipRepo {
  * @property {any[]} frames
  * @property {string} renameRule
  * @property {0|1|2} packAnimationJsonType
- * @property {string} ffmpegCommandArgs
  * @property {any} context
- * @property {string} convertType A button's format; 'zip' saves the frames zip instead of converting
+ * @property {string} convertType A button's format: 'zip' saves the frames zip, and the others encode in
+ *   the browser
+ * @property {string} [codec] For a video format, the codec to try first; unset, the container's default
  *
  * @class
  */
@@ -78,26 +79,32 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
   data;
 
   /**
-   * @type {number} Count processed frames
-   */
-  processedFramesCount = 0;
-
-  /**
    * @type {number} Conversion progress
    */
   processProgress = 0;
 
-  /**
-   * @type {import("@ffmpeg/ffmpeg").FFmpeg}
-   */
-  ffmpeg;
-
   zip;
+
+  /**
+   * The codec encoded instead of the one asked for; null when there was no fallback
+   * @type {string|null}
+   */
+  fallbackCodec = null;
 
   /**
    * The convertType of a task that saves the frames zip and converts nothing
    */
   static ZIP_CONVERT_TYPE = 'zip';
+
+  /**
+   * The convertType of a task that encodes a GIF in workers (UgoiraEncoders/gif)
+   */
+  static GIF_CONVERT_TYPE = 'gif';
+
+  /**
+   * The convertType of a task that encodes an APNG in workers (UgoiraEncoders/apng)
+   */
+  static APNG_CONVERT_TYPE = 'apng';
 
   /**
    *
@@ -199,251 +206,7 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
   }
 
   /**
-   *
-   * @param {(args: { data: any, outputFilename: string}) => void} completeHandler
-   * @returns
-   */
-  async runFFmpeg(completeHandler) {
-    /**
-     * FFmpeg loaded as external library
-     */
-    let { FFmpeg } = FFmpegWASM;
-    this.ffmpeg = new FFmpeg();
-    this.ffmpeg.on('log', ({ message }) => console.log(message));
-    this.ffmpeg.on('progress', ({ progress }) => {
-      this.processProgress = progress;
-
-      this.dispatch('progress', [this.processProgress]);
-    });
-
-    try {
-      const ffmpegBaseUrl = browser.runtime.getURL('lib/ffmpeg/');
-      await this.ffmpeg.load({
-        coreURL: ffmpegBaseUrl + 'ffmpeg-core.js',
-        wasmURL: ffmpegBaseUrl + 'ffmpeg-core.wasm',
-      });
-
-      await this.zipLoaded;
-
-      let loadedFiles = [];
-
-      /**
-       * Add files to ffmpeg file system
-       */
-      for (let i = 0; i < this.options.frames.length; i++) {
-        let frame = this.options.frames[i];
-        let data = await this.zip.file(frame.file).async('uint8array');
-        let indexStr = i + '';
-        let filename = '0'.repeat(6 - indexStr.length) + i + '.jpg';
-        await this.ffmpeg.writeFile(filename, data);
-        loadedFiles.push(filename);
-      }
-
-      /**
-       * parse ffmpeg command line(s)
-       */
-      const ffmpegCommands = [];
-      const ffmpegCommandSetting = this.options.ffmpegCommandArgs ?
-        this.options.ffmpegCommandArgs.trim() :
-        null;
-
-      if (!ffmpegCommandSetting) {
-        ffmpegCommands.push(['-f', 'concat', '-i', 'input.txt', '-plays', '0', 'out.gif']);
-      } else {
-        const lines = ffmpegCommandSetting.split(/\r\n|\n|\r/);
-
-        lines.forEach(line => {
-          ffmpegCommands.push(line.trim().split(' '));
-        });
-      }
-
-      const lastCommand = ffmpegCommands[ffmpegCommands.length - 1];
-      const outputFilename = lastCommand[lastCommand.length - 1];
-
-      /**
-       * Add frames to ffmpeg file system
-       */
-      await this.ffmpeg.writeFile('input.txt', UgoiraDownloadTask.prepareConversion(ffmpegCommands, this.options.frames));
-      loadedFiles.push('input.txt');
-
-      for (const seq in ffmpegCommands) {
-        console.log(ffmpegCommands[seq]);
-        await this.ffmpeg.exec(ffmpegCommands[seq]);
-      }
-
-      await completeHandler.call(this, {
-        data: await this.ffmpeg.readFile(outputFilename),
-        outputFilename
-      });
-
-      loadedFiles.push(outputFilename);
-
-      /**
-       * Clearup assets
-       */
-      await Promise.all(loadedFiles.map(file => this.ffmpeg.deleteFile(file)));
-    } finally {
-      this.ffmpeg.terminate();
-      this.ffmpeg = null;
-    }
-  }
-
-  /**
-   * The tick input.txt gives each frame, as the frame rate `1000/<tick>`. Without it the concat
-   * demuxer reads the JPEG frames at the image demuxer's default 25 fps and rounds every delay to
-   * 40ms (#322). The tick is the largest step every delay is a multiple of, so an output at a
-   * constant frame rate repeats frames no more often than the delays need.
-   *
-   * The tick is at least 10ms: x264 picks the H.264 level from this rate, and delays like 33/34ms
-   * would otherwise ask for 1000 fps, a level hardware decoders refuse. Frames then start on the
-   * nearest 10ms.
-   * @param {{ delay: number }[]} frames Delays that aren't a positive whole number of ms are skipped
-   * @returns {number|undefined} in ms; undefined when no delay is usable
-   */
-  static tick(frames) {
-    const gcd = (a, b) => (b ? gcd(b, a % b) : a);
-    const step = frames
-      .map(frame => frame.delay)
-      .filter(UgoiraDownloadTask.usableDelay)
-      .reduce(gcd, 0);
-
-    return step ? Math.max(step, 10) : undefined;
-  }
-
-  /**
-   * @param {*} delay
-   * @returns {boolean} whether the delay is a positive whole number of ms
-   */
-  static usableDelay(delay) {
-    return Number.isInteger(delay) && delay > 0;
-  }
-
-  /**
-   * @param {string[]} command The last command; its output is its last argument
-   * @returns {'gif'|'apng'|'video'} from an output `-f`, else from the output's extension
-   */
-  static outputFormat(command) {
-    const muxer = command.lastIndexOf('-f');
-    const format = muxer > command.lastIndexOf('-i') ?
-      command[muxer + 1] :
-      /\.(gif|apng)$/i.exec(command[command.length - 1])?.[1];
-
-    return ['gif', 'apng'].find(name => name === format?.toLowerCase()) ?? 'video';
-  }
-
-  /**
-   * Browsers play an animated image's frame of 10ms or less for 100ms, so a GIF's or APNG's
-   * positive delays under 20ms are raised to 20ms, which also keeps a GIF frame (stored in 10ms
-   * steps) from rounding down to 10ms.
-   * @param {{ file: string, delay: number }[]} frames
-   * @param {'gif'|'apng'|'video'} format
-   * @returns {{ file: string, delay: number }[]}
-   */
-  static timedFrames(frames, format) {
-    const minDelay = format === 'video' ? 0 : 20;
-
-    return frames.map(frame =>
-      (frame.delay > 0 && frame.delay < minDelay ? { ...frame, delay: minDelay } : frame));
-  }
-
-  /**
-   * Adds -safe 0 to the commands and -final_delay to the last, and returns input.txt.
-   * @param {string[][]} commands Changed in place
-   * @param {{ file: string, delay: number }[]} frames
-   * @returns {string}
-   */
-  static prepareConversion(commands, frames) {
-    const lastCommand = commands[commands.length - 1];
-    const format = UgoiraDownloadTask.outputFormat(lastCommand);
-
-    commands.forEach(UgoiraDownloadTask.allowConcatOptions);
-    UgoiraDownloadTask.holdLastFrame(lastCommand, frames, format);
-
-    return UgoiraDownloadTask.concatList(frames, format);
-  }
-
-  /**
-   * input.txt: the concat demuxer's list of frames, each with its delay and the frame rate.
-   *
-   * The demuxer ignores the last entry's duration (#325), so a video's last frame would last one
-   * tick. A longer one is shortened by a tick and repeated for that tick. GIF and APNG get
-   * -final_delay instead (holdLastFrame).
-   * @param {{ file: string, delay: number }[]} frames
-   * @param {'gif'|'apng'|'video'} [format='video']
-   * @returns {string}
-   */
-  static concatList(frames, format = 'video') {
-    const timed = UgoiraDownloadTask.timedFrames(frames, format);
-    const tick = UgoiraDownloadTask.tick(timed);
-    const entries = timed.map(frame => ({ file: frame.file, duration: frame.delay }));
-    const last = entries[entries.length - 1];
-
-    if (format === 'video' && UgoiraDownloadTask.usableDelay(last?.duration) && last.duration > tick) {
-      last.duration -= tick;
-      entries.push({ file: last.file });
-    }
-
-    return entries.map(({ file, duration }) =>
-      `file '${file}'\r\n` +
-      (tick ? `option framerate 1000/${tick}\r\n` : '') +
-      (duration === undefined ? '' : `duration ${duration / 1000}\r\n`)
-    ).join('');
-  }
-
-  /**
-   * The GIF and APNG muxers give the last frame the delay before it, so `-final_delay` gives it its
-   * own, unless the command sets one. GIF takes 10ms units and APNG seconds, each up to 65535. A
-   * video is left alone.
-   * @param {string[]} args The command writing the output, changed in place
-   * @param {{ delay: number }[]} frames
-   * @param {'gif'|'apng'|'video'} format
-   */
-  static holdLastFrame(args, frames, format) {
-    const [last] = UgoiraDownloadTask.timedFrames(frames.slice(-1), format);
-
-    if (format === 'video' || !UgoiraDownloadTask.usableDelay(last?.delay) || args.includes('-final_delay')) {
-      return;
-    }
-
-    args.splice(args.length - 1, 0, '-final_delay', format === 'gif' ?
-      String(Math.min(Math.round(last.delay / 10), 65535)) :
-      `${Math.min(last.delay, 65535000)}/1000`);
-  }
-
-  /**
-   * input.txt's `option` lines need the concat demuxer's unsafe mode, so each `-f concat` input
-   * that reads input.txt (in any directory) gets `-safe 0`: added
-   * before its `-i`, or replacing the value of its own `-safe`. input.txt only names the frame
-   * files written here.
-   * @param {string[]} args A command's arguments, changed in place
-   */
-  static allowConcatOptions(args) {
-    let start = 0; // where the current input's options begin: after the previous input's file
-
-    for (let i = 0; i < args.length - 1; i++) {
-      if (args[i] !== '-i') {
-        continue;
-      }
-
-      const options = args.slice(start, i);
-
-      if (/(^|[/:])input\.txt$/.test(args[i + 1]) && options.includes('concat')) {
-        const safe = options.lastIndexOf('-safe');
-
-        if (safe > -1 && safe < options.length - 1) {
-          args[start + safe + 1] = '0';
-        } else {
-          args.splice(i, 0, '-safe', '0');
-          i += 2;
-        }
-      }
-
-      start = i + 2;
-    }
-  }
-
-  /**
-   * When resource is downloaded, then generate animation file using ffmpeg
+   * Once the frames are downloaded, converts them to the task's format
    * @fires UgoiraDownloadTask#progress
    * @fires UgoiraDownloadTask#complete
    * @fires UgoiraDownloadTask#failure
@@ -507,18 +270,20 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
   }
 
   async convert() {
-    const container = this.options.convertType?.toLowerCase();
+    const format = this.options.convertType?.toLowerCase();
+    let encoded;
 
-    if (Object.hasOwn(VIDEO_CONTAINERS, container ?? '')) {
-      const { data, mimeType, extension } = await this.encodeVideo(container);
-
-      await this.saveAnimation(data, mimeType, extension);
-      return;
+    if (format === UgoiraDownloadTask.GIF_CONVERT_TYPE) {
+      encoded = await this.encodeFrames(encodeGif);
+    } else if (format === UgoiraDownloadTask.APNG_CONVERT_TYPE) {
+      encoded = await this.encodeFrames(encodeApng);
+    } else if (Object.hasOwn(VIDEO_CONTAINERS, format ?? '')) {
+      encoded = await this.encodeVideo(format);
+    } else {
+      throw new Error(`Unknown ugoira convert type: ${this.options.convertType}`);
     }
 
-    await this.runFFmpeg(({ data, outputFilename }) => this.saveAnimation(
-      data, MimeType.getFileMimeType(outputFilename), MimeType.getFileExtension(outputFilename)
-    ));
+    await this.saveAnimation(encoded.data, encoded.mimeType, encoded.extension);
   }
 
   /**
@@ -526,7 +291,27 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
    * @param {string} container A key of VIDEO_CONTAINERS
    * @returns {Promise<{ data: ArrayBuffer, mimeType: string, extension: string }>}
    */
-  async encodeVideo(container) {
+  encodeVideo(container) {
+    this.fallbackCodec = null;
+
+    return this.encodeFrames(options => encodeVideo({
+      ...options,
+      container,
+      codec: this.options.codec,
+      // The next progress event marks the task changed, and the download manager's poll reads it.
+      onCodec: ({ codec, fallback }) => {
+        this.fallbackCodec = fallback ? codec : null;
+      }
+    }));
+  }
+
+  /**
+   * Passes the frames and their delays to an encoder; stop() aborts it.
+   * @template T
+   * @param {(options: { frames: { image: Blob, delay: number }[], signal: AbortSignal, onProgress: (progress: number) => void }) => Promise<T>} encode
+   * @returns {Promise<T>}
+   */
+  async encodeFrames(encode) {
     this.encodeController = new AbortController();
 
     try {
@@ -537,9 +322,8 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
         delay: frame.delay
       })));
 
-      return await encodeVideo({
+      return await encode({
         frames,
-        container,
         signal: this.encodeController.signal,
         onProgress: progress => {
           this.processProgress = progress;
@@ -656,11 +440,6 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
       this.downloader.pause();
     }
 
-    if (this.ffmpeg) {
-      this.ffmpeg.terminate();
-      this.processProgress = this.processedFramesCount = 0;
-    }
-
     if (this.encodeController) {
       this.encodeController.abort();
       this.processProgress = 0;
@@ -692,7 +471,8 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
   toJson() {
     return Object.assign({}, super.toJson(), {
       processProgress: this.processProgress,
-      convertType: this.options.convertType
+      convertType: this.options.convertType,
+      fallbackCodec: this.fallbackCodec
     });
   }
 }

@@ -37,7 +37,7 @@ function manifestPaths(manifest) {
     manifest.options_page || manifest.options_ui.page,
     ...Object.values(manifest.icons),
     ...manifest.content_scripts.flatMap(script => [...script.js, ...script.css]),
-    ...manifest.web_accessible_resources.flatMap(entry => entry.resources),
+    ...(manifest.web_accessible_resources ?? []).flatMap(entry => entry.resources),
     ...manifest.declarative_net_request.rule_resources.map(rule => rule.path),
     `_locales/${manifest.default_locale}/messages.json`
   ];
@@ -152,6 +152,34 @@ describe.each(['chrome', 'firefox'])('build for %s', platform => {
     expect(read(out, 'background/background.js')).not.toMatch(/globalThis\.(Dexie|Vue|VueI18n|locales)\b/);
   });
 
+  // The settings page lists the ugoira codecs from codecs.js; only the download manager encodes.
+  it('leaves Mediabunny out of every chunk the settings page can load', () => {
+    /** The chunks a page loads, following static and dynamic imports. */
+    const reachable = page => {
+      const dir = path.join(out, path.dirname(page));
+      const html = read(out, page);
+      const queue = [...html.matchAll(/\s(?:src|href)="(\.\/static\/[^"]+\.js)"/g)].map(m => path.join(dir, m[1]));
+      const seen = new Set();
+
+      while (queue.length) {
+        const file = queue.shift();
+
+        if (!seen.has(file)) {
+          seen.add(file);
+          const imports = fs.readFileSync(file, 'utf8').matchAll(/["'`](\.\/[\w.-]+\.js)["'`]/g);
+          queue.push(...[...imports].map(m => path.join(path.dirname(file), m[1])));
+        }
+      }
+
+      return [...seen].map(file => fs.readFileSync(file, 'utf8'));
+    };
+    // A method name minifying keeps, from Mediabunny's output formats.
+    const hasMediabunny = chunks => chunks.some(chunk => chunk.includes('getSupportedVideoCodecs'));
+
+    expect(hasMediabunny(reachable('options_page/downloads.html'))).toBe(true);
+    expect(hasMediabunny(reachable('options_page/index.html'))).toBe(false);
+  });
+
   it('gives the options pages the Dexie global from the npm package the background bundles', () => {
     const context = vm.createContext({});
 
@@ -199,15 +227,13 @@ describe.each(['chrome', 'firefox'])('build for %s', platform => {
     expect(context.locales.localeEn.extName.message).toEqual(expect.any(String));
   });
 
-  it('ships the umd FFmpeg build without source maps, pointed at the packaged core', () => {
-    const files = fs.readdirSync(path.join(out, 'lib/ffmpeg'));
-    // The worker chunk, not ffmpeg.js, is the file that names the core.
-    const ffmpeg = files.filter(f => f.endsWith('.js')).map(f => read(out, `lib/ffmpeg/${f}`)).join('\n');
+  it('ships no WebAssembly, and its pages may not compile any', () => {
+    const files = fs.readdirSync(out, { recursive: true });
 
-    expect(files).toEqual(expect.arrayContaining(['ffmpeg.js', 'ffmpeg-core.js', 'ffmpeg-core.wasm']));
-    expect(files.filter(f => f.endsWith('.map'))).toEqual([]);
-    expect(ffmpeg).not.toContain('unpkg.com');
-    expect(ffmpeg).toContain('"ffmpeg-core.js"');
+    expect(files.filter(file => file.endsWith('.wasm'))).toEqual([]);
+    // Wasm inlined into a bundle ships no .wasm file.
+    expect(files.filter(file => file.endsWith('.js') && read(out, file).includes('WebAssembly'))).toEqual([]);
+    expect(manifest.content_security_policy.extension_pages).not.toContain('wasm-unsafe-eval');
   });
 
   it('leaves src/statics/remote out of the package', () => {

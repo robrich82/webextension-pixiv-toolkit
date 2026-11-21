@@ -4,10 +4,13 @@
  * against a fake Output and CanvasSource; e2e/ugoira.e2e.js and e2e-firefox/downloads.test.mjs run
  * the real encode.
  */
-import { canEncodeVideo } from 'mediabunny';
+import { MkvOutputFormat, MovOutputFormat, Mp4OutputFormat, canEncodeVideo } from 'mediabunny';
 import {
-  FALLBACK_DELAY, chooseCodec, containerCodecs, encodeVideo, encodedSize, frameTimes
+  VIDEO_CONTAINERS, chooseCodec, codecSettingKey, containerCodecs, encodeVideo, encodedSize, frameTimes
 } from '@/options_page/modules/UgoiraEncoders/video';
+import { FALLBACK_DELAY } from '@/options_page/modules/UgoiraEncoders/delay';
+import defaultSettings from '@/config/default';
+import { VIDEO_FORMAT_CODECS } from '@/options_page/modules/UgoiraEncoders/codecs';
 
 const fakes = vi.hoisted(() => {
   const outputs = [];
@@ -92,6 +95,25 @@ describe('containerCodecs', () => {
   it('offers the codecs WebM holds, H.264 and H.265 not among them', () => {
     expect(containerCodecs('webm')).toEqual(['vp9', 'av1', 'vp8']);
   });
+
+  it.each(['mp4', 'mov', 'mkv'])('offers every codec for %s, H.264 first', container => {
+    expect(containerCodecs(container)).toEqual(['avc', 'vp9', 'av1', 'hevc', 'vp8']);
+  });
+
+  // VIDEO_FORMAT_CODECS copies these lists so the settings page needn't bundle Mediabunny.
+  it.each(Object.keys(VIDEO_CONTAINERS))('matches the settings page list for %s', container => {
+    expect(VIDEO_FORMAT_CODECS[container].codecs).toEqual(containerCodecs(container));
+  });
+
+  // The settings page shows the default for a stored codec the format can't hold, while
+  // chooseCodec tries the format's codecs in order: they agree only while the default is first.
+  it.each(Object.keys(VIDEO_CONTAINERS))('lists the %s default first', container => {
+    expect(containerCodecs(container)[0]).toBe(VIDEO_FORMAT_CODECS[container].defaultCodec);
+  });
+
+  it('lists the same formats as the settings page', () => {
+    expect(Object.keys(VIDEO_FORMAT_CODECS)).toEqual(Object.keys(VIDEO_CONTAINERS));
+  });
 });
 
 describe('chooseCodec', () => {
@@ -121,11 +143,13 @@ describe('chooseCodec', () => {
   });
 
   it('asks at the size each codec would encode', async () => {
+    vi.spyOn(console, 'info').mockImplementation(() => {});
     encodable('vp9');
 
-    await chooseCodec('webm', 'vp9', { width: 15, height: 9 });
+    await chooseCodec('mp4', 'avc', { width: 15, height: 9 });
 
-    expect(canEncodeVideo).toHaveBeenCalledWith('vp9', expect.objectContaining({ width: 15, height: 9 }));
+    expect(canEncodeVideo).toHaveBeenNthCalledWith(1, 'avc', expect.objectContaining({ width: 16, height: 10 }));
+    expect(canEncodeVideo).toHaveBeenNthCalledWith(2, 'vp9', expect.objectContaining({ width: 15, height: 9 }));
   });
 
   it('fails when the browser can encode none of them', async () => {
@@ -225,6 +249,39 @@ describe('encodeVideo', () => {
     expect(allClosed()).toBe(true);
   });
 
+  it('reports the codec before the first frame, not a fallback when it is the one asked for', async () => {
+    const events = [];
+
+    await encodeVideo({
+      frames: FRAMES, container: 'webm',
+      onCodec: choice => events.push(['codec', choice]),
+      onProgress: progress => events.push(['progress', progress])
+    });
+
+    expect(events).toEqual([
+      ['codec', { codec: 'vp9', fallback: false }], ['progress', 1 / 3], ['progress', 2 / 3], ['progress', 1]
+    ]);
+  });
+
+  // WebM's default is VP9. A codec it can't hold reads as the default, as on the settings page.
+  it.each([
+    ['the default', undefined, ['vp8'], 'vp8', true],
+    ['a setting', 'av1', ['vp8'], 'vp8', true],
+    ['a setting', 'av1', ['av1', 'vp9'], 'av1', false],
+    ['a setting, landing on the default', 'av1', ['vp9'], 'vp9', true],
+    ["a codec the format can't hold", 'avc', ['avc', 'vp9'], 'vp9', false],
+    ["a codec the format can't hold", 'avc', ['vp8'], 'vp8', true],
+    ['an unknown codec', 'prores', ['vp9'], 'vp9', false]
+  ])('asked for %s (%s), with %j encodable, reports %s with fallback %s', async (_, codec, codecs, chosen, fallback) => {
+    vi.spyOn(console, 'info').mockImplementation(() => {});
+    encodable(...codecs);
+    const onCodec = vi.fn();
+
+    await encodeVideo({ frames: FRAMES, container: 'webm', codec, onCodec });
+
+    expect(onCodec.mock.calls).toEqual([[{ codec: chosen, fallback }]]);
+  });
+
   it('encodes with the codec chosen when the preferred one fails', async () => {
     vi.spyOn(console, 'info').mockImplementation(() => {});
     encodable('vp8');
@@ -233,6 +290,38 @@ describe('encodeVideo', () => {
 
     expect(codec).toBe('vp8');
     expect(source().config.codec).toBe('vp8');
+  });
+
+  it('encodes with the codec asked for, over the container default', async () => {
+    const { codec } = await encodeVideo({ frames: FRAMES, container: 'webm', codec: 'vp8' });
+
+    expect(codec).toBe('vp8');
+    expect(source().config.codec).toBe('vp8');
+    expect(canEncodeVideo).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ['mp4', Mp4OutputFormat, 'video/mp4'],
+    ['mov', MovOutputFormat, 'video/quicktime'],
+    ['mkv', MkvOutputFormat, 'video/x-matroska']
+  ])('encodes %s as H.264, padded to even dimensions', async (container, Format, mimeType) => {
+    encodable('avc', 'vp9');
+
+    const result = await encodeVideo({ frames: FRAMES, container });
+
+    expect(result).toMatchObject({ mimeType, extension: container, codec: 'avc' });
+    expect(source().canvas).toMatchObject({ width: 18, height: 18 });
+    expect(output().format).toBeInstanceOf(Format);
+  });
+
+  it('keeps an MP4 without H.264 at the frame size, in MP4', async () => {
+    vi.spyOn(console, 'info').mockImplementation(() => {});
+    encodable('vp9');
+
+    const result = await encodeVideo({ frames: FRAMES, container: 'mp4' });
+
+    expect(result).toMatchObject({ mimeType: 'video/mp4', extension: 'mp4', codec: 'vp9' });
+    expect(source().canvas).toMatchObject({ width: 17, height: 17 });
   });
 
   it('closes the first frame when no codec encodes', async () => {
@@ -337,4 +426,11 @@ describe('encodeVideo', () => {
     expect(output().state).toBe('canceled');
     expect(allClosed()).toBe(true);
   });
+});
+
+test.each(Object.keys(VIDEO_CONTAINERS))('fresh installs set %s to its container default, a codec it holds', container => {
+  const codec = defaultSettings[codecSettingKey(container)];
+
+  expect(codec).toBe(VIDEO_FORMAT_CODECS[container].defaultCodec);
+  expect(containerCodecs(container)).toContain(codec);
 });

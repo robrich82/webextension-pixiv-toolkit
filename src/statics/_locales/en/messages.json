@@ -140,6 +140,15 @@
    "pack_ugoira_frames_info_into_zip": {
       "message": "Pack ugoira frames info into zip file"
    },
+   "ugoira_codec": {
+      "message": "codec"
+   },
+   "ugoira_codec_fallback": {
+      "message": "Falls back to another codec if this browser can't encode it"
+   },
+   "codec_unencodable": {
+      "message": "This browser can't encode it"
+   },
    "pack_ugoira_frames_info": {
       "message": "Pack frames info"
    },
@@ -856,6 +865,12 @@
     },
     "_download_mp4": {
         "message": "DL MP4"
+    },
+    "_download_mkv": {
+        "message": "DL MKV"
+    },
+    "_download_mov": {
+        "message": "DL MOV"
     },
     "_download_zip": {
         "message": "DL Zip"

@@ -33,10 +33,20 @@ export default {
 
     return {
       thirdPartList: [{
-        name: 'ffmpeg.wasm',
-        version: npm['@ffmpeg/ffmpeg'],
-        desc: 'ffmpeg.wasm is a pure WebAssembly / JavaScript port of FFmpeg. It enables video & audio record, convert and stream right inside browsers.',
-        url: 'https://github.com/ffmpegwasm/ffmpeg.wasm'
+        name: 'Mediabunny',
+        version: npm.mediabunny,
+        desc: 'Pure TypeScript media toolkit for reading, writing, and converting media files, directly in the browser.',
+        url: 'https://github.com/Vanilagy/mediabunny'
+      }, {
+        name: 'gifenc',
+        version: npm.gifenc,
+        desc: 'Very fast JS GIF encoder',
+        url: 'https://github.com/mattdesl/gifenc'
+      }, {
+        name: 'fflate',
+        version: npm.fflate,
+        desc: 'High performance (de)compression in an 8kB package',
+        url: 'https://github.com/101arrowz/fflate'
       }, {
         name: 'JSZip',
         version: npm.jszip,

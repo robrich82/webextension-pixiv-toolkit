@@ -18,3 +18,15 @@ export async function probeVideo(file) {
 
   return { codec: track.codec, timestamps: timestamps.sort((a, b) => a - b), duration: await input.computeDuration() };
 }
+
+/**
+ * A saved video's frame size, read in Node, for MOV, which Chromium can't play (MKV is read the same way).
+ * @param {string} file
+ * @returns {Promise<{ width: number, height: number }>}
+ */
+export async function videoSize(file) {
+  const input = new Input({ source: new BufferSource(fs.readFileSync(file)), formats: ALL_FORMATS });
+  const track = await input.getPrimaryVideoTrack();
+
+  return { width: await track.getDisplayWidth(), height: await track.getDisplayHeight() };
+}

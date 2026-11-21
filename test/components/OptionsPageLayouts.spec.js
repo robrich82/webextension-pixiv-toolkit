@@ -50,13 +50,13 @@ describe('ThirdParty', () => {
     const items = wrapper.findAll('.v-list-item');
 
     expect(items.map(item => item.find('.third-party__name').text())).toEqual([
-      'ffmpeg.wasm', 'JSZip', 'Dexie.js', 'Vue.js', 'Vue Router', 'Vuetify',
+      'Mediabunny', 'gifenc', 'fflate', 'JSZip', 'Dexie.js', 'Vue.js', 'Vue Router', 'Vuetify',
       'vue-i18n', 'vue-virtual-scroller', 'Material Design Icons', 'Moment.js', 'mitt', 'md5'
     ]);
 
     await items[0].trigger('click');
 
-    expect(open).toHaveBeenCalledWith('https://github.com/ffmpegwasm/ffmpeg.wasm', '_blank');
+    expect(open).toHaveBeenCalledWith('https://github.com/Vanilagy/mediabunny', '_blank');
   });
 
   test("shows each npm package's installed version", () => {
@@ -65,7 +65,9 @@ describe('ThirdParty', () => {
       .map(item => [item.find('.third-party__name').text(), item.find('.third-party__version').text()]));
 
     expect(versions).toMatchObject({
-      'ffmpeg.wasm': installed('@ffmpeg/ffmpeg'),
+      Mediabunny: installed('mediabunny'),
+      gifenc: installed('gifenc'),
+      fflate: installed('fflate'),
       JSZip: installed('jszip'),
       'Dexie.js': installed('dexie'),
       'Vue.js': installed('vue'),

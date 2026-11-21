@@ -15,7 +15,6 @@ import { parseArgs } from 'node:util';
 import vue from '@vitejs/plugin-vue';
 import autoprefixer from 'autoprefixer';
 import { build } from 'vite';
-import { localFFmpegCore } from './localFFmpegCore.mjs';
 import { browserFloors, transformManifest } from './manifest.mjs';
 import { thirdPartyVersionsDefine } from './thirdPartyVersions.mjs';
 
@@ -264,19 +263,6 @@ function copyStatics(platform, out) {
   }
 
   fs.copyFileSync(fromRoot('node_modules/jszip/dist/jszip.min.js'), path.join(out, 'lib/jszip.min.js'));
-
-  /**
-   * @ffmpeg/core also ships an esm/ build of the same ~32MB core+wasm pair.
-   * Only umd/ is loaded (importScripts in a classic worker), so copy only that.
-   */
-  const ffmpegOut = path.join(out, 'lib/ffmpeg');
-  fs.cpSync(fromRoot('node_modules/@ffmpeg/core/dist/umd'), ffmpegOut, { recursive: true });
-
-  // Source maps are skipped: their sourcesContent repeats the CDN URL.
-  const ffmpegDir = fromRoot('node_modules/@ffmpeg/ffmpeg/dist/umd');
-  for (const file of fs.readdirSync(ffmpegDir).filter(f => f.endsWith('.js'))) {
-    fs.writeFileSync(path.join(ffmpegOut, file), localFFmpegCore(fs.readFileSync(path.join(ffmpegDir, file))));
-  }
 
   const manifest = JSON.parse(fs.readFileSync(path.join(statics, 'manifest.json'), 'utf8'));
   const json = transformManifest(manifest, { platform, version: pkg.version, floors });

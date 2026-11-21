@@ -1,30 +1,32 @@
 import {
   BufferTarget,
   CanvasSource,
+  MkvOutputFormat,
+  MovOutputFormat,
+  Mp4OutputFormat,
   Output,
   Quality,
   WebMOutputFormat,
   canEncodeVideo
 } from 'mediabunny';
+import { VIDEO_CODECS, VIDEO_FORMAT_CODECS, codecSettingKey } from './codecs';
+import { frameDelay } from './delay';
 
-/**
- * The video containers ugoira convert to through WebCodecs, each with the codec used unless the
- * browser can't encode it.
- */
+export { codecSettingKey };
+
+/** The video containers ugoira convert to through WebCodecs. Their codecs are in VIDEO_FORMAT_CODECS. */
 export const VIDEO_CONTAINERS = {
-  webm: { createFormat: () => new WebMOutputFormat(), defaultCodec: 'vp9' }
+  webm: { createFormat: () => new WebMOutputFormat() },
+  // MP4 and MOV put the index up front, so a player starts before it has all loaded.
+  mp4: { createFormat: () => new Mp4OutputFormat({ fastStart: 'in-memory' }) },
+  mov: { createFormat: () => new MovOutputFormat({ fastStart: 'in-memory' }) },
+  mkv: { createFormat: () => new MkvOutputFormat() }
 };
 
 const QUALITY = new Quality('very-high');
 
-/** The codecs offered, in the order a fallback tries them. */
-export const VIDEO_CODECS = ['avc', 'vp9', 'av1', 'hevc', 'vp8'];
-
 /** H.264 and H.265 encoders refuse odd dimensions. */
 const EVEN_DIMENSION_CODECS = ['avc', 'hevc'];
-
-/** A frame whose delay isn't a positive number of ms (Pixiv always gives one) lasts this long. */
-export const FALLBACK_DELAY = 100;
 
 /**
  * @param {string} container
@@ -88,7 +90,7 @@ export function frameTimes(frames) {
   let elapsed = 0;
 
   return frames.map(({ delay }) => {
-    const ms = Number.isFinite(delay) && delay > 0 ? delay : FALLBACK_DELAY;
+    const ms = frameDelay(delay);
     const time = { timestamp: elapsed / 1000, duration: ms / 1000 };
 
     elapsed += ms;
@@ -102,20 +104,27 @@ export function frameTimes(frames) {
  * @param {object} options
  * @param {{ image: Blob, delay: number }[]} options.frames JPEG or PNG frames, all one size
  * @param {string} options.container A key of VIDEO_CONTAINERS
- * @param {string} [options.codec] The codec to use if the browser can; the container's default otherwise
+ * @param {string} [options.codec] The codec to use if the browser can; the container's default when
+ *   it can't, or when the container can't hold it
+ * @param {(choice: { codec: string, fallback: boolean }) => void} [options.onCodec] With the codec chosen,
+ *   before encoding starts; `fallback` when this browser can't encode the one asked for
  * @param {(progress: number) => void} [options.onProgress] With the share of frames encoded
  * @param {AbortSignal} [options.signal] Cancels the encoding, which then rejects
  * @returns {Promise<{ data: ArrayBuffer, mimeType: string, extension: string, codec: string }>}
  */
-export async function encodeVideo({ frames, container, codec, onProgress, signal }) {
-  const { createFormat, defaultCodec } = VIDEO_CONTAINERS[container];
+export async function encodeVideo({ frames, container, codec, onCodec, onProgress, signal }) {
+  const { createFormat } = VIDEO_CONTAINERS[container];
+  const { defaultCodec } = VIDEO_FORMAT_CODECS[container];
   const times = frameTimes(frames);
   let bitmap = await createImageBitmap(frames[0].image);
   const size = { width: bitmap.width, height: bitmap.height };
   let chosen, width, height, context, format, output, source;
 
   try {
-    chosen = await chooseCodec(container, codec || defaultCodec, size);
+    // A stored codec the container can't hold reads as its default, as on the settings page.
+    const preferred = containerCodecs(container).includes(codec) ? codec : defaultCodec;
+    chosen = await chooseCodec(container, preferred, size);
+    onCodec?.({ codec: chosen, fallback: chosen !== preferred });
     ({ width, height } = encodedSize(chosen, size));
     const canvas = new OffscreenCanvas(width, height);
     context = canvas.getContext('2d');

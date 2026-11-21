@@ -183,15 +183,18 @@ importers:
 
   .:
     dependencies:
-      '@ffmpeg/core':
-        specifier: ^0.12.10
-        version: 0.12.10
       '@mdi/font':
         specifier: ^7.4.47
         version: 7.4.47
       dexie:
         specifier: ^4.4.7
         version: 4.4.7
+      fflate:
+        specifier: ^0.8.3
+        version: 0.8.3
+      gifenc:
+        specifier: ^1.0.3
+        version: 1.0.3
       jszip:
         specifier: ^3.10.2
         version: 3.10.2
@@ -223,9 +226,6 @@ importers:
         specifier: ^4.3.0
         version: 4.3.4(typescript@7.0.2)(vue-i18n@11.4.23(vue@3.5.45(typescript@7.0.2)))(vue@3.5.45(typescript@7.0.2))
     devDependencies:
-      '@ffmpeg/ffmpeg':
-        specifier: ^0.12.15
-        version: 0.12.15
       '@mdn/browser-compat-data':
         specifier: ^8.1.9
         version: 8.1.9
@@ -253,9 +253,6 @@ importers:
       fake-indexeddb:
         specifier: ^6.2.7
         version: 6.2.8
-      fflate:
-        specifier: ^0.8.3
-        version: 0.8.3
       jsdom:
         specifier: ^31.0.0
         version: 31.0.1
@@ -413,18 +410,6 @@ packages:
     peerDependenciesMeta:
       '@noble/hashes':
         optional: true
-
-  '@ffmpeg/core@0.12.10':
-    resolution: {integrity: sha512-dzNplnn2Nxle2c2i2rrDhqcB19q9cglCkWnoMTDN9Q9l3PvdjZWd1HfSPjCNWc/p8Q3CT+Es9fWOR0UhAeYQZA==}
-    engines: {node: '>=16.x'}
-
-  '@ffmpeg/ffmpeg@0.12.15':
-    resolution: {integrity: sha512-1C8Obr4GsN3xw+/1Ww6PFM84wSQAGsdoTuTWPOj2OizsRDLT4CXTaVjPhkw6ARyDus1B9X/L2LiXHqYYsGnRFw==}
-    engines: {node: '>=18.x'}
-
-  '@ffmpeg/types@0.12.4':
-    resolution: {integrity: sha512-k9vJQNBGTxE5AhYDtOYR5rO5fKsspbg51gbcwtbkw2lCdoIILzklulcjJfIDwrtn7XhDeF2M+THwJ2FGrLeV6A==}
-    engines: {node: '>=16.x'}
 
   '@fluent/syntax@0.19.0':
     resolution: {integrity: sha512-5D2qVpZrgpjtqU4eNOcWGp1gnUCgjfM+vKGE2y03kKN6z5EBhtx0qdRFbg8QuNNj8wXNoX93KJoYb+NqoxswmQ==}
@@ -1623,6 +1608,9 @@ packages:
   get-east-asian-width@1.6.0:
     resolution: {integrity: sha512-QRbvDIbx6YklUe6RxeTeleMR0yv3cYH6PsPZHcnVn7xv7zO1BHN8r0XETu8n6Ye3Q+ahtSarc3WgtNWmehIBfA==}
     engines: {node: '>=18'}
+
+  gifenc@1.0.3:
+    resolution: {integrity: sha512-xdr6AdrfGBcfzncONUOlXMBuc5wJDtOueE3c5rdG0oNgtINLD+f2iFZltrBRZYzACRbKr+mSVU/x98zv2u3jmw==}
 
   glob-parent@6.0.2:
     resolution: {integrity: sha512-XxwI8EOhVQgWp6iDL+3b0r86f4d6AX6zSU55HfB4ydCEuXLXc5FcYeOu+nnGftS4TEju/11rt4KJPTMgbfmv4A==}
@@ -3001,14 +2989,6 @@ snapshots:
 
   '@exodus/bytes@1.16.0': {}
 
-  '@ffmpeg/core@0.12.10': {}
-
-  '@ffmpeg/ffmpeg@0.12.15':
-    dependencies:
-      '@ffmpeg/types': 0.12.4
-
-  '@ffmpeg/types@0.12.4': {}
-
   '@fluent/syntax@0.19.0': {}
 
   '@fregante/relaxed-json@2.0.0': {}
@@ -4106,6 +4086,8 @@ snapshots:
   get-caller-file@2.0.5: {}
 
   get-east-asian-width@1.6.0: {}
+
+  gifenc@1.0.3: {}
 
   glob-parent@6.0.2:
     dependencies:

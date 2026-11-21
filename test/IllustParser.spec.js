@@ -207,7 +207,6 @@ describe('an ugoira', () => {
   });
 
   test('sums the frame delays into a duration', async () => {
-    // The ffmpeg path in UgoiraDownloadTask builds its timing from this.
     const { context } = await parse('https://www.pixiv.net/artworks/10000003', routes);
 
     expect(context.illustDuration).toBe(350);

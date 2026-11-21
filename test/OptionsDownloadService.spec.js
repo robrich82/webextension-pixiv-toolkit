@@ -105,10 +105,7 @@ describe('download:addDownload', () => {
     expect(await storedSetting('statIllustDownloaded')).toBe(1);
   });
 
-  test.each([
-    ['zip', 'zip', ''],
-    ['webm', 'webm', '']
-  ])('an ugoira with convert type %s gets its own task, of convert type %s', async (ugoiraConvertType, convertType, args) => {
+  test.each(['zip', 'gif', 'apng', 'webm'])('an ugoira with convert type %s gets its own task of that type', async convertType => {
     const frames = [{ file: '000000.jpg', delay: 100 }];
     const resource = IllustResource.create({
       id: '7',
@@ -121,13 +118,32 @@ describe('download:addDownload', () => {
 
     await send('download:addDownload', JSON.parse(JSON.stringify({
       unpackedResource: resource.unpack(),
-      options: { selectedIndexes: [], ugoiraConvertType }
+      options: { selectedIndexes: [], ugoiraConvertType: convertType }
     })));
 
-    const task = manager().getTask(resource.getDownloadTaskId(ugoiraConvertType));
-    expect(task.id).toBe(`pixiv_illust:7:${ugoiraConvertType}`);
-    expect(task.options).toMatchObject({ convertType, ffmpegCommandArgs: args, frames });
+    const task = manager().getTask(resource.getDownloadTaskId(convertType));
+    expect(task.id).toBe(`pixiv_illust:7:${convertType}`);
+    expect(task.options).toMatchObject({ convertType, frames });
     expect(task.isZipOnly()).toBe(convertType === 'zip');
+  });
+
+  test('a video ugoira task tries the codec its format is set to, as the setting is when it is added', async () => {
+    const codec = async id => {
+      await send('download:addDownload', addUgoiraDownloadArgs(id, { ugoiraConvertType: 'mp4' }));
+
+      return manager().getTask(`pixiv_illust:${id}:mp4`).options.codec;
+    };
+
+    expect(await codec(8)).toBe('avc');
+
+    await browser.storage.local.set({ ugoiraMP4Codec: 'vp9' });
+    await browser._fake.flush();
+    expect(await codec(9)).toBe('vp9');
+
+    // An install from before the setting: the encoder falls back to the container's default.
+    await browser.storage.local.remove('ugoiraMP4Codec');
+    await browser._fake.flush();
+    expect(await codec(10)).toBeUndefined();
   });
 
   test('a resource already in the manager is refused by name, so the page can offer to redownload', async () => {
@@ -167,15 +183,14 @@ describe('download:addDownload', () => {
 
 describe('download:addDownload for an ugoira', () => {
   test('a known format starts a task named after it', async () => {
-    await expect(send('download:addDownload', addUgoiraDownloadArgs(3, { ugoiraConvertType: 'gif' })))
+    await expect(send('download:addDownload', addUgoiraDownloadArgs(3, { ugoiraConvertType: 'apng' })))
       .resolves.toEqual({ result: true });
 
-    const task = manager().getTask('pixiv_illust:3:gif');
-    expect(task.options.convertType).toBe('gif');
-    expect(task.options.ffmpegCommandArgs).toMatch(/out\.gif$/);
+    const task = manager().getTask('pixiv_illust:3:apng');
+    expect(task.options.convertType).toBe('apng');
   });
 
-  // The Custom download, which ran a stored FFmpeg command, has gone: no format is refused, not converted somehow.
+  // There is no Custom download any more: a missing or unknown format is refused, not converted some other way.
   test.each([
     ['no format', {}],
     ['an unknown format', { ugoiraConvertType: 'custom' }]

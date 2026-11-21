@@ -2,11 +2,27 @@ import browser from '../doubles/browser';
 import { mountOption, shallowMountOption } from '../helpers/mountOptionComponent';
 import UgoiraOptions from '@/options_page/components/options/UgoiraOptions.vue';
 import RenameDialog from '@/options_page/components/options/RenameDialog.vue';
+import { flushPromises } from '@vue/test-utils';
+import { VSelect } from 'vuetify/components';
 
 const browserItems = {
   ugoiraRenameRule: '{id}_{title}',
   animationJsonFormat: 2
 };
+
+/** Stubs VideoEncoder so only codec strings starting with one of `prefixes` are supported. */
+function stubEncodable(...prefixes) {
+  vi.stubGlobal('VideoEncoder', {
+    isConfigSupported: async ({ codec }) => ({ supported: prefixes.some(prefix => codec.startsWith(prefix)) })
+  });
+}
+
+/** The codec dropdown of the `format` row. */
+const codecSelect = (wrapper, format) => wrapper.find(`.ugoira-codec-${format}`).findComponent(VSelect);
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe('UgoiraOptions', () => {
   // shallowMount stubs `v-list-item` and only renders its default slot, so it
@@ -79,5 +95,70 @@ describe('UgoiraOptions', () => {
     await wrapper.findAll('.v-list-item')[0].trigger('click');
 
     expect(dialog.props('show')).toBe(true);
+  });
+
+  describe('video codecs', () => {
+    test('offers only the codecs each format holds, its default selected when unset', async () => {
+      stubEncodable('avc1.', 'vp09.', 'av01.', 'hvc1.', 'vp8');
+      const wrapper = mountOption(UgoiraOptions, { browserItems });
+      await flushPromises();
+
+      const offered = format => codecSelect(wrapper, format).props('items').map(item => item.value);
+      expect(offered('webm')).toEqual(['vp9', 'av1', 'vp8']);
+      for (const format of ['mp4', 'mov', 'mkv']) {
+        expect(offered(format)).toEqual(['avc', 'vp9', 'av1', 'hevc', 'vp8']);
+      }
+      expect(['webm', 'mp4', 'mov', 'mkv'].map(format => codecSelect(wrapper, format).props('modelValue')))
+        .toEqual(['vp9', 'avc', 'avc', 'avc']);
+      expect(wrapper.find('.ugoira-codec-mp4').text()).toContain('MP4 ugoira_codec.message');
+    });
+
+    test("shows the stored codec, and the default for one the format can't hold", async () => {
+      stubEncodable('vp');
+      const wrapper = mountOption(UgoiraOptions, {
+        browserItems: { ...browserItems, ugoiraMP4Codec: 'vp9', ugoiraWEBMCodec: 'avc', ugoiraMKVCodec: 'prores' }
+      });
+
+      expect(codecSelect(wrapper, 'mp4').props('modelValue')).toBe('vp9');
+      expect(codecSelect(wrapper, 'webm').props('modelValue')).toBe('vp9');
+      expect(codecSelect(wrapper, 'mkv').props('modelValue')).toBe('avc');
+    });
+
+    test("picking a codec stores it under that format's setting only", async () => {
+      stubEncodable('vp');
+      const wrapper = mountOption(UgoiraOptions, { browserItems });
+
+      codecSelect(wrapper, 'mov').vm.$emit('update:modelValue', 'av1');
+      await flushPromises();
+
+      expect(browser.storage.local.items.ugoiraMOVCodec).toBe('av1');
+      expect(browser.storage.local.items).not.toHaveProperty('ugoiraMP4Codec');
+      expect(codecSelect(wrapper, 'mov').props('modelValue')).toBe('av1');
+    });
+
+    test("marks the codecs this browser can't encode, and the row whose choice is one", async () => {
+      stubEncodable('vp09.', 'vp8');
+      const wrapper = mountOption(UgoiraOptions, { browserItems: { ...browserItems, ugoiraMKVCodec: 'vp9' } });
+      await flushPromises();
+
+      const marked = format => codecSelect(wrapper, format).props('items')
+        .filter(item => item.props.subtitle === 'codec_unencodable.message').map(item => item.value);
+      expect(marked('mp4')).toEqual(['avc', 'av1', 'hevc']);
+      expect(marked('webm')).toEqual(['av1']);
+      // MP4 keeps its default, H.264, which this browser can't encode; MKV chose VP9.
+      expect(codecSelect(wrapper, 'mp4').props('messages')).toBe('codec_unencodable.message');
+      expect(codecSelect(wrapper, 'mkv').props('messages')).toEqual([]);
+      expect(wrapper.find('.ugoira-codec-mp4').text()).toContain('codec_unencodable.message');
+      expect(codecSelect(wrapper, 'mp4').props('loading')).toBe(false);
+    });
+
+    test('marks nothing until WebCodecs answers', () => {
+      vi.stubGlobal('VideoEncoder', { isConfigSupported: () => new Promise(() => {}) });
+      const wrapper = mountOption(UgoiraOptions, { browserItems });
+
+      expect(codecSelect(wrapper, 'mp4').props('items').every(item => !item.props.subtitle)).toBe(true);
+      expect(codecSelect(wrapper, 'mp4').props('messages')).toEqual([]);
+      expect(codecSelect(wrapper, 'mp4').props('loading')).toBe(true);
+    });
   });
 });

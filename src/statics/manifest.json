@@ -10,7 +10,7 @@
     },
     "short_name": "PTK",
     "content_security_policy": {
-        "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self' 'wasm-unsafe-eval'"
+        "extension_pages": "script-src 'self'; object-src 'self'"
     },
     "default_locale": "en",
     "description": "__MSG_extDescription__",
@@ -42,16 +42,6 @@
         "*://*.pximg.net/*",
         "*://*.techorus-cdn.com/*",
         "*://*.fanbox.cc/*"
-    ],
-    "web_accessible_resources": [
-        {
-            "resources": [
-                "lib/ffmpeg/ffmpeg-core.wasm"
-            ],
-            "matches": [
-                "<all_urls>"
-            ]
-        }
     ],
     "content_scripts": [
         {

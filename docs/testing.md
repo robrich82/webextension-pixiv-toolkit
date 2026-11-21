@@ -184,16 +184,29 @@ The background reads each finished file with `FileReader`, which Node lacks, so
 `test/Downloader.spec.js` stays in the `unit` project but opts into jsdom with a
 `// @vitest-environment jsdom` docblock.
 
-`test/UgoiraDownloadTask.spec.js` fakes FFmpeg. To check what the bundled core
-really does with a command, `test/helpers/ffmpegCore.cjs` runs it in a child
-Node process (its web-build globals would confuse Vitest's worker), with a fresh
-core per conversion, since one core crashes after a few runs.
-`test/ugoiraFrameTiming.spec.js` uses it to time each format's frames.
-
-WEBM is encoded through WebCodecs, which Node lacks. `test/UgoiraDownloadTask.spec.js`
+WEBM, MP4, MKV and MOV are encoded through WebCodecs, which Node lacks. `test/UgoiraDownloadTask.spec.js`
 fakes `encodeVideo`, `test/ugoiraVideoEncoder.spec.js` covers the codec choice and frame
 times with `canEncodeVideo` faked, and the e2e tests encode for real, reading the saved
 video back with `test/helpers/probeVideo.mjs`.
+
+GIF is encoded with gifenc in workers, which Node lacks. `test/UgoiraDownloadTask.spec.js`
+fakes `encodeGif`, `test/ugoiraGifEncoder.spec.js` runs the real gifenc and the worker pool over
+fake workers, `test/ugoiraGifWorker.spec.js` runs `gif.worker.js` over stubbed worker globals, and
+the e2e tests read the saved GIF back with `test/helpers/probeGif.mjs`.
+
+APNG works the same way: `test/ugoiraApngEncoder.spec.js` runs the real filters, Node's own
+`CompressionStream` and the muxer, and the worker pool over fake workers,
+`test/ugoiraApngWorker.spec.js` runs `apng.worker.js` over stubbed worker globals, and
+`test/helpers/probeApng.mjs` reads the saved APNG back, checking its CRCs and sequence numbers.
+`test/ugoiraPngDecoder.spec.js` checks `png.js`, the worker's PNG frame decoder, against
+`test/fixtures/png/decoder-suite.zip`. The zip holds ImageMagick-written PNGs in every colour type
+and bit depth, with and without tRNS and interlacing, each beside ImageMagick's RGBA decode of it.
+Node's `DecompressionStream` hands over all the output before refusing bytes after the zlib
+stream, a missing checksum or a stream with no final block, and png.js has stopped reading by
+then, so the spec stubs one that refuses up front to reach the fflate fallback.
+`test/ugoiraPngInflateBound.spec.js` mocks fflate to count what the fallback pushes.
+The e2e tests' `moving` fixture has a square moving over a still background, so each frame after
+the first holds only the area that changed.
 
 ## DOM code, without jsdom
 
@@ -311,7 +324,7 @@ Two limits worth knowing before adding a test:
 `pnpm run test:e2e:firefox` runs `e2e-firefox/*.test.mjs` with `node --test`
 against `dist/firefox`, so run `pnpm run build:firefox` first. It needs
 Firefox 148 or later and `openssl` 1.1.1 or later on the PATH; on Linux, the
-MP4 test also needs the system libavcodec (`libavcodec-extra`). Firefox is
+MP4 decode checks also need the system libavcodec (`libavcodec-extra`). Firefox is
 looked up at its default install location on Windows and macOS and on the PATH
 on Linux; `FIREFOX=<path>` overrides. A snap Firefox can't see the temp
 profile, so use the deb or a tarball. Set `HEADED=1` to watch, or

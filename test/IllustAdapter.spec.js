@@ -1,8 +1,9 @@
 /**
- * Which ugoira conversion IllustAdapter hands the download task: WebCodecs containers get no FFmpeg
- * command, the rest their preset.
+ * Which ugoira conversion IllustAdapter hands the download task: WebCodecs containers get their
+ * codec setting, the other formats no codec.
  */
-import IllustAdapter, { UGOIRA_FFMPEG_CLI_ARGS } from '@/options_page/modules/DownloadAdapters/Pixiv/IllustAdapter';
+import { codecSettingKey } from '@/options_page/modules/UgoiraEncoders/video';
+import IllustAdapter from '@/options_page/modules/DownloadAdapters/Pixiv/IllustAdapter';
 import UgoiraDownloadTask from '@/options_page/modules/DownloadTasks/Pixiv/UgoiraDownloadTask';
 import IllustResource from '@/modules/PageResource/Pixiv/IllustResource';
 
@@ -33,20 +34,22 @@ afterEach(() => {
 });
 
 describe('createUgoiraDownloadTask', () => {
-  it('encodes WEBM through WebCodecs, without an FFmpeg command', () => {
-    expect(taskOptions('webm')).toMatchObject({
-      id: 'pixiv_illust:10000003:webm', convertType: 'webm', ffmpegCommandArgs: ''
-    });
+  it.each(['webm', 'mp4', 'mov', 'mkv'])('encodes %s through WebCodecs', type => {
+    expect(taskOptions(type)).toMatchObject({ id: `pixiv_illust:10000003:${type}`, convertType: type });
   });
 
-  it('saves only the frames zip for DL Zip, without an FFmpeg command', () => {
-    expect(taskOptions('zip')).toMatchObject({ convertType: 'zip', ffmpegCommandArgs: '' });
+  it('saves only the frames zip for DL Zip', () => {
+    expect(taskOptions('zip')).toMatchObject({ convertType: 'zip' });
   });
 
-  it('still converts MP4 with its FFmpeg preset', () => {
-    expect(taskOptions('mp4')).toMatchObject({
-      convertType: 'mp4', ffmpegCommandArgs: UGOIRA_FFMPEG_CLI_ARGS.ugoiraFFmpegMP4CliArgs
-    });
+  it.each(['gif', 'apng'])('encodes %s in the browser', type => {
+    expect(taskOptions(type)).toMatchObject({ id: `pixiv_illust:10000003:${type}`, convertType: type });
+  });
+
+  it.each(['webm', 'mp4', 'mov', 'mkv'])('hands a %s task the codec its setting names', type => {
+    window.$app.settings[codecSettingKey(type)] = 'vp8';
+
+    expect(taskOptions(type)).toMatchObject({ convertType: type, codec: 'vp8' });
   });
 
   // An inherited key such as 'constructor' is not a container.

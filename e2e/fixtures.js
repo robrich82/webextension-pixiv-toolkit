@@ -146,6 +146,40 @@ async function decodeMedia(context, file, mime) {
 }
 
 /**
+ * Decode every frame of an APNG with Chrome's own decoder, as it shows once drawn.
+ * @returns {Promise<number[][]>} Each frame's RGBA. Chrome premultiplies an APNG's frames internally
+ *   despite `premultiplyAlpha: 'none'`, so semi-transparent pixels' colours come back rounded.
+ */
+async function decodeApngFrames(context, serviceWorker, file) {
+  const page = await context.newPage();
+  // ImageDecoder needs a secure context, which about:blank is not.
+  await page.goto(new URL('/manifest.json', serviceWorker.url()).href);
+
+  try {
+    return await page.evaluate(async base64 => {
+      const data = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+      const decoder = new ImageDecoder({ data, type: 'image/png', premultiplyAlpha: 'none', colorSpaceConversion: 'none' });
+      await decoder.tracks.ready;
+      const frames = [];
+
+      for (let frameIndex = 0; frameIndex < decoder.tracks.selectedTrack.frameCount; frameIndex++) {
+        const { image } = await decoder.decode({ frameIndex });
+        const rgba = new Uint8Array(image.allocationSize({ format: 'RGBA' }));
+
+        await image.copyTo(rgba, { format: 'RGBA' });
+        image.close();
+        frames.push(Array.from(rgba));
+      }
+
+      decoder.close();
+      return frames;
+    }, fs.readFileSync(file).toString('base64'));
+  } finally {
+    await page.close();
+  }
+}
+
+/**
  * Seed one visit into the options page's Dexie history, the way the
  * download manager would.
  * @param {import('@playwright/test').Page} page  an extension page, for its Dexie global
@@ -254,5 +288,5 @@ const test = base.extend({
 
 module.exports = {
   test, expect, mockPixiv, collectErrors, openPanel, waitForDownloads,
-  seedSettings, seedHistory, recordSaveNames, savedFiles, decodeMedia
+  seedSettings, seedHistory, recordSaveNames, savedFiles, decodeMedia, decodeApngFrames
 };

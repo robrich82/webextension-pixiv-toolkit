@@ -40,6 +40,22 @@
           </v-select>
         </template>
       </v-list-item>
+
+      <v-list-item v-for="format in videoFormats" :key="format" :class="`ugoira-codec-${format}`">
+        <template #title>{{ format.toUpperCase() }} {{ tl('ugoira_codec') }}</template>
+        <template #subtitle>{{ tl('ugoira_codec_fallback') }}</template>
+        <template #append>
+          <v-select
+            :items="codecItems(format)"
+            :model-value="codecs[format]"
+            :messages="unencodable(codecs[format]) ? tl('codec_unencodable') : []"
+            :loading="encodable === null"
+            style="width:220px"
+            @update:model-value="setCodec(format, $event)"
+          >
+          </v-select>
+        </template>
+      </v-list-item>
     </v-list>
 
     <rename-dialog v-model:show="showRenameDialog"
@@ -54,6 +70,9 @@
 <script>
 import browser from '@/modules/Extension/browser';
 import RenameDialog from '@@/components/options/RenameDialog';
+import {
+  CODEC_LABELS, VIDEO_FORMAT_CODECS, codecSettingKey, encodableCodecs
+} from '@@/modules/UgoiraEncoders/codecs';
 
 export default {
   components: {
@@ -69,6 +88,15 @@ export default {
       animationJsonFormat: 1,
 
       showRenameDialog: false,
+
+      videoFormats: Object.keys(VIDEO_FORMAT_CODECS),
+
+      /** Each format's codec; a missing or unknown stored value shows as the format's default. */
+      codecs: Object.fromEntries(Object.entries(VIDEO_FORMAT_CODECS)
+        .map(([format, { defaultCodec }]) => [format, defaultCodec])),
+
+      /** Which codecs this browser encodes, once WebCodecs answers; until then nothing is marked. */
+      encodable: null,
     };
   },
 
@@ -112,6 +140,18 @@ export default {
     this.renameRule = this.browserItems.ugoiraRenameRule;
     this.animationJsonFormat = this.browserItems.animationJsonFormat;
 
+    for (const format of this.videoFormats) {
+      const stored = this.browserItems[codecSettingKey(format)];
+
+      if (VIDEO_FORMAT_CODECS[format].codecs.includes(stored)) {
+        this.codecs[format] = stored;
+      }
+    }
+
+    encodableCodecs().then(encodable => {
+      this.encodable = encodable;
+    });
+
     this.renameMetas = [
       {
         title: this.tl("_id"),
@@ -147,6 +187,24 @@ export default {
   methods: {
     openRenameDialog() {
       this.showRenameDialog = true;
+    },
+
+    /** The codecs the format holds, each marked when this browser can't encode it. */
+    codecItems(format) {
+      return VIDEO_FORMAT_CODECS[format].codecs.map(codec => ({
+        title: CODEC_LABELS[codec],
+        value: codec,
+        props: this.unencodable(codec) ? { subtitle: this.tl('codec_unencodable') } : {}
+      }));
+    },
+
+    unencodable(codec) {
+      return this.encodable?.[codec] === false;
+    },
+
+    setCodec(format, codec) {
+      this.codecs[format] = codec;
+      browser.storage.local.set({ [codecSettingKey(format)]: codec });
     }
   }
 };
