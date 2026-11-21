@@ -423,6 +423,188 @@ test('retrying a ugoira whose conversion failed, through the download manager, c
   expect(manager.lastError).toBeNull();
 });
 
+/** Completes a first task for the work, so the next one's frames zip comes from the cache. */
+const cacheZip = async id => {
+  const first = createTask({ id });
+  first.start();
+  await completeDownload(first);
+  await vi.waitFor(() => expect(first.isComplete()).toBe(true));
+  encodeApng.mockClear();
+  saved.length = 0;
+};
+
+const settle = () => new Promise(resolve => setTimeout(resolve, 20));
+
+// #438
+describe('a task stopped while its cached zip loads', () => {
+  test('converts nothing once paused', async () => {
+    await cacheZip('170');
+    const task = createTask({ id: '170' });
+    const fired = events(task);
+
+    const starting = task.start();
+    task.pause();
+    await starting;
+    await settle();
+
+    expect(task.isPaused()).toBe(true);
+    expect(fired).toEqual(['start']);
+    expect(encodeApng).not.toHaveBeenCalled();
+    expect(saved).toEqual([]);
+  });
+
+  test('converts once when paused and started again before the zip loaded', async () => {
+    await cacheZip('171');
+    const task = createTask({ id: '171' });
+
+    const starting = task.start();
+    task.pause();
+    task.tryPending();
+    task.start();
+    await starting;
+    await vi.waitFor(() => expect(task.isComplete()).toBe(true));
+    await settle();
+
+    expect(encodeApng).toHaveBeenCalledTimes(1);
+    expect(savedNames()).toEqual(['ugoira/171_Moving.apng']);
+  });
+
+  test('converts nothing once deleted through the download manager', async () => {
+    await cacheZip('172');
+    DownloadManager.defaultInstance = undefined;
+    const manager = DownloadManager.getDefault();
+    const task = createTask({ id: '172' });
+    const fired = events(task);
+
+    await manager.addTask(task);
+    await manager.deleteTask(task.id);
+    await settle();
+
+    expect(fired).toEqual(['start']);
+    expect(encodeApng).not.toHaveBeenCalled();
+    expect(saved).toEqual([]);
+  });
+});
+
+// #453
+describe('a task deleted through the download manager while it converts', () => {
+  let manager;
+
+  beforeEach(() => {
+    DownloadManager.defaultInstance = undefined;
+    manager = DownloadManager.getDefault();
+  });
+
+  test('ends quietly when deleted during the encoding', async () => {
+    const consoleError = vi.spyOn(console, 'error');
+    const task = createTask({ id: '173', taskId: 'pixiv:173:gif', convertType: 'gif' });
+    const fired = events(task);
+    const updates = [];
+    manager.addListener('update', ids => updates.push(...ids));
+    let encodeSignal;
+    encodeGif.mockImplementation(({ signal }) => new Promise((resolve, reject) => {
+      encodeSignal = signal;
+      signal.addEventListener('abort', () => reject(signal.reason));
+    }));
+
+    await manager.addTask(task);
+    await completeDownload(task);
+    await vi.waitFor(() => expect(encodeSignal).toBeDefined());
+    updates.length = 0;
+
+    await manager.deleteTask(task.id);
+    await settle();
+
+    expect(encodeSignal.aborted).toBe(true);
+    expect(fired).toEqual(['start']);
+    expect(task.lastError).toBeUndefined();
+    expect(task.isFailure()).toBe(false);
+    expect(updates).toEqual([]);
+    expect(consoleError).not.toHaveBeenCalled();
+    expect(saved).toEqual([]);
+  });
+
+  test('saves nothing when deleted as the encoding finishes', async () => {
+    const task = createTask({ id: '174' });
+    const fired = events(task);
+    encodeApng.mockImplementation(async () => {
+      await manager.deleteTask(task.id);
+      return APNG;
+    });
+
+    await manager.addTask(task);
+    await completeDownload(task);
+    await vi.waitFor(() => expect(encodeApng).toHaveBeenCalled());
+    await settle();
+
+    expect(fired).toEqual(['start']);
+    expect(task.lastError).toBeUndefined();
+    expect(saved).toEqual([]);
+  });
+
+  test('neither completes nor fails when deleted while its file saves', async () => {
+    const task = createTask({ id: '175' });
+    const fired = events(task);
+    browser.runtime.onMessage.addListener(message => {
+      if (message.action === 'download:saveFile' && manager.tasks.has(task.id)) {
+        manager.deleteTask(task.id);
+      }
+    });
+
+    await manager.addTask(task);
+    await completeDownload(task);
+    await vi.waitFor(() => expect(saved).toHaveLength(1));
+    await settle();
+
+    expect(fired).toEqual(['start']);
+    expect(task.isComplete()).toBe(false);
+    expect(task.lastError).toBeUndefined();
+  });
+
+  test('a zip task saves nothing when deleted while the zip is generated', async () => {
+    await cacheZip('176');
+    const task = createTask({ id: '176', taskId: 'pixiv:176:zip', convertType: 'zip' });
+    const fired = events(task);
+    const generateAsync = RealJSZip.prototype.generateAsync;
+    vi.spyOn(RealJSZip.prototype, 'generateAsync').mockImplementation(function (...args) {
+      manager.deleteTask(task.id);
+      return generateAsync.apply(this, args);
+    });
+
+    await manager.addTask(task);
+    await settle();
+
+    expect(fired).toEqual(['start']);
+    expect(task.lastError).toBeUndefined();
+    expect(saved).toEqual([]);
+  });
+});
+
+test('a failed conversion drops its progress, and a retry starts from 0', async () => {
+  vi.spyOn(console, 'error').mockImplementation(() => {});
+  const task = createTask({ id: '177', taskId: 'pixiv:177:gif', convertType: 'gif' });
+  encodeGif.mockImplementationOnce(async ({ onProgress }) => {
+    onProgress(0.6);
+    throw new Error('Could not encode GIF frame 2: decode failed');
+  });
+
+  task.start();
+  await completeDownload(task);
+  await vi.waitFor(() => expect(task.isFailure()).toBe(true));
+  expect(task.processProgress).toBe(0);
+
+  let progressAtStart;
+  encodeGif.mockImplementationOnce(async () => {
+    progressAtStart = task.processProgress;
+    return { data: new Uint8Array([1]), mimeType: 'image/gif', extension: 'gif' };
+  });
+  task.tryPending();
+  await task.start();
+  await vi.waitFor(() => expect(task.isComplete()).toBe(true));
+
+  expect(progressAtStart).toBe(0);
+});
+
 test('pause aborts the download, and a restarted task fetches the zip again and finishes', async () => {
   const task = createTask({ id: '131' });
   const fired = events(task);
@@ -510,6 +692,10 @@ describe('a save that fails fails the task', () => {
   test('the converted animation', async () => {
     const revoke = vi.spyOn(URL, 'revokeObjectURL');
     background.failSaves(save => save.filename.endsWith('.apng'));
+    encodeApng.mockImplementation(async ({ onProgress }) => {
+      onProgress(1);
+      return APNG;
+    });
     const task = createTask({ id: '152' });
 
     task.start();
@@ -517,6 +703,8 @@ describe('a save that fails fails the task', () => {
     await vi.waitFor(() => expect(task.isFailure()).toBe(true));
 
     expect(task.lastError).toEqual(new Error('Could not save "ugoira/152_Moving.apng"'));
+    // The encoder's 100% is not done: the content script would tick the failed task's button.
+    expect(task.processProgress).toBe(0);
     expect(revoke).toHaveBeenCalledWith(background.saves.find(save => save.filename.endsWith('.apng')).url);
   });
 });
