@@ -37,6 +37,7 @@ function manifestPaths(manifest) {
     manifest.options_page || manifest.options_ui.page,
     ...Object.values(manifest.icons),
     ...manifest.content_scripts.flatMap(script => [...script.js, ...script.css]),
+    ...(manifest.web_accessible_resources ?? []).flatMap(entry => entry.resources),
     ...manifest.declarative_net_request.rule_resources.map(rule => rule.path),
     `_locales/${manifest.default_locale}/messages.json`
   ];
@@ -227,10 +228,11 @@ describe.each(['chrome', 'firefox'])('build for %s', platform => {
   });
 
   it('ships no WebAssembly, and its pages may not compile any', () => {
-    const files = fs.readdirSync(out, { recursive: true }).map(file => String(file));
-    const manifest = JSON.parse(read(out, 'manifest.json'));
+    const files = fs.readdirSync(out, { recursive: true });
 
     expect(files.filter(file => file.endsWith('.wasm'))).toEqual([]);
+    // Wasm inlined into a bundle ships no .wasm file.
+    expect(files.filter(file => file.endsWith('.js') && read(out, file).includes('WebAssembly'))).toEqual([]);
     expect(manifest.content_security_policy.extension_pages).not.toContain('wasm-unsafe-eval');
   });
 
