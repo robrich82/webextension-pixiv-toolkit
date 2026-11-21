@@ -566,7 +566,7 @@ describe('a task deleted through the download manager while it converts', () => 
   });
 });
 
-test('a retry starts its conversion progress from 0, not from the failed attempt', async () => {
+test('a failed conversion drops its progress, and a retry starts from 0', async () => {
   vi.spyOn(console, 'error').mockImplementation(() => {});
   const task = createTask({ id: '177', taskId: 'pixiv:177:gif', convertType: 'gif' });
   encodeGif.mockImplementationOnce(async ({ onProgress }) => {
@@ -577,7 +577,7 @@ test('a retry starts its conversion progress from 0, not from the failed attempt
   task.start();
   await completeDownload(task);
   await vi.waitFor(() => expect(task.isFailure()).toBe(true));
-  expect(task.processProgress).toBe(0.6);
+  expect(task.processProgress).toBe(0);
 
   let progressAtStart;
   encodeGif.mockImplementationOnce(async () => {
@@ -678,6 +678,10 @@ describe('a save that fails fails the task', () => {
   test('the converted animation', async () => {
     const revoke = vi.spyOn(URL, 'revokeObjectURL');
     background.failSaves(save => save.filename.endsWith('.apng'));
+    encodeApng.mockImplementation(async ({ onProgress }) => {
+      onProgress(1);
+      return APNG;
+    });
     const task = createTask({ id: '152' });
 
     task.start();
@@ -685,6 +689,8 @@ describe('a save that fails fails the task', () => {
     await vi.waitFor(() => expect(task.isFailure()).toBe(true));
 
     expect(task.lastError).toEqual(new Error('Could not save "ugoira/152_Moving.apng"'));
+    // The encoder's 100% is not done: the content script would tick the failed task's button.
+    expect(task.processProgress).toBe(0);
     expect(revoke).toHaveBeenCalledWith(background.saves.find(save => save.filename.endsWith('.apng')).url);
   });
 });

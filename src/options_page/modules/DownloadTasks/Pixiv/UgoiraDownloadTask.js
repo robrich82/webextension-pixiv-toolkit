@@ -92,7 +92,7 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
   fallbackCodec = null;
 
   /**
-   * Counts start() calls, so a load that a pause and a restart overtook doesn't go on
+   * Counts the start() calls that leave pending, so a load that a pause and a restart overtook doesn't go on
    * @type {number}
    */
   startRun = 0;
@@ -218,10 +218,6 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
    * @fires UgoiraDownloadTask#failure
    */
   async onFinish() {
-    if (this.isDelete) {
-      return;
-    }
-
     this.changeState(this.PROCESSING_STATE);
 
     try {
@@ -238,6 +234,8 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
 
       console.error(`Could not ${this.isZipOnly() ? 'save the frames zip of' : 'convert'} ugoira ${this.id}`, error);
       this.lastError = error;
+      // Not done processing, even if the encoder reported 100% before the save failed.
+      this.processProgress = 0;
       this.onFailure();
       return;
     }
