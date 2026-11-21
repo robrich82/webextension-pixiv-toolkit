@@ -12,7 +12,6 @@ import { UGOIRA_FFMPEG_CLI_ARGS } from '@/options_page/modules/DownloadAdapters/
 const FORMATS = {
   gif: 'ugoiraFFmpegGIFCliArgs',
   apng: 'ugoiraFFmpegAPNGCliArgs',
-  webm: 'ugoiraFFmpegWEBMCliArgs',
   mp4: 'ugoiraFFmpegMP4CliArgs'
 };
 const UNEVEN = [30, 70, 100, 50, 130, 60];
@@ -66,7 +65,6 @@ beforeAll(() => {
 test.each([
   ['gif', [0, 30, 100, 200, 250, 380]],
   ['apng', [0, 30, 100, 200, 250, 380]],
-  ['webm', [0, 30, 100, 200, 250, 380, 430]],
   ['mp4', [0, 30, 100, 200, 250, 380, 430]]
 ])('%s shows each frame for its own delay, the last too', (format, starts) => {
   expect(results[`${format} uneven`]).toEqual({ code: 0, starts, total: 440 });
@@ -79,7 +77,6 @@ test.each(ALL)('%s with equal delays shows every frame for its delay', format =>
 test.each([
   ['gif', [0, 100, 200]],
   ['apng', [0, 100, 200]],
-  ['webm', [0, 100, 200, 1100]],
   ['mp4', [0, 100, 200, 1100]]
 ])('%s holds a long last frame for its delay', (format, starts) => {
   expect(results[`${format} hold`]).toEqual({ code: 0, starts, total: 1200 });

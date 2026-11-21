@@ -7,17 +7,17 @@ import {
 import AbstractDownloadTask from "../../DownloadTasks/AbstractDownloadTask";
 import AbstractResource from "@/modules/PageResource/AbstractResource";
 import IllustResource from "@/modules/PageResource/Pixiv/IllustResource";
+import { VIDEO_CONTAINERS } from "@/options_page/modules/UgoiraEncoders/video";
 
 /**
- * The ugoira conversions offered as buttons. MP4 is re-encoded to H.264 (frames copied as is make
- * MJPEG, which browsers don't play), and yuv420p needs even dimensions, hence the pad. Variable
- * frame rate keeps one frame per ugoira frame; FFmpeg 5.1 would otherwise repeat them at
- * input.txt's frame rate.
+ * The ugoira conversions FFmpeg makes; VIDEO_CONTAINERS are encoded through WebCodecs instead.
+ * MP4 is re-encoded to H.264 (frames copied as is make MJPEG, which browsers don't play), and
+ * yuv420p needs even dimensions, hence the pad. Variable frame rate keeps one frame per ugoira
+ * frame; FFmpeg 5.1 would otherwise repeat them at input.txt's frame rate.
  */
 export const UGOIRA_FFMPEG_CLI_ARGS = {
   ugoiraFFmpegGIFCliArgs: '-f concat -i input.txt -plays 0 out.gif',
   ugoiraFFmpegAPNGCliArgs: '-f concat -i input.txt -plays 0 output.apng',
-  ugoiraFFmpegWEBMCliArgs: '-f concat -i input.txt -safe 0 output.webm',
   ugoiraFFmpegMP4CliArgs: '-f concat -i input.txt -safe 0 -c:v libx264 -pix_fmt yuv420p -vf pad=ceil(iw/2)*2:ceil(ih/2)*2 -fps_mode vfr -movflags +faststart output.mp4'
 };
 
@@ -108,12 +108,14 @@ class IllustAdapter {
    */
   createUgoiraDownloadTask(resource, options) {
     const convertType = options?.ugoiraConvertType;
-    // A zip task saves the frames zip only, so it has no command.
-    const isZip = convertType === UgoiraDownloadTask.ZIP_CONVERT_TYPE;
-    const ffmpegCommandArgs = isZip ? '' : typeof convertType === 'string' &&
+    // A zip task saves only the frames zip, and WebCodecs encodes the video containers, so neither
+    // has an FFmpeg command.
+    const noCommand = convertType === UgoiraDownloadTask.ZIP_CONVERT_TYPE ||
+      Object.hasOwn(VIDEO_CONTAINERS, convertType ?? '');
+    const ffmpegCommandArgs = noCommand ? '' : typeof convertType === 'string' &&
       UGOIRA_FFMPEG_CLI_ARGS[`ugoiraFFmpeg${convertType.toUpperCase()}CliArgs`];
 
-    if (!isZip && !ffmpegCommandArgs) {
+    if (!noCommand && !ffmpegCommandArgs) {
       throw new Error(`Unknown ugoira convert type: ${convertType}`);
     }
 
