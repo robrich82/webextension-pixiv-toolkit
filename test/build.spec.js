@@ -37,7 +37,6 @@ function manifestPaths(manifest) {
     manifest.options_page || manifest.options_ui.page,
     ...Object.values(manifest.icons),
     ...manifest.content_scripts.flatMap(script => [...script.js, ...script.css]),
-    ...manifest.web_accessible_resources.flatMap(entry => entry.resources),
     ...manifest.declarative_net_request.rule_resources.map(rule => rule.path),
     `_locales/${manifest.default_locale}/messages.json`
   ];
@@ -227,15 +226,12 @@ describe.each(['chrome', 'firefox'])('build for %s', platform => {
     expect(context.locales.localeEn.extName.message).toEqual(expect.any(String));
   });
 
-  it('ships the umd FFmpeg build without source maps, pointed at the packaged core', () => {
-    const files = fs.readdirSync(path.join(out, 'lib/ffmpeg'));
-    // The worker chunk, not ffmpeg.js, is the file that names the core.
-    const ffmpeg = files.filter(f => f.endsWith('.js')).map(f => read(out, `lib/ffmpeg/${f}`)).join('\n');
+  it('ships no WebAssembly, and its pages may not compile any', () => {
+    const files = fs.readdirSync(out, { recursive: true }).map(file => String(file));
+    const manifest = JSON.parse(read(out, 'manifest.json'));
 
-    expect(files).toEqual(expect.arrayContaining(['ffmpeg.js', 'ffmpeg-core.js', 'ffmpeg-core.wasm']));
-    expect(files.filter(f => f.endsWith('.map'))).toEqual([]);
-    expect(ffmpeg).not.toContain('unpkg.com');
-    expect(ffmpeg).toContain('"ffmpeg-core.js"');
+    expect(files.filter(file => file.endsWith('.wasm'))).toEqual([]);
+    expect(manifest.content_security_policy.extension_pages).not.toContain('wasm-unsafe-eval');
   });
 
   it('leaves src/statics/remote out of the package', () => {

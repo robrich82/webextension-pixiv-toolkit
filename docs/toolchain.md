@@ -141,8 +141,8 @@ guarantee npm's flat tree cannot offer at all.
 Almost every dependency sits on a caret range, and that is deliberate: caret
 never crosses a major, so a plain `pnpm install` cannot pull in a breaking
 release on its own. The `0.x` pins are tighter still — caret on a `0.x`
-version locks the *minor*, so `@ffmpeg/core: ^0.12.10` resolves
-`>=0.12.10 <0.13.0`.
+version locks the *minor*, so `fflate: ^0.8.3` resolves
+`>=0.8.3 <0.9.0`.
 
 `typescript` is exact-pinned. It is there only for the editor's language
 server, which TypeScript 7 serves itself (`tsc --lsp`); TypeScript 7 ships no

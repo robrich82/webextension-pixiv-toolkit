@@ -16,7 +16,6 @@
     "test:e2e:firefox": "node --test --test-reporter=spec \"e2e-firefox/*.test.mjs\""
   },
   "dependencies": {
-    "@ffmpeg/core": "^0.12.10",
     "@mdi/font": "^7.4.47",
     "dexie": "^4.4.7",
     "fflate": "^0.8.3",
@@ -33,7 +32,6 @@
     "vuetify": "^4.3.0"
   },
   "devDependencies": {
-    "@ffmpeg/ffmpeg": "^0.12.15",
     "@mdn/browser-compat-data": "^8.1.9",
     "@playwright/test": "^1.64.1",
     "@vitejs/plugin-vue": "^6.0.10",

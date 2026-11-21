@@ -44,7 +44,7 @@ Since 6.0.0, downloads don't run in the content script. They run in the download
 
 1. In the content script, `Detector` watches for URL changes and `PageAdapters/*` pick the site adapter. The adapter builds a resource from `src/modules/PageResource` using the parsers in `src/modules/Parser` (one folder per site).
 2. `content_scripts/components/App.vue` makes sure the download manager tab is open, then sends `download:addDownload` with `resource.unpack()`.
-3. The download manager (`DownloadsApplication.js` → `options_page/services/DownloadService.js`) runs the download task. Files are saved one at a time through `browser.downloads`. Ugoira WEBM, MP4, MKV and MOV are encoded through WebCodecs with Mediabunny, GIF with gifenc, and APNG with our own PNG decoder, encoder and muxer; GIF and APNG each in a pool of workers (all in `options_page/modules/UgoiraEncoders/`). FFmpeg.wasm is still bundled, but no format uses it.
+3. The download manager (`DownloadsApplication.js` → `options_page/services/DownloadService.js`) runs the download task. Files are saved one at a time through `browser.downloads`. Ugoira WEBM, MP4, MKV and MOV are encoded through WebCodecs with Mediabunny, GIF with gifenc, and APNG with our own PNG decoder, encoder and muxer; GIF and APNG each in a pool of workers (all in `options_page/modules/UgoiraEncoders/`).
 
 ### Messaging convention
 

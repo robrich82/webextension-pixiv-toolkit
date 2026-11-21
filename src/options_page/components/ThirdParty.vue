@@ -33,11 +33,6 @@ export default {
 
     return {
       thirdPartList: [{
-        name: 'ffmpeg.wasm',
-        version: npm['@ffmpeg/ffmpeg'],
-        desc: 'ffmpeg.wasm is a pure WebAssembly / JavaScript port of FFmpeg. It enables video & audio record, convert and stream right inside browsers.',
-        url: 'https://github.com/ffmpegwasm/ffmpeg.wasm'
-      }, {
         name: 'Mediabunny',
         version: npm.mediabunny,
         desc: 'Pure TypeScript media toolkit for reading, writing, and converting media files, directly in the browser.',
