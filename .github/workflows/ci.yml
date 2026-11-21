@@ -13,61 +13,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      # Caches mise's downloads rather than its installs: mise.lock checks what
-      # mise downloads, but a restored install would be trusted as is. Saved
-      # straight after the install, so a later failing step doesn't skip it.
-      - name: Restore mise downloads
-        id: mise-downloads
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.cache/mise/downloads-cas
-          key: mise-downloads-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('mise.lock') }}
-
-      # Installs Node and pnpm from mise.toml, as locally. With mise.lock
-      # present the action runs `mise install --locked`, which fails on a
-      # version or platform the lock doesn't cover.
-      # No separate check against `engines`: pnpm enforces the root project's
-      # `engines` on every install, so an out-of-range pin fails the install.
-      - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
-        with:
-          version: 2026.11.9
-          cache: false
-
-      - name: Save mise downloads
-        if: steps.mise-downloads.outputs.cache-hit != 'true'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.cache/mise/downloads-cas
-          key: ${{ steps.mise-downloads.outputs.cache-primary-key }}
-
-      - name: Locate pnpm store
-        id: pnpm-store
-        run: |
-          path=$(pnpm store path --silent)
-          echo "path=$path" >> "$GITHUB_OUTPUT"
-
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ steps.pnpm-store.outputs.path }}
-          key: pnpm-store-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
-
-      # pnpm denies dependency lifecycle scripts by default and fails the
-      # install if a package wants to build without an entry in `allowBuilds`
-      # (see pnpm-workspace.yaml, where every such package is denied).
-      # The same setting protects local installs.
-      #
-      # --frozen-lockfile is the `npm ci` equivalent: install exactly the
-      # locked tree and fail if package.json and pnpm-lock.yaml disagree. It
-      # also re-checks the locked versions against the supply-chain policies,
-      # so the cooldown and trust settings still apply even though no
-      # resolution happens here.
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - uses: ./.github/actions/setup
 
       # Reports without blocking: an advisory published overnight, usually in
       # a dev-only build tool, would otherwise stop every merge until cleared.
@@ -79,11 +29,16 @@ jobs:
       - name: Run tests
         run: pnpm test
 
+  build:
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+
       - name: Build extension for Chrome
         run: pnpm run build
 
       - name: Build extension for Firefox
-        id: build-firefox
         run: pnpm run build:firefox
 
       - name: Upload Chrome build
@@ -98,27 +53,28 @@ jobs:
           name: firefox
           path: dist/firefox/
 
-      # After the uploads, so a failing E2E run still leaves the builds to
-      # debug with. --with-deps apt-installs Chromium's system libraries;
-      # --no-shell skips the headless shell, which can't load extensions and
-      # so is never launched -- see docs/testing.md.
-      - name: Install Chromium for E2E
+  # The E2E jobs test the uploaded builds, not a rebuild of their own.
+  e2e-chrome:
+    needs: build
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+
+      - name: Download Chrome build
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: chrome
+          path: dist/chrome/
+
+      # --with-deps apt-installs Chromium's system libraries; --no-shell skips
+      # the headless shell, which can't load extensions and so is never
+      # launched -- see docs/testing.md.
+      - name: Install Chromium
         run: pnpm exec playwright install --with-deps --no-shell chromium
 
       - name: Run E2E tests
         run: pnpm run test:e2e
-
-      # Uses the runner image's Firefox and openssl (see docs/testing.md). Runs
-      # even when the Chromium E2E fails, so a failure shows which browsers it hits.
-      # libavcodec is Firefox's H.264 decoder on Linux, for the MP4 test.
-      - name: Run Firefox E2E tests
-        if: ${{ !cancelled() && steps.build-firefox.outcome == 'success' }}
-        timeout-minutes: 10
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq --no-install-recommends libavcodec-extra
-          firefox --version
-          pnpm run test:e2e:firefox
 
       - name: Upload E2E report
         if: failure()
@@ -128,3 +84,46 @@ jobs:
           path: |
             playwright-report/
             test-results/
+
+  # Uses the runner image's Firefox and openssl (see docs/testing.md).
+  e2e-firefox:
+    needs: build
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+
+      - name: Download Firefox build
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: firefox
+          path: dist/firefox/
+
+      # libavcodec is Firefox's H.264 decoder on Linux, for the MP4 test.
+      - name: Install libavcodec
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends libavcodec-extra
+
+      - name: Run Firefox E2E tests
+        timeout-minutes: 10
+        run: |
+          firefox --version
+          pnpm run test:e2e:firefox
+
+  # The one required check: it passes only when every job above succeeded.
+  # always() makes it run, and fail, when one of them fails or is skipped;
+  # a skipped required check would count as passing.
+  ci:
+    if: always()
+    needs: [test, build, e2e-chrome, e2e-firefox]
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Check every job succeeded
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "$RESULTS"
+          for result in $RESULTS; do
+            [ "$result" = success ] || exit 1
+          done

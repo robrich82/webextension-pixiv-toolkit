@@ -234,12 +234,17 @@ caches mise's downloads, keyed on `mise.lock`. The pnpm store is cached with
 
 To relock by hand, run `mise lock`; it keeps the platforms already in the lock.
 
-The job then runs `pnpm install --frozen-lockfile`,
-`pnpm audit --audit-level=moderate`, `pnpm test`, and the Chrome and Firefox
-builds, uploading each `dist/` directory as an artifact. Last come the
-Playwright E2E suite against `dist/chrome` and the Firefox E2E suite against
-`dist/firefox`, which runs even when the Chromium one fails (see
-`docs/testing.md`).
+Every job starts with `.github/actions/setup`, which does the above and
+`pnpm install --frozen-lockfile`. Then:
+
+- `test` runs `pnpm audit --audit-level=moderate` and `pnpm test`.
+- `build` builds for Chrome and Firefox and uploads each `dist/` directory as an
+  artifact.
+- `e2e-chrome` and `e2e-firefox` wait for `build`, download its artifact and run
+  the Playwright and Firefox E2E suites against it (see `docs/testing.md`).
+
+`ci` passes only when all four succeed. It is the one check the `main` ruleset
+requires, so jobs can be added or renamed without touching the ruleset.
 
 The audit step reports at `moderate` but does not fail the job
 (`continue-on-error`). It audits dev dependencies too, so an advisory published
