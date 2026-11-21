@@ -78,6 +78,6 @@ UI strings are in `src/statics/_locales`. `src/statics/HISTORY_<locale>` (one pe
 - `@/modules/Extension/browser` is mapped to the in-memory fake in `test/doubles/browser.js`. Its test controls are under `browser._fake` (`reset`, `flush`, `addTab`, …), and it's reset before every test. Specs that open a port need `await browser._fake.flush()`.
 - Services are singletons that register listeners in their constructor. Clear `Service.instance = undefined` in `beforeEach` when a spec needs live listeners.
 - `coverage.thresholds` in `vitest.config.mjs` is a ratchet with per-directory floors. A new untested file can fail `pnpm test`, so either cover it or lower the floor in the same PR and say why.
-- A PostToolUse hook (`.claude/hooks/related-tests.js`) runs the related Vitest specs after each edit to a `.js`/`.vue` file under `src/` or `test/`, in whichever checkout the file is in, and skips until that checkout has had `pnpm install`. Its failures come back as hook feedback. Fix them rather than treating them as a stray run.
+- A PostToolUse hook (`.claude/hooks/related-tests.js`) runs the related Vitest specs after each edit under `src/`, `test/` or `scripts/`, or to `package.json` or `mise.*`, in whichever checkout the file is in, and skips until that checkout has had `pnpm install`. Its failures come back as hook feedback. Fix them rather than treating them as a stray run.
 
 Other docs: `docs/toolchain.md` (build toolchain). Track open work in GitHub issues, not in `docs/`.

@@ -26,6 +26,8 @@ const RULES = [
   [/^(e2e\/|playwright\.config\.js$)/, ['test', 'e2e_chrome']],
   [/^e2e-firefox\//, ['test', 'e2e_firefox']],
   [/^(test\/|vitest\.config\.mjs$)/, ['test']],
+  // The related-tests hook, which test/relatedTestsHook.spec.js imports and runs.
+  [/^\.claude\/hooks\/related-tests\.js$/, ['test']],
   // Read by people and agents only. Markdown under src/ can ship, so it isn't here.
   [/^(docs|\.claude|\.cursor|\.agents)(\/|$)/, []],
   [/^(?!src\/).*\.md$/, []],
