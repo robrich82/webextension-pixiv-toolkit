@@ -8,6 +8,7 @@ package-lock.json
 /coverage
 /test-results/
 /playwright-report/
+/.playwright-mcp/
 
 # Claude Code per-user state
 .claude/settings.local.json
