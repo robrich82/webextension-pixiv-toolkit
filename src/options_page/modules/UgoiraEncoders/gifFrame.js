@@ -58,16 +58,17 @@ function opaquePixels(rgba) {
     return null;
   }
 
-  const opaque = new Uint8Array(count * 4);
+  // Whole pixels at a time, little-endian as gifenc reads them: a subarray per pixel took longer than the quantising.
+  const pixels = new Uint32Array(rgba.buffer, rgba.byteOffset, rgba.length / 4);
+  const opaque = new Uint32Array(count);
 
-  for (let i = 0, at = 0; i < rgba.length; i += 4) {
-    if (rgba[i + 3] >= MIN_OPAQUE_ALPHA) {
-      opaque.set(rgba.subarray(i, i + 4), at);
-      at += 4;
+  for (let i = 0, at = 0; i < pixels.length; i++) {
+    if (pixels[i] >>> 24 >= MIN_OPAQUE_ALPHA) {
+      opaque[at++] = pixels[i];
     }
   }
 
-  return opaque;
+  return new Uint8Array(opaque.buffer);
 }
 
 /**
@@ -85,7 +86,7 @@ function opaquePixels(rgba) {
 export function encodeGifFrame(rgba, width, height, { delay, first }) {
   const encoder = GIFEncoder({ auto: false });
   const opaque = opaquePixels(rgba);
-  // rgb565 over the opaque pixels alone keeps their colours finer than gifenc's rgba4444 would.
+  // Only the opaque pixels are quantised, in the same format as a frame without transparency, so the transparent ones take no colours.
   const palette = opaque?.length === 0 ? [] : quantize(opaque ?? rgba, opaque ? 255 : 256, { format: COLOR_FORMAT });
   const index = palette.length ? applyPalette(rgba, palette, COLOR_FORMAT) : new Uint8Array(width * height);
   const transparentIndex = opaque ? palette.push([0, 0, 0]) - 1 : 0;
