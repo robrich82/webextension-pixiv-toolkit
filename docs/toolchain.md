@@ -243,13 +243,17 @@ above and `pnpm install --frozen-lockfile`. Then:
 - `e2e-chrome` and `e2e-firefox` wait for `build`, download its artifact and run
   the Playwright and Firefox E2E suites against it (see `docs/testing.md`).
 
-On a pull request, the `changes` job first runs `scripts/ciChanges.mjs`, which
-skips the jobs whose inputs the PR doesn't touch. A docs-only PR runs none of
-them, and a PR that only changes `e2e-firefox/` runs `build` and `e2e-firefox`.
-A path no rule matches runs everything. When a suite starts reading a file
-outside its own directory, add a rule for it. `test/ciChanges.spec.js` fails
-on a missed import or `path.join(__dirname, '..', …)` read, but not on a path
-built any other way. Pushes to `main` run every job.
+On a pull request into `main`, the `changes` job first runs
+`scripts/ciChanges.mjs`, which skips the jobs whose inputs the PR doesn't
+touch; a docs-only PR runs none of them. A path no rule matches runs
+everything, and so does any change to the rules or to `ci.yml`, as do pushes
+and PRs stacked on another branch.
+
+When a suite starts reading a file outside its own directory, add a rule for
+it. `test/ciChanges.spec.js` follows each suite's relative imports and
+`path.join`/`path.resolve(__dirname, …)` reads, transitively, and fails on one
+no rule covers. It can't see a path built from a variable or relative to the
+working directory.
 
 `ci` fails when any job in its `needs` failed or was cancelled; a skipped job
 passes. It is the one check the `main` ruleset requires, so a job can be added
