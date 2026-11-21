@@ -94,11 +94,11 @@ class DownloadService extends AbstractService {
 
     let downloadAdapter = DownloadAdapter.create();
 
-    let downloadTask = await downloadAdapter.createDownloadTask(pageResource, options);
-
-    this.recordHistoryOnComplete(downloadTask, pageResource);
-
     try {
+      let downloadTask = await downloadAdapter.createDownloadTask(pageResource, options);
+
+      this.recordHistoryOnComplete(downloadTask, pageResource);
+
       if (options.redownload) {
         const oldDownloadTask = this.downloadManager.getTask(downloadTask.id);
 
@@ -119,6 +119,11 @@ class DownloadService extends AbstractService {
         result: true
       };
     } catch (error) {
+      // A task already in the manager is expected; anything else is logged here, as the page only gets its name.
+      if (!(error instanceof DownloadTaskExistsError)) {
+        console.error('Could not add the download', error);
+      }
+
       return {
         result: false,
         errorName: error.name

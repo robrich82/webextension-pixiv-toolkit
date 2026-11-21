@@ -194,14 +194,16 @@ describe('download:addDownload for an ugoira', () => {
   test.each([
     ['no format', {}],
     ['an unknown format', { ugoiraConvertType: 'custom' }]
-  ])('%s is refused without adding a task', async (_, options) => {
+  ])('%s is refused without adding a task, and the page gets the error name', async (_, options) => {
     const error = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-    await expect(send('download:addDownload', addUgoiraDownloadArgs(3, options))).resolves.toBeUndefined();
+    // Not undefined, which App.vue alerted as "Unknown error: undefined" (#461).
+    await expect(send('download:addDownload', addUgoiraDownloadArgs(3, options)))
+      .resolves.toEqual({ result: false, errorName: 'Error' });
 
     expect(manager().tasks.size).toBe(0);
     expect(error).toHaveBeenCalledWith(
-      'onMessage handler failed for action "download:addDownload"',
+      'Could not add the download',
       expect.objectContaining({ message: `Unknown ugoira convert type: ${options.ugoiraConvertType}` })
     );
   });
