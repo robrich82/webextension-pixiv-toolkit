@@ -105,12 +105,7 @@ describe('download:addDownload', () => {
     expect(await storedSetting('statIllustDownloaded')).toBe(1);
   });
 
-  test.each([
-    ['zip', 'zip'],
-    ['gif', 'gif'],
-    ['apng', 'apng'],
-    ['webm', 'webm']
-  ])('an ugoira with convert type %s gets its own task, of convert type %s', async (ugoiraConvertType, convertType) => {
+  test.each(['zip', 'gif', 'apng', 'webm'])('an ugoira with convert type %s gets its own task of that type', async convertType => {
     const frames = [{ file: '000000.jpg', delay: 100 }];
     const resource = IllustResource.create({
       id: '7',
@@ -123,11 +118,11 @@ describe('download:addDownload', () => {
 
     await send('download:addDownload', JSON.parse(JSON.stringify({
       unpackedResource: resource.unpack(),
-      options: { selectedIndexes: [], ugoiraConvertType }
+      options: { selectedIndexes: [], ugoiraConvertType: convertType }
     })));
 
-    const task = manager().getTask(resource.getDownloadTaskId(ugoiraConvertType));
-    expect(task.id).toBe(`pixiv_illust:7:${ugoiraConvertType}`);
+    const task = manager().getTask(resource.getDownloadTaskId(convertType));
+    expect(task.id).toBe(`pixiv_illust:7:${convertType}`);
     expect(task.options).toMatchObject({ convertType, frames });
     expect(task.isZipOnly()).toBe(convertType === 'zip');
   });
@@ -195,7 +190,7 @@ describe('download:addDownload for an ugoira', () => {
     expect(task.options.convertType).toBe('apng');
   });
 
-  // The Custom download, which ran a stored FFmpeg command, has gone: no format is refused, not converted somehow.
+  // There is no Custom download any more: a missing or unknown format is refused, not converted some other way.
   test.each([
     ['no format', {}],
     ['an unknown format', { ugoiraConvertType: 'custom' }]

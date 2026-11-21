@@ -294,7 +294,9 @@ test.each(['custom', undefined])('a task of unknown convert type %s fails and sa
   await vi.waitFor(() => expect(task.isFailure()).toBe(true));
 
   expect(task.lastError).toEqual(new Error(`Unknown ugoira convert type: ${convertType}`));
-  expect([encodeApng, encodeGif, encodeVideo].filter(encode => encode.mock.calls.length)).toEqual([]);
+  expect(encodeApng).not.toHaveBeenCalled();
+  expect(encodeGif).not.toHaveBeenCalled();
+  expect(encodeVideo).not.toHaveBeenCalled();
   expect(saved).toEqual([]);
 });
 
@@ -509,7 +511,6 @@ describe('WEBM through WebCodecs', () => {
   const webmTask = id => createTask({ id, taskId: `pixiv:${id}:webm`, convertType: 'webm' });
 
   beforeEach(() => {
-    encodeVideo.mockReset();
     encodeVideo.mockResolvedValue({ data: new Uint8Array([4, 5, 6]), mimeType: 'video/webm', extension: 'webm', codec: 'vp9' });
   });
 
@@ -635,12 +636,13 @@ describe('WEBM through WebCodecs', () => {
     expect(console.error).toHaveBeenCalledWith('Could not convert ugoira pixiv:192:webm', error);
   });
 
-  test('stop aborts the encoding', async () => {
+  test('pause leaves an encoding running; stop aborts it, and a retry gets a fresh signal', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     const task = webmTask('193');
     let encodeSignal;
-    encodeVideo.mockImplementation(({ signal }) => new Promise((resolve, reject) => {
+    encodeVideo.mockImplementationOnce(({ signal, onProgress }) => new Promise((resolve, reject) => {
       encodeSignal = signal;
+      onProgress(1);
       signal.addEventListener('abort', () => reject(signal.reason));
     }));
 
@@ -650,12 +652,21 @@ describe('WEBM through WebCodecs', () => {
 
     task.pause();
     expect(encodeSignal.aborted).toBe(false);
+    expect(task.state).toBe(task.PROCESSING_STATE);
+    // Progress 1 is what marks the content script's button done, so stop must clear it.
+    expect(task.processProgress).toBe(1);
 
     task.stop();
     expect(encodeSignal.aborted).toBe(true);
     await vi.waitFor(() => expect(task.isFailure()).toBe(true));
+    expect(task.lastError.name).toBe('AbortError');
     expect(task.processProgress).toBe(0);
     expect(task.encodeController).toBeNull();
+
+    task.changeState(task.PENDING_STATE);
+    await task.start();
+    await vi.waitFor(() => expect(task.isComplete()).toBe(true));
+    expect(encodeVideo.mock.calls[1][0].signal.aborted).toBe(false);
   });
 });
 
@@ -663,7 +674,6 @@ describe('GIF in the browser', () => {
   const gifTask = id => createTask({ id, taskId: `pixiv:${id}:gif`, convertType: 'gif' });
 
   beforeEach(() => {
-    encodeGif.mockReset();
     encodeGif.mockResolvedValue({ data: new Uint8Array([7, 8, 9]), mimeType: 'image/gif', extension: 'gif' });
   });
 
@@ -725,18 +735,21 @@ describe('GIF in the browser', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     const task = gifTask('203');
     let encodeSignal;
-    encodeGif.mockImplementation(({ signal }) => new Promise((resolve, reject) => {
+    encodeGif.mockImplementation(({ signal, onProgress }) => new Promise((resolve, reject) => {
       encodeSignal = signal;
+      onProgress(1);
       signal.addEventListener('abort', () => reject(signal.reason));
     }));
 
     task.start();
     await completeDownload(task);
     await vi.waitFor(() => expect(encodeSignal).toBeDefined());
+    expect(task.processProgress).toBe(1);
 
     task.stop();
     expect(encodeSignal.aborted).toBe(true);
     await vi.waitFor(() => expect(task.isFailure()).toBe(true));
+    expect(task.lastError.name).toBe('AbortError');
     expect(task.processProgress).toBe(0);
     expect(task.encodeController).toBeNull();
   });
@@ -747,7 +760,6 @@ describe('APNG in the browser', () => {
   const apngTask = id => createTask({ id, taskId: `pixiv:${id}:apng`, convertType: 'apng' });
 
   beforeEach(() => {
-    encodeApng.mockReset();
     encodeApng.mockResolvedValue({ data: new Uint8Array([4, 5, 6]), mimeType: 'image/apng', extension: 'apng' });
   });
 

@@ -1,6 +1,5 @@
 import GlobalSettings from "@/modules/GlobalSettings";
 import AbstractDownloadTask from "../AbstractDownloadTask";
-import browser from "@/modules/Extension/browser";
 import Downloader from "@/modules/Net/Downloader";
 import FileSystem from "../../FileSystem";
 import NameFormatter from "@/modules/Util/NameFormatter";
