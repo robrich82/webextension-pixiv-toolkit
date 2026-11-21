@@ -13,7 +13,42 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Decides which jobs this run needs (scripts/ciChanges.mjs). Pushes, and pull
+  # requests into another PR's branch, run everything: retargeting a stacked PR
+  # onto main doesn't rerun CI, so its last run has to have covered the code
+  # below it. The jobs below run unless their output is exactly 'false', so a
+  # missing output runs a job rather than skipping it.
+  changes:
+    runs-on: ubuntu-26.04
+    outputs:
+      test: ${{ steps.changes.outputs.test }}
+      build: ${{ steps.changes.outputs.build }}
+      e2e_chrome: ${{ steps.changes.outputs.e2e_chrome }}
+      e2e_firefox: ${{ steps.changes.outputs.e2e_firefox }}
+    steps:
+      # Depth 2 reaches the pull request merge commit's base-branch parent.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+
+      - id: changes
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.base_ref }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        # A change to the rules or this workflow runs everything, decided here
+        # so that broken rules can't skip the tests that would catch them.
+        run: |
+          if [ "$EVENT" = pull_request ] && [ "$BASE" = "$DEFAULT_BRANCH" ] &&
+            git diff --quiet HEAD^1 HEAD -- scripts/ciChanges.mjs .github/workflows/ci.yml; then
+            node scripts/ciChanges.mjs >> "$GITHUB_OUTPUT"
+          else
+            node scripts/ciChanges.mjs --all >> "$GITHUB_OUTPUT"
+          fi
+
   test:
+    needs: changes
+    if: needs.changes.outputs.test != 'false'
     runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -30,6 +65,8 @@ jobs:
         run: pnpm test
 
   build:
+    needs: changes
+    if: needs.changes.outputs.build != 'false'
     runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -55,7 +92,8 @@ jobs:
 
   # The E2E jobs test the uploaded builds, not a rebuild of their own.
   e2e-chrome:
-    needs: build
+    needs: [changes, build]
+    if: needs.changes.outputs.e2e_chrome != 'false'
     runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -87,7 +125,8 @@ jobs:
 
   # Uses the runner image's Firefox and openssl (see docs/testing.md).
   e2e-firefox:
-    needs: build
+    needs: [changes, build]
+    if: needs.changes.outputs.e2e_firefox != 'false'
     runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -111,20 +150,21 @@ jobs:
           firefox --version
           pnpm run test:e2e:firefox
 
-  # The one required check: it passes only when every job above succeeded, so
-  # a new job must be added to `needs` or it never blocks a merge. always()
-  # makes it run, and fail, when one of them fails or is skipped; a skipped
-  # required check would count as passing.
+  # The one required check: it fails if a job in `needs` failed or was
+  # cancelled. A skipped job passes; a skip means unchanged paths or a failure
+  # upstream, which `needs` already reports. Add every new job to `needs`.
+  # always() stops the gate itself being skipped, since a skipped required
+  # check counts as passing.
   ci:
     if: always()
-    needs: [test, build, e2e-chrome, e2e-firefox]
+    needs: [changes, test, build, e2e-chrome, e2e-firefox]
     runs-on: ubuntu-26.04
     steps:
-      - name: Check every job succeeded
+      - name: Check no job failed
         env:
           RESULTS: ${{ join(needs.*.result, ' ') }}
         run: |
           echo "$RESULTS"
           for result in $RESULTS; do
-            [ "$result" = success ] || exit 1
+            case "$result" in failure | cancelled) exit 1 ;; esac
           done
