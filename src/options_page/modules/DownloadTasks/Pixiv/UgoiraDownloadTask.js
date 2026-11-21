@@ -92,6 +92,12 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
   fallbackCodec = null;
 
   /**
+   * Counts start() calls, so a load that a pause and a restart overtook doesn't go on
+   * @type {number}
+   */
+  startRun = 0;
+
+  /**
    * The convertType of a task that saves the frames zip and converts nothing
    */
   static ZIP_CONVERT_TYPE = 'zip';
@@ -212,6 +218,10 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
    * @fires UgoiraDownloadTask#failure
    */
   async onFinish() {
+    if (this.isDelete) {
+      return;
+    }
+
     this.changeState(this.PROCESSING_STATE);
 
     try {
@@ -221,14 +231,34 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
         await this.convert();
       }
     } catch (error) {
+      // A delete aborts the encoding or skips the save; the task is gone, so it ends quietly.
+      if (this.isDelete) {
+        return;
+      }
+
       console.error(`Could not ${this.isZipOnly() ? 'save the frames zip of' : 'convert'} ugoira ${this.id}`, error);
       this.lastError = error;
       this.onFailure();
       return;
     }
 
+    // Deleted while its file saved: it neither completes nor records history.
+    if (this.isDelete) {
+      return;
+    }
+
     this.changeState(this.COMPLETE_STATE);
     this.dispatch('complete');
+  }
+
+  /**
+   * Stops a deleted task before its next step; onFinish() swallows the error.
+   * @throws {Error} The task was deleted.
+   */
+  throwIfDeleted() {
+    if (this.isDelete) {
+      throw new Error(`Ugoira task ${this.id} was deleted`);
+    }
   }
 
   /**
@@ -250,7 +280,10 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
       this.zip.file('animation.json', this.makeAnimationJsonContent(this.options.packAnimationJsonType));
     }
 
-    const url = URL.createObjectURL(await this.zip.generateAsync({ type: 'blob' }));
+    const zipBlob = await this.zip.generateAsync({ type: 'blob' });
+    this.throwIfDeleted();
+
+    const url = URL.createObjectURL(zipBlob);
     const nameFormatter = NameFormatter.getFormatter({ context: this.context });
     let downloadId;
 
@@ -283,6 +316,7 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
       throw new Error(`Unknown ugoira convert type: ${this.options.convertType}`);
     }
 
+    this.throwIfDeleted();
     await this.saveAnimation(encoded.data, encoded.mimeType, encoded.extension);
   }
 
@@ -313,6 +347,8 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
    */
   async encodeFrames(encode) {
     this.encodeController = new AbortController();
+    // A retry starts from nothing, not from the failed attempt's progress.
+    this.processProgress = 0;
 
     try {
       await this.zipLoaded;
@@ -321,6 +357,8 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
         image: new Blob([await this.zip.file(frame.file).async('uint8array')], { type: this.context.illustMimeType || 'image/jpeg' }),
         delay: frame.delay
       })));
+
+      this.throwIfDeleted();
 
       return await encode({
         frames,
@@ -398,6 +436,9 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
     if (this.isPending()) {
       // Leave pending before any await, or a start() while the cached zip loads would convert it twice.
       this.changeState(this.DOWNLOADING_STATE);
+      const run = ++this.startRun;
+      // Paused, deleted, or paused and started again while the cached zip loaded (#438).
+      const stillRunning = () => run === this.startRun && this.isDownloading() && !this.isDelete;
       this.dispatch('start');
       this.zipRepo = ZipRepo.getDefault();
 
@@ -417,11 +458,15 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
           console.error(`Could not load the cached zip of ${this.uid}`, error);
           this.zipRepo.removeZip(this.uid);
 
-          if (this.isDownloading()) {
+          if (stillRunning()) {
             this.downloader.reset();
             this.downloader.download();
           }
 
+          return;
+        }
+
+        if (!stillRunning()) {
           return;
         }
 
