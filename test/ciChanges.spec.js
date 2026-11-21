@@ -29,7 +29,7 @@ describe('jobsFor', () => {
     ['markdown among the unit tests', ['test/components/README.md'], ['test']],
     ['the Vitest config', ['vitest.config.mjs'], ['test']],
     ['the related-tests hook', ['.claude/hooks/related-tests.js'], ['test']],
-    ['another hook', ['.claude/hooks/other.js'], []],
+    ['another hook', ['.claude/hooks/other.js'], ['test']],
     ['a test fixture', ['test/fixtures/pixiv/illust.json'], JOBS],
     ['the fixtures README', ['test/fixtures/README.md'], JOBS],
     ['a probe helper', ['test/helpers/probeGif.mjs'], JOBS],
