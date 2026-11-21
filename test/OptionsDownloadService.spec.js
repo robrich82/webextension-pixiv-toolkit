@@ -179,6 +179,25 @@ describe('download:addDownload', () => {
     });
     expect(manager().getTask('pixiv_illust:1')).toBe(running);
   });
+
+  // The page adds it again without redownload; nothing went wrong, so nothing is logged.
+  test('redownload of a task the manager no longer holds is refused by name, quietly', async () => {
+    const error = vi.spyOn(console, 'error');
+
+    await expect(send('download:addDownload', addDownloadArgs(1, { redownload: true }))).resolves.toEqual({
+      result: false,
+      errorName: 'DownloadTaskNotFoundError'
+    });
+    expect(error).not.toHaveBeenCalled();
+  });
+
+  test('a resource of an unknown kind is refused by name', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    await expect(send('download:addDownload', { unpackedResource: { __PACK_NAME__: 'NoSuchResource' } }))
+      .resolves.toMatchObject({ result: false, errorName: expect.any(String) });
+    expect(console.error).toHaveBeenCalledWith('Could not add the download', expect.any(Error));
+  });
 });
 
 describe('download:addDownload for an ugoira', () => {
@@ -194,14 +213,16 @@ describe('download:addDownload for an ugoira', () => {
   test.each([
     ['no format', {}],
     ['an unknown format', { ugoiraConvertType: 'custom' }]
-  ])('%s is refused without adding a task', async (_, options) => {
+  ])('%s is refused without adding a task, and the page gets the error name', async (_, options) => {
     const error = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-    await expect(send('download:addDownload', addUgoiraDownloadArgs(3, options))).resolves.toBeUndefined();
+    // Not undefined, which App.vue alerted as "Unknown error: undefined" (#461).
+    await expect(send('download:addDownload', addUgoiraDownloadArgs(3, options)))
+      .resolves.toEqual({ result: false, errorName: 'Error' });
 
     expect(manager().tasks.size).toBe(0);
     expect(error).toHaveBeenCalledWith(
-      'onMessage handler failed for action "download:addDownload"',
+      'Could not add the download',
       expect.objectContaining({ message: `Unknown ugoira convert type: ${options.ugoiraConvertType}` })
     );
   });

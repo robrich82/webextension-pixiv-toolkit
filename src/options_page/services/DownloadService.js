@@ -7,6 +7,7 @@ import MimeType from "@/modules/Util/MimeType";
 import PageResourceFactory from '@/modules/PageResource/Factory';
 import Db from "@/modules/Db/Db";
 import DownloadTaskExistsError from "@/errors/DownloadTaskExistsError";
+import DownloadTaskNotFoundError from "@/errors/DownloadTaskNotFoundError";
 
 /**
  * @class Download service
@@ -87,18 +88,12 @@ class DownloadService extends AbstractService {
    * @returns {Object}
    */
   async addDownload({ unpackedResource, options = {} }) {
-    /**
-     * Create page resource instance using unpacked resource data
-     */
-    let pageResource = PageResourceFactory.createPageResource(unpackedResource);
-
-    let downloadAdapter = DownloadAdapter.create();
-
-    let downloadTask = await downloadAdapter.createDownloadTask(pageResource, options);
-
-    this.recordHistoryOnComplete(downloadTask, pageResource);
-
     try {
+      let pageResource = PageResourceFactory.createPageResource(unpackedResource);
+      let downloadTask = await DownloadAdapter.create().createDownloadTask(pageResource, options);
+
+      this.recordHistoryOnComplete(downloadTask, pageResource);
+
       if (options.redownload) {
         const oldDownloadTask = this.downloadManager.getTask(downloadTask.id);
 
@@ -119,6 +114,12 @@ class DownloadService extends AbstractService {
         result: true
       };
     } catch (error) {
+      // A task already in the manager, or gone before a re-download, is expected; anything else is logged
+      // here, as the page only gets its name.
+      if (!(error instanceof DownloadTaskExistsError || error instanceof DownloadTaskNotFoundError)) {
+        console.error('Could not add the download', error);
+      }
+
       return {
         result: false,
         errorName: error.name
