@@ -1,6 +1,6 @@
 /**
- * Which ugoira conversion IllustAdapter hands the download task: WebCodecs containers get no FFmpeg
- * command but their codec setting, the rest their preset.
+ * Which ugoira conversion IllustAdapter hands the download task: WebCodecs containers get their
+ * codec setting, the other formats no codec.
  */
 import { codecSettingKey } from '@/options_page/modules/UgoiraEncoders/video';
 import IllustAdapter from '@/options_page/modules/DownloadAdapters/Pixiv/IllustAdapter';
@@ -34,18 +34,16 @@ afterEach(() => {
 });
 
 describe('createUgoiraDownloadTask', () => {
-  it.each(['webm', 'mp4', 'mov', 'mkv'])('encodes %s through WebCodecs, without an FFmpeg command', type => {
-    expect(taskOptions(type)).toMatchObject({
-      id: `pixiv_illust:10000003:${type}`, convertType: type, ffmpegCommandArgs: ''
-    });
+  it.each(['webm', 'mp4', 'mov', 'mkv'])('encodes %s through WebCodecs', type => {
+    expect(taskOptions(type)).toMatchObject({ id: `pixiv_illust:10000003:${type}`, convertType: type });
   });
 
-  it('saves only the frames zip for DL Zip, without an FFmpeg command', () => {
-    expect(taskOptions('zip')).toMatchObject({ convertType: 'zip', ffmpegCommandArgs: '' });
+  it('saves only the frames zip for DL Zip', () => {
+    expect(taskOptions('zip')).toMatchObject({ convertType: 'zip' });
   });
 
-  it.each(['gif', 'apng'])('encodes %s in the browser, without an FFmpeg command', type => {
-    expect(taskOptions(type)).toMatchObject({ id: `pixiv_illust:10000003:${type}`, convertType: type, ffmpegCommandArgs: '' });
+  it.each(['gif', 'apng'])('encodes %s in the browser', type => {
+    expect(taskOptions(type)).toMatchObject({ id: `pixiv_illust:10000003:${type}`, convertType: type });
   });
 
   it.each(['webm', 'mp4', 'mov', 'mkv'])('hands a %s task the codec its setting names', type => {

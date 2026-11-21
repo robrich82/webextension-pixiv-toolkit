@@ -184,12 +184,6 @@ The background reads each finished file with `FileReader`, which Node lacks, so
 `test/Downloader.spec.js` stays in the `unit` project but opts into jsdom with a
 `// @vitest-environment jsdom` docblock.
 
-`test/UgoiraDownloadTask.spec.js` fakes FFmpeg. To check what the bundled core
-really does with a command, `test/helpers/ffmpegCore.cjs` runs it in a child
-Node process (its web-build globals would confuse Vitest's worker), with a fresh
-core per conversion, since one core crashes after a few runs.
-`test/ugoiraFrameTiming.spec.js` uses it to time the frames of the GIF and APNG commands FFmpeg once ran.
-
 WEBM, MP4, MKV and MOV are encoded through WebCodecs, which Node lacks. `test/UgoiraDownloadTask.spec.js`
 fakes `encodeVideo`, `test/ugoiraVideoEncoder.spec.js` covers the codec choice and frame
 times with `canEncodeVideo` faked, and the e2e tests encode for real, reading the saved

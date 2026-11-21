@@ -106,11 +106,11 @@ describe('download:addDownload', () => {
   });
 
   test.each([
-    ['zip', 'zip', ''],
-    ['gif', 'gif', ''],
-    ['apng', 'apng', ''],
-    ['webm', 'webm', '']
-  ])('an ugoira with convert type %s gets its own task, of convert type %s', async (ugoiraConvertType, convertType, args) => {
+    ['zip', 'zip'],
+    ['gif', 'gif'],
+    ['apng', 'apng'],
+    ['webm', 'webm']
+  ])('an ugoira with convert type %s gets its own task, of convert type %s', async (ugoiraConvertType, convertType) => {
     const frames = [{ file: '000000.jpg', delay: 100 }];
     const resource = IllustResource.create({
       id: '7',
@@ -128,7 +128,7 @@ describe('download:addDownload', () => {
 
     const task = manager().getTask(resource.getDownloadTaskId(ugoiraConvertType));
     expect(task.id).toBe(`pixiv_illust:7:${ugoiraConvertType}`);
-    expect(task.options).toMatchObject({ convertType, ffmpegCommandArgs: args, frames });
+    expect(task.options).toMatchObject({ convertType, frames });
     expect(task.isZipOnly()).toBe(convertType === 'zip');
   });
 

@@ -113,8 +113,6 @@ class IllustAdapter {
       frames: this.context.illustFrames,
       packAnimationJsonType: this.settings.animationJsonFormat,
       renameRule: this.settings.ugoiraRenameRule,
-      // Every format encodes in the browser, so no task runs FFmpeg.
-      ffmpegCommandArgs: '',
       context: this.context,
       convertType,
       codec: isVideo ? this.settings[codecSettingKey(convertType)] : undefined
