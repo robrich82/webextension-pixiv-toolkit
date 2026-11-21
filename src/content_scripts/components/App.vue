@@ -70,14 +70,19 @@ import moment from 'moment';
 // AbstractDownloadTask's pending, downloading and processing states: queued or under way.
 const ACTIVE_TASK_STATES = [1, 2, 99];
 
+// AbstractDownloadTask's failure state.
+const FAILURE_TASK_STATE = -1;
+
+const FAILED_MARK = ' ✘';
+
 const emptyUgoiraTaskProgresses = () => ({
-  'gif': { d: 0, p: 0, active: false },
-  'apng': { d: 0, p: 0, active: false },
-  'webm': { d: 0, p: 0, active: false },
-  'mp4': { d: 0, p: 0, active: false },
-  'mkv': { d: 0, p: 0, active: false },
-  'mov': { d: 0, p: 0, active: false },
-  'zip': { d: 0, p: 0, active: false }
+  'gif': { d: 0, p: 0, active: false, failed: false },
+  'apng': { d: 0, p: 0, active: false, failed: false },
+  'webm': { d: 0, p: 0, active: false, failed: false },
+  'mp4': { d: 0, p: 0, active: false, failed: false },
+  'mkv': { d: 0, p: 0, active: false, failed: false },
+  'mov': { d: 0, p: 0, active: false, failed: false },
+  'zip': { d: 0, p: 0, active: false, failed: false }
 });
 
 export default {
@@ -137,7 +142,13 @@ export default {
        * The task is queued or under way, so its progress shows even at 0%
        * @type {boolean}
        */
-      generalTaskActive: false
+      generalTaskActive: false,
+
+      /**
+       * The task's last status was a failure
+       * @type {boolean}
+       */
+      generalTaskFailed: false
     };
   },
 
@@ -150,7 +161,7 @@ export default {
     },
 
     downloadButtonType() {
-      const ugoiraConverted = Object.values(this.ugoiraTaskProgresses).some(progress => progress.p === 1);
+      const ugoiraConverted = Object.values(this.ugoiraTaskProgresses).some(progress => progress.p === 1 && !progress.failed);
 
       return this.downloadedAt > 0 || ugoiraConverted ? 'success' : '';
     },
@@ -191,7 +202,9 @@ export default {
     },
 
     generalTaskProgressText() {
-      if (this.generalTaskProgress === 1) {
+      if (this.generalTaskFailed) {
+        return FAILED_MARK;
+      } else if (this.generalTaskProgress === 1) {
         return ' ✔';
       } else if (this.generalTaskProgress > 0 || this.generalTaskActive) {
         return ' ' + (this.generalTaskProgress * 100).toFixed(2) + '%';
@@ -220,11 +233,15 @@ export default {
         downloadTasksStatus.forEach(task => {
           if (task.type === 'PIXIV_UGOIRA') {
             this.ugoiraTaskProgresses[task.convertType.toLowerCase()] = {
-              d: task.progress, p: task.processProgress, active: ACTIVE_TASK_STATES.includes(task.state)
+              d: task.progress,
+              p: task.processProgress,
+              active: ACTIVE_TASK_STATES.includes(task.state),
+              failed: task.state === FAILURE_TASK_STATE
             };
           } else {
             this.generalTaskProgress = task.progress;
             this.generalTaskActive = ACTIVE_TASK_STATES.includes(task.state);
+            this.generalTaskFailed = task.state === FAILURE_TASK_STATE;
           }
         });
       }
@@ -344,6 +361,7 @@ export default {
     initialProgress() {
       this.generalTaskProgress = 0;
       this.generalTaskActive = false;
+      this.generalTaskFailed = false;
       this.ugoiraTaskProgresses = emptyUgoiraTaskProgresses();
     },
 
@@ -354,18 +372,29 @@ export default {
      */
     markTaskQueued(ugoiraConvertType) {
       if (this.isUgoira) {
-        this.ugoiraTaskProgresses[ugoiraConvertType] = { d: 0, p: 0, active: true };
+        this.ugoiraTaskProgresses[ugoiraConvertType] = { d: 0, p: 0, active: true, failed: false };
       } else {
         this.generalTaskProgress = 0;
         this.generalTaskActive = true;
+        this.generalTaskFailed = false;
       }
+    },
+
+    /**
+     * @param {string} [ugoiraConvertType] Required for an ugoira
+     * @returns {boolean} The button's task's last status was a failure
+     */
+    isTaskFailed(ugoiraConvertType) {
+      return this.isUgoira ? !!this.ugoiraTaskProgresses[ugoiraConvertType]?.failed : this.generalTaskFailed;
     },
 
     ugoiraProgress(type) {
       const progress = this.ugoiraTaskProgresses[type];
 
       if (progress) {
-        if (progress.p === 1) {
+        if (progress.failed) {
+          return FAILED_MARK;
+        } else if (progress.p === 1) {
           return ' ✔';
         } else if (progress.p > 0) {
           return ` (P:${(progress.p * 100).toFixed(2)}%)`;
@@ -465,11 +494,14 @@ export default {
     },
 
     async downloadWithDownloadManager({ ugoiraConvertType }) {
+      // Replacing a failed task is the retry, so there's nothing to confirm.
+      const redownload = this.isTaskFailed(ugoiraConvertType);
       // Taken at the click: Pixiv can move to another work while the download manager opens or the confirm is up.
       const download = {
         ugoiraConvertType,
         args: this.getDownloadArgs({ ugoiraConvertType }),
-        pageChangeToken: this.pageChangeToken
+        pageChangeToken: this.pageChangeToken,
+        redownload
       };
 
       await this.ensureDownloadManagerOpen(() => this.addDownload(download));
@@ -489,6 +521,9 @@ export default {
         }
 
         this.displayNotice(this.tl('_download_added'));
+      } else if (redownload && response && response.errorName === 'DownloadTaskNotFoundError') {
+        // The task to replace was deleted from the download manager since its last status, so add it afresh.
+        await this.addDownload({ ugoiraConvertType, args, pageChangeToken });
       } else if (response && response.errorName === 'DownloadTaskExistsError') {
         // On a re-download, the task is still running: the download manager keeps it, and so does the button.
         if (!redownload && window.confirm(this.tl(`_the_resource_is_already_in_download_manager`))) {

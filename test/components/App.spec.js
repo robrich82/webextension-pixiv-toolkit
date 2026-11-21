@@ -238,7 +238,7 @@ describe('App page lifecycle', () => {
     ['downloading', '_download 0.00%', 2],
     ['processing', '_download 0.00%', 99],
     ['paused', '_download', 3],
-    ['failed', '_download', -1]
+    ['failed', '_download ✘', -1]
   ])('a %s task at 0%% shows as %s', async (_, label, state) => {
     const wrapper = await mountWithPage();
 
@@ -290,6 +290,26 @@ describe('App page lifecycle', () => {
     await flushPromises();
 
     expect(wrapper.find('.ptk__container').classes()).toContain('success');
+  });
+
+  // A failed conversion kept its last D/P% or ✔ (#462).
+  test('a failed ugoira task shows as failed on its button, over its progress', async () => {
+    const wrapper = await mountWithPage(ugoira);
+
+    observerPort().peer.postMessage({
+      downloadTasksStatus: [
+        { type: 'PIXIV_UGOIRA', convertType: 'gif', progress: 1, processProgress: 0, state: -1 },
+        { type: 'PIXIV_UGOIRA', convertType: 'mp4', progress: 1, processProgress: 0.42, state: -1 },
+        { type: 'PIXIV_UGOIRA', convertType: 'webm', progress: 1, processProgress: 1, state: -1 }
+      ]
+    });
+    await flushPromises();
+
+    expect(actionLabels(wrapper)).toEqual([
+      '_download_apng', '_download_gif ✘', '_download_webm ✘', '_download_mp4 ✘', '_download_mkv', '_download_mov', '_download_zip'
+    ]);
+    // An encoder can report 100% before the save fails.
+    expect(wrapper.find('.ptk__container').classes()).not.toContain('success');
   });
 
   test('unmounting stops observing download tasks', async () => {
@@ -537,6 +557,44 @@ describe('App download', () => {
     ]);
   });
 
+  test.each([
+    ['an ugoira format', ugoira, { type: 'PIXIV_UGOIRA', convertType: 'gif', progress: 1, processProgress: 0.5, state: -1 }, '_download_gif ✘', 1, '_download_gif (D:0.00%)'],
+    ['a work', undefined, { type: 'PIXIV_ILLUST', progress: 0.5, state: -1 }, '_download ✘', 0, '_download 0.00%']
+  ])('clicking a failed %s retries it without asking', async (_, resourceOptions, status, failedLabel, index, queuedLabel) => {
+    const confirm = vi.spyOn(window, 'confirm');
+    respondTo(existsUntilRedownload);
+    const wrapper = await mountWithPage(resourceOptions);
+
+    observerPort().peer.postMessage({ downloadTasksStatus: [status] });
+    await flushPromises();
+    expect(actionLabels(wrapper)[index]).toBe(failedLabel);
+
+    await clickAndFlush(actionButtons(wrapper)[index]);
+
+    expect(confirm).not.toHaveBeenCalled();
+    expect(sentMessages('download:addDownload').map(message => message.args.options.redownload)).toEqual([true]);
+    expect(actionLabels(wrapper)[index]).toBe(queuedLabel);
+  });
+
+  test('retrying a failed task the download manager no longer holds adds it afresh', async () => {
+    const alert = vi.spyOn(window, 'alert').mockImplementation(() => {});
+    respondTo({
+      'download:ensureDownloadManagerOpen': true,
+      'download:addDownload': message => (message.args.options.redownload
+        ? { result: false, errorName: 'DownloadTaskNotFoundError' }
+        : { result: true })
+    });
+    const wrapper = await mountWithPage();
+
+    observerPort().peer.postMessage({ downloadTasksStatus: [{ type: 'PIXIV_ILLUST', progress: 0, state: -1 }] });
+    await flushPromises();
+    await clickAndFlush(actionButtons(wrapper)[0]);
+
+    expect(sentMessages('download:addDownload').map(message => message.args.options.redownload)).toEqual([true, false]);
+    expect(actionLabels(wrapper)).toEqual(['_download 0.00%']);
+    expect(alert).not.toHaveBeenCalled();
+  });
+
   test('a failed add leaves the button as it was', async () => {
     vi.spyOn(window, 'alert').mockImplementation(() => {});
     respondTo({
@@ -580,7 +638,7 @@ describe('App download', () => {
       'download:getDownloadManagerTab': true,
       'download:ensureDownloadManagerOpen': true,
       'download:addDownload': message => (message.args.options.redownload
-        ? { result: false, errorName: 'DownloadTaskNotFoundError' }
+        ? { result: false, errorName: 'Error' }
         : { result: false, errorName: 'DownloadTaskExistsError' })
     });
     const wrapper = await mountWithPage();
@@ -589,9 +647,48 @@ describe('App download', () => {
     await flushPromises();
     await clickAndFlush(actionButtons(wrapper)[0]);
 
-    expect(alert).toHaveBeenCalledWith('_unknown_error: DownloadTaskNotFoundError');
+    expect(alert).toHaveBeenCalledWith('_unknown_error: Error');
     expect(actionLabels(wrapper)).toEqual(['_download ✔']);
     expect(wrapper.find('.ptk__download-added-notice').isVisible()).toBe(false);
+  });
+
+  // Deleted in the download manager while the confirm was up: there is nothing to replace, so it's added afresh.
+  test('a confirmed re-download of a task the download manager no longer holds adds it again', async () => {
+    const alert = vi.spyOn(window, 'alert').mockImplementation(() => {});
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    let added = false;
+    respondTo({
+      'download:getDownloadManagerTab': true,
+      'download:ensureDownloadManagerOpen': true,
+      'download:addDownload': message => {
+        if (message.args.options.redownload) {
+          return { result: false, errorName: 'DownloadTaskNotFoundError' };
+        }
+
+        const response = added ? { result: true } : { result: false, errorName: 'DownloadTaskExistsError' };
+        added = true;
+        return response;
+      }
+    });
+    const wrapper = await mountWithPage();
+
+    observerPort().peer.postMessage({ downloadTasksStatus: [{ type: 'PIXIV_ILLUST', progress: 1, state: 4 }] });
+    await flushPromises();
+    await clickAndFlush(actionButtons(wrapper)[0]);
+
+    expect(sentMessages('download:addDownload').map(message => message.args.options.redownload))
+      .toEqual([false, true, false]);
+    expect(alert).not.toHaveBeenCalled();
+    expect(actionLabels(wrapper)).toEqual(['_download 0.00%']);
+  });
+
+  test('a failed task at 100% shows as failed on the download button', async () => {
+    const wrapper = await mountWithPage();
+
+    observerPort().peer.postMessage({ downloadTasksStatus: [{ type: 'PIXIV_ILLUST', progress: 1, state: -1 }] });
+    await flushPromises();
+
+    expect(actionLabels(wrapper)).toEqual(['_download ✘']);
   });
 
   // A zip task is done processing as soon as the zip is saved.
@@ -612,7 +709,10 @@ describe('App download', () => {
     expect(wrapper.find('.ptk__container').classes()).toContain('success');
   });
 
-  test('a stopped task clears the queued 0%', async () => {
+  test.each([
+    ['paused', 3, '_download'],
+    ['failed', -1, '_download ✘']
+  ])('a %s task clears the queued 0%%', async (_, state, label) => {
     vi.spyOn(window, 'confirm').mockReturnValue(true);
     respondTo(existsUntilRedownload);
     const wrapper = await mountWithPage();
@@ -620,10 +720,10 @@ describe('App download', () => {
     await clickAndFlush(actionButtons(wrapper)[0]);
     expect(actionLabels(wrapper)).toEqual(['_download 0.00%']);
 
-    observerPort().peer.postMessage({ downloadTasksStatus: [{ type: 'PIXIV_ILLUST', progress: 0, state: -1 }] });
+    observerPort().peer.postMessage({ downloadTasksStatus: [{ type: 'PIXIV_ILLUST', progress: 0, state }] });
     await flushPromises();
 
-    expect(actionLabels(wrapper)).toEqual(['_download']);
+    expect(actionLabels(wrapper)).toEqual([label]);
   });
 
   const showNextPage = async resourceOptions => {
