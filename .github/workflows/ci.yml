@@ -111,9 +111,10 @@ jobs:
           firefox --version
           pnpm run test:e2e:firefox
 
-  # The one required check: it passes only when every job above succeeded.
-  # always() makes it run, and fail, when one of them fails or is skipped;
-  # a skipped required check would count as passing.
+  # The one required check: it passes only when every job above succeeded, so
+  # a new job must be added to `needs` or it never blocks a merge. always()
+  # makes it run, and fail, when one of them fails or is skipped; a skipped
+  # required check would count as passing.
   ci:
     if: always()
     needs: [test, build, e2e-chrome, e2e-firefox]
