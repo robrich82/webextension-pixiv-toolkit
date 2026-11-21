@@ -284,6 +284,20 @@ test('a conversion that fails fails the task and saves nothing', async () => {
   expect(console.error).toHaveBeenCalledWith('Could not convert ugoira pixiv:128:apng', error);
 });
 
+test('a frame missing from the zip fails the task, naming the frame, and saves nothing', async () => {
+  vi.spyOn(console, 'error').mockImplementation(() => {});
+  const task = createTask({ frames: [...frames, { file: '000002.jpg', delay: 100 }] });
+
+  task.start();
+  await completeDownload(task);
+  await vi.waitFor(() => expect(task.isFailure()).toBe(true));
+
+  // Not "Cannot read properties of null (reading 'async')" (#454).
+  expect(task.toJson().error).toBe('The ugoira zip has no frame 000002.jpg');
+  expect(encodeApng).not.toHaveBeenCalled();
+  expect(saved).toEqual([]);
+});
+
 // IllustAdapter refuses these first; the task fails rather than save something it can't name.
 test.each(['custom', undefined])('a task of unknown convert type %s fails and saves nothing', async convertType => {
   vi.spyOn(console, 'error').mockImplementation(() => {});

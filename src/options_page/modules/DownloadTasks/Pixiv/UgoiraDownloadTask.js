@@ -165,6 +165,21 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
   }
 
   /**
+   * @param {string} name A frame's file name, from the work's frame list
+   * @returns {Promise<Uint8Array>}
+   * @throws {Error} The zip has no file of that name
+   */
+  readFrame(name) {
+    const file = this.zip.file(name);
+
+    if (!file) {
+      throw new Error(`The ugoira zip has no frame ${name}`);
+    }
+
+    return file.async('uint8array');
+  }
+
+  /**
    *
    * @param {*} param0
    * @fires UgoiraDownloadTask#progress
@@ -318,7 +333,7 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
       await this.zipLoaded;
 
       const frames = await Promise.all(this.options.frames.map(async frame => ({
-        image: new Blob([await this.zip.file(frame.file).async('uint8array')], { type: this.context.illustMimeType || 'image/jpeg' }),
+        image: new Blob([await this.readFrame(frame.file)], { type: this.context.illustMimeType || 'image/jpeg' }),
         delay: frame.delay
       })));
 
