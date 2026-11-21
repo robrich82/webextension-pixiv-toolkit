@@ -23,7 +23,7 @@ pnpm run test:e2e:firefox  # node --test in real Firefox; needs `pnpm run build:
 
 There is no linter, formatter or type check. `eslint` and `eslint-plugin-compat` only check the built bundles against the browserslist floor, from `test/build.spec.js`. The `typescript` devDependency is there only for editors' language servers (and Claude's LSP tool), through TypeScript 7's own `tsc --lsp`; nothing in the build or tests uses it. CI (`.github/workflows/ci.yml`) runs `pnpm audit`, `pnpm test`, both builds and the e2e tests, skipping on a PR the jobs whose paths it doesn't touch. A suite that starts reading or importing a file outside its own directory needs a matching rule in `scripts/ciChanges.mjs`.
 
-`pnpm run release:firefox` (`scripts/release-firefox.js`) builds, signs through AMO and publishes a GitHub release with `updates.json`. AMO signs a given version only once, so don't run it without being asked.
+`pnpm run release:firefox` (`scripts/release-firefox.js`) builds, signs through AMO and publishes a GitHub release with `updates.json`. AMO signs a given version only once, so don't run it without being asked. Releases go through the user-invoked `/release-firefox` skill (`.claude/skills/release-firefox/SKILL.md`), which has the pre-flight checks.
 
 ## Architecture
 
@@ -34,7 +34,7 @@ There is no linter, formatter or type check. `eslint` and `eslint-plugin-compat`
 - **options page** (`src/options_page/`): two pages, `index.html` for settings and `downloads.html` for the **download manager**.
 - **popup**, plus `lib/locales.js`, which only exposes the locales as the `locales` global.
 
-The pages and content scripts read `vue`, `vue-i18n` and `locales` (and Dexie, on the options pages) from globals that `lib/` scripts provide, rather than bundling them. Give a new `lib/` `<script>` tag `vite-ignore`, like the existing ones, or Vite warns that it can't bundle it. The background bundles everything.
+The pages and content scripts read `vue`, `vue-i18n` and `locales` (and Dexie, on the options pages) from globals that `lib/` scripts provide, rather than bundling them. The download manager also uses `JSZip` as a bare global; don't import `jszip`, or it gets bundled a second time. Give a new `lib/` `<script>` tag `vite-ignore`, like the existing ones, or Vite warns that it can't bundle it. The background bundles everything.
 
 Aliases: `@` → `src`, `@@` → `src/options_page`. Both are mirrored in `vitest.config.mjs`.
 
@@ -50,7 +50,7 @@ Since 6.0.0, downloads don't run in the content script. They run in the download
 
 `runtime.sendMessage({ to, action: 'service:method', args })`. `to: 'ws'` routes to the background `Application.onMessage`, and anything else with an `action` routes to the download manager. Each side resolves `service` through its own `ServiceProvider`: `history` → `HistoryService`, looked up in that side's `services/index.js`. Long-lived channels use `runtime.connect`, routed by port name in the background `Application.onConnect` to the background service of that name, if it extends `AbstractPortService`.
 
-Payloads must survive structured clone. Firefox throws `DataCloneError` on Vue reactive proxies, so the existing code passes payloads through a JSON round-trip before sending.
+Payloads must survive structured clone. Firefox throws `DataCloneError` on Vue reactive proxies, so pass them through a JSON round-trip before sending, as `content_scripts/components/App.vue` does for `download:addDownload`.
 
 ### Chrome vs Firefox
 
@@ -78,5 +78,6 @@ UI strings are in `src/statics/_locales`. `src/statics/HISTORY_<locale>` (one pe
 - `@/modules/Extension/browser` is mapped to the in-memory fake in `test/doubles/browser.js`. Its test controls are under `browser._fake` (`reset`, `flush`, `addTab`, …), and it's reset before every test. Specs that open a port need `await browser._fake.flush()`.
 - Services are singletons that register listeners in their constructor. Clear `Service.instance = undefined` in `beforeEach` when a spec needs live listeners.
 - `coverage.thresholds` in `vitest.config.mjs` is a ratchet with per-directory floors. A new untested file can fail `pnpm test`, so either cover it or lower the floor in the same PR and say why.
+- A PostToolUse hook (`.claude/hooks/related-tests.js`) runs the related Vitest specs after each edit to a `.js`/`.vue` file under `src/` or `test/`, in whichever checkout the file is in, and skips until that checkout has had `pnpm install`. Its failures come back as hook feedback. Fix them rather than treating them as a stray run.
 
 Other docs: `docs/toolchain.md` (build toolchain). Track open work in GitHub issues, not in `docs/`.
