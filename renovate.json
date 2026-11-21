@@ -9,7 +9,6 @@
         "description": "Renovate defaults this to null for security fixes.",
         "minimumReleaseAge": "1 day"
     },
-    "platformAutomerge": false,
     "customManagers": [
         {
             "description": "The Renovate image the renovate-config workflow validates this file with.",
@@ -24,17 +23,6 @@
             "description": "pnpm is pinned in both mise.toml and packageManager; bump them in one PR, where the mise manager also relocks mise.lock.",
             "matchDepNames": ["pnpm"],
             "groupName": "pnpm"
-        },
-        {
-            "description": "Automerge non-major updates once every check is green. platformAutomerge is off because main has no required status checks, so GitHub would merge before CI finishes. Not digest: a re-pointed tag keeps its old release date, so it skips minimumReleaseAge.",
-            "matchUpdateTypes": ["minor", "patch", "pin"],
-            "matchCurrentVersion": "!/^v?0\\./",
-            "automerge": true
-        },
-        {
-            "description": "CI never runs web-ext, so green CI says nothing about a web-ext bump.",
-            "matchPackageNames": ["web-ext"],
-            "automerge": false
         },
         {
             "description": "Renovate publishes several times a day; bump the validator image weekly.",

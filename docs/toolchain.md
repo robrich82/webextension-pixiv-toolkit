@@ -261,9 +261,8 @@ or renamed without touching the ruleset, as long as `ci`'s `needs` lists it.
 
 The audit step reports at `moderate` but does not fail the job
 (`continue-on-error`). It audits dev dependencies too, so an advisory published
-overnight against a build tool would otherwise block every merge, Renovate's
-automerges included, regardless of whether anything vulnerable ships
-(`pnpm audit -P` checks only what does).
+overnight against a build tool would otherwise block every merge, regardless of
+whether anything vulnerable ships (`pnpm audit -P` checks only what does).
 
 A red audit step still needs clearing: `pnpm update`, an `overrides` floor, or
 — when the package is abandoned and there is no fixed version —
