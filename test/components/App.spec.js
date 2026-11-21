@@ -638,7 +638,7 @@ describe('App download', () => {
       'download:getDownloadManagerTab': true,
       'download:ensureDownloadManagerOpen': true,
       'download:addDownload': message => (message.args.options.redownload
-        ? { result: false, errorName: 'DownloadTaskNotFoundError' }
+        ? { result: false, errorName: 'Error' }
         : { result: false, errorName: 'DownloadTaskExistsError' })
     });
     const wrapper = await mountWithPage();
@@ -647,9 +647,48 @@ describe('App download', () => {
     await flushPromises();
     await clickAndFlush(actionButtons(wrapper)[0]);
 
-    expect(alert).toHaveBeenCalledWith('_unknown_error: DownloadTaskNotFoundError');
+    expect(alert).toHaveBeenCalledWith('_unknown_error: Error');
     expect(actionLabels(wrapper)).toEqual(['_download ✔']);
     expect(wrapper.find('.ptk__download-added-notice').isVisible()).toBe(false);
+  });
+
+  // Deleted in the download manager while the confirm was up: there is nothing to replace, so it's added afresh.
+  test('a confirmed re-download of a task the download manager no longer holds adds it again', async () => {
+    const alert = vi.spyOn(window, 'alert').mockImplementation(() => {});
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    let added = false;
+    respondTo({
+      'download:getDownloadManagerTab': true,
+      'download:ensureDownloadManagerOpen': true,
+      'download:addDownload': message => {
+        if (message.args.options.redownload) {
+          return { result: false, errorName: 'DownloadTaskNotFoundError' };
+        }
+
+        const response = added ? { result: true } : { result: false, errorName: 'DownloadTaskExistsError' };
+        added = true;
+        return response;
+      }
+    });
+    const wrapper = await mountWithPage();
+
+    observerPort().peer.postMessage({ downloadTasksStatus: [{ type: 'PIXIV_ILLUST', progress: 1, state: 4 }] });
+    await flushPromises();
+    await clickAndFlush(actionButtons(wrapper)[0]);
+
+    expect(sentMessages('download:addDownload').map(message => message.args.options.redownload))
+      .toEqual([false, true, false]);
+    expect(alert).not.toHaveBeenCalled();
+    expect(actionLabels(wrapper)).toEqual(['_download 0.00%']);
+  });
+
+  test('a failed task at 100% shows as failed on the download button', async () => {
+    const wrapper = await mountWithPage();
+
+    observerPort().peer.postMessage({ downloadTasksStatus: [{ type: 'PIXIV_ILLUST', progress: 1, state: -1 }] });
+    await flushPromises();
+
+    expect(actionLabels(wrapper)).toEqual(['_download ✘']);
   });
 
   // A zip task is done processing as soon as the zip is saved.

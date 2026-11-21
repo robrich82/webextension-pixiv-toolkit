@@ -145,7 +145,7 @@ export default {
       generalTaskActive: false,
 
       /**
-       * The task failed, and the download manager still holds it
+       * The task's last status was a failure
        * @type {boolean}
        */
       generalTaskFailed: false
@@ -382,7 +382,7 @@ export default {
 
     /**
      * @param {string} [ugoiraConvertType] Required for an ugoira
-     * @returns {boolean} The button's task failed, so the download manager still holds it
+     * @returns {boolean} The button's task's last status was a failure
      */
     isTaskFailed(ugoiraConvertType) {
       return this.isUgoira ? !!this.ugoiraTaskProgresses[ugoiraConvertType]?.failed : this.generalTaskFailed;
@@ -494,21 +494,20 @@ export default {
     },
 
     async downloadWithDownloadManager({ ugoiraConvertType }) {
-      // A failed task is still in the download manager; replacing it is the retry, so there's nothing to confirm.
-      const retryingFailed = this.isTaskFailed(ugoiraConvertType);
+      // Replacing a failed task is the retry, so there's nothing to confirm.
+      const redownload = this.isTaskFailed(ugoiraConvertType);
       // Taken at the click: Pixiv can move to another work while the download manager opens or the confirm is up.
       const download = {
         ugoiraConvertType,
         args: this.getDownloadArgs({ ugoiraConvertType }),
         pageChangeToken: this.pageChangeToken,
-        redownload: retryingFailed,
-        retryingFailed
+        redownload
       };
 
       await this.ensureDownloadManagerOpen(() => this.addDownload(download));
     },
 
-    async addDownload({ ugoiraConvertType, args, pageChangeToken, redownload = false, retryingFailed = false }) {
+    async addDownload({ ugoiraConvertType, args, pageChangeToken, redownload = false }) {
       let response = await browser.runtime.sendMessage({
         action: 'download:addDownload',
         args: { ...args, options: { ...args.options, redownload } }
@@ -522,8 +521,8 @@ export default {
         }
 
         this.displayNotice(this.tl('_download_added'));
-      } else if (retryingFailed && response && response.errorName === 'DownloadTaskNotFoundError') {
-        // The failed task was deleted from the download manager since its last status, so add it afresh.
+      } else if (redownload && response && response.errorName === 'DownloadTaskNotFoundError') {
+        // The task to replace was deleted from the download manager since its last status, so add it afresh.
         await this.addDownload({ ugoiraConvertType, args, pageChangeToken });
       } else if (response && response.errorName === 'DownloadTaskExistsError') {
         // On a re-download, the task is still running: the download manager keeps it, and so does the button.
