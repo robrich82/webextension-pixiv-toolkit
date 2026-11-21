@@ -4,7 +4,7 @@ import { afterEach, test } from 'node:test';
 import { PIXEL } from './fakePixiv.mjs';
 import { closeAll, launch, poll } from './firefox.mjs';
 import { probeVideo, videoSize } from '../test/helpers/probeVideo.mjs';
-import { nearColors, probeGif } from '../test/helpers/probeGif.mjs';
+import { composeGif, nearColors, oneBitAlphaMismatch, probeGif } from '../test/helpers/probeGif.mjs';
 import { MOVING, nearColors as nearApngColors, probeApng, zipFrames } from '../test/helpers/probeApng.mjs';
 
 // End-to-end downloads on Firefox, which Playwright can't load an extension
@@ -155,6 +155,17 @@ test('DL GIF keeps an odd frame size and every frame of a longer PNG ugoira', { 
   assert.deepEqual(gif.frames.map(frame => frame.delay), ODD_DELAYS);
   // Each frame has two colours, which a palette of its own keeps.
   assert.deepEqual(gif.frames.map(frame => frame.distinctColors), ODD_DELAYS.map(() => 2));
+  assertNoErrors();
+});
+
+test('DL GIF keeps the transparency of PNG frames, each frame clearing before the next', { timeout: TIMEOUT }, async () => {
+  const animation = await convertUgoira('DL GIF', 'image/gif', { moving: true });
+
+  const gif = probeGif(fs.readFileSync(animation.path));
+  assert.deepEqual({ width: gif.width, height: gif.height, loops: gif.loops }, { width: 37, height: 35, loops: 0 });
+  assert.deepEqual(gif.frames.map(frame => frame.dispose), MOVING.delays.map(() => 2));
+  const expected = await zipFrames(MOVING.zip);
+  assert.deepEqual(composeGif(gif).map((frame, i) => oneBitAlphaMismatch(frame, expected[i])), expected.map(() => null));
   assertNoErrors();
 });
 
