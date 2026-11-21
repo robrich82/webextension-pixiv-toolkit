@@ -125,6 +125,23 @@ test('DL GIF keeps an odd frame size and every frame of a longer PNG ugoira', as
   expect(errors).toEqual([]);
 });
 
+test('DL GIF keeps the transparency of PNG frames, each frame clearing before the next', async ({ context, serviceWorker }) => {
+  const errors = collectErrors(context);
+  await context.unrouteAll();
+  await mockPixiv(context, ugoiraRoutes({ moving: true }));
+  const { probeGif, composeGif, oneBitAlphaMismatch } = await import('../test/helpers/probeGif.mjs');
+  const { zipFrames, MOVING } = await import('../test/helpers/probeApng.mjs');
+
+  const animation = await convert(context, serviceWorker, 'DL GIF', 'image/gif');
+
+  const gif = probeGif(fs.readFileSync(animation.filename));
+  expect(gif).toMatchObject({ width: 37, height: 35, loops: 0 });
+  expect(gif.frames.map(frame => frame.dispose)).toEqual(MOVING.delays.map(() => 2));
+  const expected = await zipFrames(MOVING.zip);
+  expect(composeGif(gif).map((frame, i) => oneBitAlphaMismatch(frame, expected[i]))).toEqual(expected.map(() => null));
+  expect(errors).toEqual([]);
+});
+
 test('DL APNG gives JPEG frames their delays as RGB, and loops', async ({ context, serviceWorker }) => {
   const errors = collectErrors(context);
   const { probeApng, nearColors } = await import('../test/helpers/probeApng.mjs');

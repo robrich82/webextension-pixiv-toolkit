@@ -1,17 +1,21 @@
 /**
  * Reads a GIF in Node, for the encoder spec and the e2e tests: its screen size, loop count, and
- * each frame's delay, palette and pixels.
+ * each frame's delay, disposal, palette and pixels.
  * @param {Uint8Array} bytes
  * @returns {{ width: number, height: number, loops: number|undefined, frames: GifFrame[] }}
  *
  * @typedef GifFrame
  * @property {number} delay In ms
+ * @property {number} dispose Its disposal method: 0 or 1 keeps it, 2 clears it, 3 restores what was before
+ * @property {number} x
+ * @property {number} y
  * @property {number} width
  * @property {number} height
  * @property {boolean} localPalette The frame has its own colour table rather than the GIF's
  * @property {number} colors How many entries its colour table has
  * @property {Uint8Array} rgb Its pixels, 3 bytes each
- * @property {number} distinctColors How many colours its pixels use
+ * @property {Uint8Array} transparent 1 for each pixel of its transparent index, else 0
+ * @property {number} distinctColors How many colours its opaque pixels use
  */
 export function probeGif(bytes) {
   let at = 0;
@@ -46,6 +50,8 @@ export function probeGif(bytes) {
   const frames = [];
   let loops;
   let delay = 0;
+  let dispose = 0;
+  let transparentIndex = -1;
 
   for (;;) {
     const block = byte();
@@ -60,11 +66,14 @@ export function probeGif(bytes) {
 
       if (label === 0xf9) {
         delay = (data[1] | (data[2] << 8)) * 10;
+        dispose = (data[0] >> 2) & 7;
+        transparentIndex = data[0] & 1 ? data[3] : -1;
       } else if (label === 0xff && new TextDecoder().decode(data.subarray(0, 11)) === 'NETSCAPE2.0') {
         loops = data[12] | (data[13] << 8);
       }
     } else if (block === 0x2c) {
-      at += 4; // left, top
+      const x = u16();
+      const y = u16();
       const frameWidth = u16();
       const frameHeight = u16();
       const packed = byte();
@@ -79,20 +88,84 @@ export function probeGif(bytes) {
       const rgb = new Uint8Array(indices.length * 3);
 
       indices.forEach((index, i) => rgb.set(colors.subarray(index * 3, index * 3 + 3), i * 3));
+      const opaque = indices.filter(index => index !== transparentIndex);
+
       frames.push({
         delay,
+        dispose,
+        x,
+        y,
         width: frameWidth,
         height: frameHeight,
         localPalette: Boolean(packed & 0x80),
         colors: colors.length / 3,
         rgb,
-        distinctColors: new Set(indices.map(index => colors.subarray(index * 3, index * 3 + 3).join())).size
+        transparent: Uint8Array.from(indices, index => Number(index === transparentIndex)),
+        distinctColors: new Set(opaque.map(index => colors.subarray(index * 3, index * 3 + 3).join())).size
       });
       delay = 0;
+      dispose = 0;
+      transparentIndex = -1;
     } else {
       throw new Error(`Unexpected GIF block 0x${block?.toString(16)} at ${at - 1}`);
     }
   }
+}
+
+/**
+ * Plays a GIF as a browser does, onto a screen that starts transparent.
+ * @param {ReturnType<typeof probeGif>} gif
+ * @returns {Uint8Array[]} The screen's RGBA after each frame is drawn
+ */
+export function composeGif({ width, height, frames }) {
+  let screen = new Uint8Array(width * height * 4);
+
+  return frames.map(frame => {
+    const before = screen.slice();
+    const area = (fn) => {
+      for (let row = 0; row < frame.height; row++) {
+        for (let column = 0; column < frame.width; column++) {
+          fn(row * frame.width + column, ((frame.y + row) * width + frame.x + column) * 4);
+        }
+      }
+    };
+
+    area((i, at) => {
+      if (!frame.transparent[i]) {
+        screen.set([...frame.rgb.subarray(i * 3, i * 3 + 3), 255], at);
+      }
+    });
+
+    const shown = screen.slice();
+
+    if (frame.dispose === 2) {
+      area((_, at) => screen.fill(0, at, at + 4));
+    } else if (frame.dispose === 3) {
+      screen = before;
+    }
+
+    return shown;
+  });
+}
+
+/**
+ * Compares a composed GIF frame with the RGBA it was made from, whose alpha under 128 should be
+ * transparent and the rest opaque in its colour, give or take the palette and a canvas's premultiplying.
+ * @param {Uint8Array} screen One of composeGif()'s frames
+ * @param {ArrayLike<number>} rgba
+ * @returns {string|null} The first pixel that differs, or null
+ */
+export function oneBitAlphaMismatch(screen, rgba) {
+  for (let at = 0; at < rgba.length; at += 4) {
+    const opaque = rgba[at + 3] >= 128;
+    const pixel = Array.from(screen.subarray(at, at + 4));
+
+    if (pixel[3] !== (opaque ? 255 : 0) || (opaque && pixel.slice(0, 3).some((value, c) => Math.abs(value - rgba[at + c]) > 8))) {
+      return `pixel ${at / 4}: got ${pixel}, want ${Array.from(rgba).slice(at, at + 4)}`;
+    }
+  }
+
+  return null;
 }
 
 /**

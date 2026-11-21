@@ -8,7 +8,7 @@ import { FALLBACK_DELAY } from '@/options_page/modules/UgoiraEncoders/delay';
 import { encodeGifFrame, gifDelay, gifDelays, joinGif } from '@/options_page/modules/UgoiraEncoders/gifFrame';
 import { encodeGif } from '@/options_page/modules/UgoiraEncoders/gif';
 import { workerCount } from '@/options_page/modules/UgoiraEncoders/pool';
-import { probeGif } from './helpers/probeGif.mjs';
+import { composeGif, probeGif } from './helpers/probeGif.mjs';
 
 /** A frame of one colour. */
 const solid = (width, height, [r, g, b]) => {
@@ -97,6 +97,9 @@ describe('encodeGifFrame and joinGif', () => {
     expect(gif.frames.map(frame => frame.localPalette)).toEqual([false, true, true]);
     expect(gif.frames.map(frame => pixels(frame, 1)[0])).toEqual([[255, 0, 0], [0, 0, 255], [0, 255, 0]]);
     expect(gif.frames.map(frame => frame.distinctColors)).toEqual([1, 1, 1]);
+    // Every frame clears itself, so the next one's transparent pixels show none of it.
+    expect(gif.frames.map(frame => frame.dispose)).toEqual([2, 2, 2]);
+    expect(gif.frames.every(frame => frame.transparent.every(pixel => !pixel))).toBe(true);
   });
 
   test('round a delay to the 10ms a GIF stores, and cap it at 655.35s', () => {
@@ -117,12 +120,54 @@ describe('encodeGifFrame and joinGif', () => {
     expect(psnr(rgba, frame.rgb)).toBeGreaterThan(35);
   });
 
-  test('ignore alpha, which the worker has drawn over black', () => {
-    const rgba = solid(2, 1, [200, 100, 50]);
-    rgba[3] = 0;
-    const [frame] = probeGif(joinGif([encodeGifFrame(rgba, 2, 1, { delay: 100, first: true })])).frames;
+  test('make pixels under half alpha transparent, and keep the rest opaque in their own colours', () => {
+    const rgba = solid(6, 1, [200, 100, 50]);
+    [0, 3, 127, 128, 200, 255].forEach((alpha, i) => rgba[i * 4 + 3] = alpha);
+    const [frame] = probeGif(joinGif([encodeGifFrame(rgba, 6, 1, { delay: 100, first: true })])).frames;
 
-    expect(pixels(frame)).toEqual([[200, 100, 50], [200, 100, 50]]);
+    expect(Array.from(frame.transparent)).toEqual([1, 1, 1, 0, 0, 0]);
+    expect(pixels(frame).slice(3)).toEqual([[200, 100, 50], [200, 100, 50], [200, 100, 50]]);
+    expect(frame.distinctColors).toBe(1);
+    expect(frame.dispose).toBe(2);
+  });
+
+  test('keep a transparent frame of more than 255 colours close to the original, its palette one short for transparency', () => {
+    const { rgba, width, height } = gradient();
+    // A transparent band down the middle.
+    for (let y = 0; y < height; y++) {
+      for (let x = 28; x < 36; x++) {
+        rgba[(y * width + x) * 4 + 3] = 0;
+      }
+    }
+    const [frame] = probeGif(joinGif([encodeGifFrame(rgba, width, height, { delay: 100, first: true })])).frames;
+    const opaque = Array.from({ length: width * height }, (_, i) => i).filter(i => rgba[i * 4 + 3] === 255);
+
+    expect(frame).toMatchObject({ width, height, colors: 256 });
+    expect(Array.from(frame.transparent)).toEqual(Array.from({ length: width * height }, (_, i) => Number(rgba[i * 4 + 3] === 0)));
+    expect(frame.distinctColors).toBeLessThanOrEqual(255);
+    expect(psnr(
+      Uint8Array.from(opaque.flatMap(i => [...rgba.subarray(i * 4, i * 4 + 4)])),
+      Uint8Array.from(opaque.flatMap(i => [...frame.rgb.subarray(i * 3, i * 3 + 3)]))
+    )).toBeGreaterThan(35);
+  });
+
+  test('make a frame with no opaque pixel all transparent', () => {
+    const rgba = new Uint8Array(3 * 2 * 4);
+    const [frame] = probeGif(joinGif([encodeGifFrame(rgba, 3, 2, { delay: 100, first: true })])).frames;
+
+    expect(Array.from(frame.transparent)).toEqual([1, 1, 1, 1, 1, 1]);
+  });
+
+  test("show the screen, not the frame before, through a frame's transparent pixels", () => {
+    const holed = solid(2, 2, [0, 0, 255]);
+    holed[3] = holed[15] = 0;
+    const frames = composeGif(probeGif(joinGif([
+      encodeGifFrame(solid(2, 2, [255, 0, 0]), 2, 2, { delay: 100, first: true }),
+      encodeGifFrame(holed, 2, 2, { delay: 100, first: false })
+    ])));
+
+    expect(Array.from(frames[0])).toEqual(Array.from(solid(2, 2, [255, 0, 0])));
+    expect(Array.from(frames[1])).toEqual([0, 0, 0, 0, 0, 0, 255, 255, 0, 0, 255, 255, 0, 0, 0, 0]);
   });
 });
 

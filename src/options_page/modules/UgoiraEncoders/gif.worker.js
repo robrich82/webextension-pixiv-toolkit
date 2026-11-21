@@ -9,9 +9,8 @@ async function encode({ image, delay, first }) {
   const { width, height } = bitmap;
   const context = new OffscreenCanvas(width, height).getContext('2d', { willReadFrequently: true });
 
-  // Transparent pixels turn black, as they do in the videos.
-  context.fillStyle = '#000';
-  context.fillRect(0, 0, width, height);
+  // Not drawn over black, as the videos are: encodeGifFrame() keeps transparency. The canvas premultiplies,
+  // which moves a colour by at most 1 at the alpha of 128 and up that the GIF keeps opaque.
   context.drawImage(bitmap, 0, 0);
   bitmap.close();
 

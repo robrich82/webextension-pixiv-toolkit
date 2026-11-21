@@ -52,7 +52,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-test('draws the frame over black, then answers with its chunk, handing over the buffer', async () => {
+test('draws the frame on a clear canvas, then answers with its chunk, handing over the buffer', async () => {
   const image = new Blob(['jpeg']);
 
   await worker.onmessage({ data: { index: 0, image, delay: 40, first: true } });
@@ -60,7 +60,6 @@ test('draws the frame over black, then answers with its chunk, handing over the 
   expect(createImageBitmap).toHaveBeenCalledWith(image);
   expect(FakeCanvas.log).toEqual([
     ['canvas', 2, 1],
-    ['fillRect', '#000', 0, 0, 2, 1],
     ['drawImage', 'bitmap', 0, 0]
   ]);
   expect(bitmap.close).toHaveBeenCalled();
@@ -72,6 +71,17 @@ test('draws the frame over black, then answers with its chunk, handing over the 
   const gif = probeGif(joinGif([message.result]));
   expect(gif).toMatchObject({ width: 2, height: 1, loops: 0 });
   expect(gif.frames.map(({ delay, rgb }) => [delay, [...rgb.subarray(0, 3)]])).toEqual([[40, [200, 100, 50]]]);
+});
+
+test('keeps a transparent pixel transparent', async () => {
+  FakeCanvas.pixels[3] = 0;
+
+  await worker.onmessage({ data: { index: 0, image: new Blob(['png']), delay: 40, first: true } });
+
+  const [[{ result: chunk }]] = worker.postMessage.mock.calls;
+  const [frame] = probeGif(joinGif([chunk])).frames;
+  expect(Array.from(frame.transparent)).toEqual([1, 0]);
+  expect([...frame.rgb.subarray(3, 6)]).toEqual([200, 100, 50]);
 });
 
 test('a later frame writes no header', async () => {
