@@ -67,3 +67,23 @@ test('in a wide window the panel keeps its buttons on one row', async ({ context
   const { buttons } = await measure(page);
   expect(new Set(buttons.map(button => button.top)).size).toBe(1);
 });
+
+// Style 2 opens and closes from its P* button: wrapping must not move it from under the cursor.
+test('in a narrow window the inline P* button stays on the bottom row as the panel opens', async ({ context, serviceWorker }) => {
+  await seedSettings(serviceWorker, {
+    downloadPanelStyle: 2, downloadPanelPosition: 'right', showPixivOmina: true, guideShowed: true
+  });
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 360, height: HEIGHT });
+  await page.goto(UGOIRA_URL);
+  await page.getByText('DL GIF', { exact: true }).waitFor({ state: 'attached' });
+  const handler = page.locator('.ptk__inline-handler');
+  const handlerBottom = async () => Math.round((await handler.boundingBox()).y + (await handler.boundingBox()).height);
+  const collapsedBottom = await handlerBottom();
+
+  await handler.click();
+  await expect.poll(async () => new Set((await measure(page)).buttons.map(button => button.top)).size).toBeGreaterThan(1);
+  await page.waitForFunction(() => document.getAnimations().length === 0);
+
+  expect(await handlerBottom()).toBe(collapsedBottom);
+});

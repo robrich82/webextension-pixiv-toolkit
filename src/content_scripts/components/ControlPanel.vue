@@ -234,9 +234,10 @@ export default {
     }
   }
 
+  // The P* handler stays on the bottom row, where it sat collapsed, so a second click closes the panel.
   #ptk__action__wrapper {
     display: flex;
-    align-items: center;
+    align-items: flex-end;
     padding: 3px;
   }
 
