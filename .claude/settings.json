@@ -9,6 +9,12 @@
             "shell": "bash",
             "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/related-tests.js\"",
             "timeout": 180
+          },
+          {
+            "type": "command",
+            "shell": "bash",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/settings-migration-reminder.js\"",
+            "timeout": 10
           }
         ]
       }
