@@ -199,6 +199,11 @@ class UgoiraDownloadTask extends AbstractDownloadTask {
     this.zipLoaded = this.zip.loadAsync(blob);
     await this.zipLoaded;
 
+    // Deleted while the zip arrived or loaded; with no info.json saved, the zip isn't cached either (#468).
+    if (this.isDelete) {
+      return;
+    }
+
     this.dispatch('progress', [this.progress]);
 
     /**

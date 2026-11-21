@@ -578,6 +578,32 @@ describe('a task deleted through the download manager while it converts', () => 
     expect(task.lastError).toBeUndefined();
     expect(saved).toEqual([]);
   });
+
+  // #468
+  test('saves no info.json and caches no zip when deleted as its frames zip arrives', async () => {
+    window.$app.settings.enableDownloadMetadata = true;
+    const consoleError = vi.spyOn(console, 'error');
+    const task = createTask({ id: '178' });
+    const fired = events(task);
+    const loadAsync = RealJSZip.prototype.loadAsync;
+    vi.spyOn(RealJSZip.prototype, 'loadAsync').mockImplementation(function (...args) {
+      manager.deleteTask(task.id);
+      return loadAsync.apply(this, args);
+    });
+
+    await manager.addTask(task);
+    await completeDownload(task);
+    await vi.waitFor(() => expect(RealJSZip.prototype.loadAsync).toHaveBeenCalled());
+    await settle();
+
+    expect(fired).not.toContain('complete');
+    expect(fired).not.toContain('failure');
+    expect(task.lastError).toBeUndefined();
+    expect(consoleError).not.toHaveBeenCalled();
+    expect(encodeApng).not.toHaveBeenCalled();
+    expect(saved).toEqual([]);
+    expect(ZipRepo.getDefault().getZip('pixiv:178')).toBeUndefined();
+  });
 });
 
 test('a failed conversion drops its progress, and a retry starts from 0', async () => {
