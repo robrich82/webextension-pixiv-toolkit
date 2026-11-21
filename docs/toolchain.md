@@ -243,9 +243,17 @@ above and `pnpm install --frozen-lockfile`. Then:
 - `e2e-chrome` and `e2e-firefox` wait for `build`, download its artifact and run
   the Playwright and Firefox E2E suites against it (see `docs/testing.md`).
 
-`ci` passes only when every job in its `needs` succeeds. It is the one check the
-`main` ruleset requires, so a job can be added or renamed without touching the
-ruleset, as long as `ci`'s `needs` lists it.
+On a pull request, the `changes` job first runs `scripts/ciChanges.mjs`, which
+skips the jobs whose inputs the PR doesn't touch. A docs-only PR runs none of
+them, and a PR that only changes `e2e-firefox/` runs `build` and `e2e-firefox`.
+A path no rule matches runs everything. When a suite starts reading a file
+outside its own directory, add a rule for it. `test/ciChanges.spec.js` fails
+on a missed import or `path.join(__dirname, '..', …)` read, but not on a path
+built any other way. Pushes to `main` run every job.
+
+`ci` fails when any job in its `needs` failed or was cancelled; a skipped job
+passes. It is the one check the `main` ruleset requires, so a job can be added
+or renamed without touching the ruleset, as long as `ci`'s `needs` lists it.
 
 The audit step reports at `moderate` but does not fail the job
 (`continue-on-error`). It audits dev dependencies too, so an advisory published
