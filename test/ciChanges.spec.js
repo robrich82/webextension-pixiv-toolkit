@@ -26,6 +26,7 @@ describe('jobsFor', () => {
     ['Renovate config', ['renovate.json', '.github/workflows/renovate-config.yml'], []],
     ['nothing', [], []],
     ['a unit test', ['test/NameFormatter.spec.js'], ['test']],
+    ['markdown among the unit tests', ['test/components/README.md'], ['test']],
     ['the Vitest config', ['vitest.config.mjs'], ['test']],
     ['a test fixture', ['test/fixtures/pixiv/illust.json'], JOBS],
     ['the fixtures README', ['test/fixtures/README.md'], JOBS],
@@ -114,9 +115,11 @@ describe.each([
 
 describe('ci.yml', () => {
   const workflow = fs.readFileSync(path.join(ROOT, '.github/workflows/ci.yml'), 'utf8').replace(/\r\n/g, '\n');
-  const jobs = Object.fromEntries(workflow.split('\njobs:\n')[1].split(/\n(?= {2}[\w-]+:\n)/)
-    .filter((block) => /^ {2}[\w-]+:$/m.test(block))
-    .map((block) => [block.match(/^ {2}([\w-]+):$/m)[1], block]));
+  // A job's key line: `  name:`, maybe quoted, maybe with a trailing comment.
+  const KEY = / {2}['"]?([\w-]+)['"]?:[ \t]*(?:#.*)?$/;
+  const jobs = Object.fromEntries(workflow.split('\njobs:\n')[1].split(new RegExp(`\\n(?=${KEY.source.slice(0, -1)}\\n)`))
+    .filter((block) => new RegExp(`^${KEY.source}`, 'm').test(block))
+    .map((block) => [block.match(new RegExp(`^${KEY.source}`, 'm'))[1], block]));
   const needs = (id) => {
     const [, list] = jobs[id].match(/^ {4}needs: (.+)$/m) ?? [];
     return list ? list.replace(/[[\]]/g, '').split(',').map((name) => name.trim()) : [];
@@ -141,6 +144,11 @@ describe('ci.yml', () => {
 
   test('the ci gate needs every other job', () => {
     expect(needs('ci').sort()).toEqual(Object.keys(jobs).filter((id) => id !== 'ci').sort());
+  });
+
+  test('the ci gate always runs, on every result', () => {
+    expect(jobs.ci).toMatch(/^ {4}if: always\(\)$/m);
+    expect(jobs.ci).toMatch(/^ {10}RESULTS: \$\{\{ join\(needs\.\*\.result, ' '\) \}\}$/m);
   });
 
   const hasSh = spawnSync('sh', ['-c', 'true']).status === 0;

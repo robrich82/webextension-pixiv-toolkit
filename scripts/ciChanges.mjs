@@ -25,13 +25,13 @@ const RULES = [
   [/^e2e\/fakePixivRoutes\.js$/, ['test', ...E2E]],
   [/^(e2e\/|playwright\.config\.js$)/, ['test', 'e2e_chrome']],
   [/^e2e-firefox\//, ['test', 'e2e_firefox']],
+  [/^(test\/|vitest\.config\.mjs$)/, ['test']],
   // Read by people and agents only. Markdown under src/ can ship, so it isn't here.
   [/^(docs|\.claude|\.cursor|\.agents)(\/|$)/, []],
   [/^(?!src\/).*\.md$/, []],
   [/^(\.mcp\.json|\.editorconfig|\.gitignore|jsconfig\.json)$/, []],
   // Validated by its own workflow.
-  [/^(renovate\.json|\.github\/workflows\/renovate-config\.yml)$/, []],
-  [/^(test\/|vitest\.config\.mjs$)/, ['test']]
+  [/^(renovate\.json|\.github\/workflows\/renovate-config\.yml)$/, []]
 ];
 
 /** Which jobs the changed `paths` (repo-relative, forward slashes) need. */
