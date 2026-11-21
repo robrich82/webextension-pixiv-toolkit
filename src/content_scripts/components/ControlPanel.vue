@@ -196,9 +196,12 @@ export default {
   overflow: visible;
   z-index: 99999;
 
+  // No height, with the panel at its bottom: buttons that wrap onto more rows grow it upwards.
   .ptk__container__body {
     display: flex;
     justify-content: center;
+    align-items: flex-end;
+    height: 0;
     margin: 0 80px 0 20px;
     overflow: visible;
     transition: all 0.5s;
@@ -214,7 +217,7 @@ export default {
 
   .ptk__container__body-container {
     position: relative;
-    top: -50px;
+    top: -7px;
     background: #fff;
     border: 2px solid #fff;
     border-radius: 30px;
@@ -231,13 +234,23 @@ export default {
     }
   }
 
+  // The P* handler stays on the bottom row, where it sat collapsed, so a second click closes the panel.
   #ptk__action__wrapper {
     display: flex;
+    align-items: flex-end;
     padding: 3px;
   }
 
+  // Wraps in a narrow window, rather than pushing buttons off the screen (#443).
   .ptk__action__wrapper__body {
     display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    row-gap: 5px;
+
+    > * {
+      flex-shrink: 0;
+    }
   }
 
   .ptk__action__wrapper--collapse {
@@ -394,8 +407,11 @@ export default {
       transform: rotate(0deg);
     }
 
+    // Down by its own height, however many rows. Only while collapsed: a transform would make
+    // the panel, not the window, the box of its position: fixed notice and page selector dialog.
     .ptk__container__body-container {
       top: 0px;
+      transform: translateY(100%);
       box-shadow: 0 -5px 8px rgba(0,0,0,0.3);
     }
   }
