@@ -179,6 +179,25 @@ describe('download:addDownload', () => {
     });
     expect(manager().getTask('pixiv_illust:1')).toBe(running);
   });
+
+  // The page adds it again without redownload; nothing went wrong, so nothing is logged.
+  test('redownload of a task the manager no longer holds is refused by name, quietly', async () => {
+    const error = vi.spyOn(console, 'error');
+
+    await expect(send('download:addDownload', addDownloadArgs(1, { redownload: true }))).resolves.toEqual({
+      result: false,
+      errorName: 'DownloadTaskNotFoundError'
+    });
+    expect(error).not.toHaveBeenCalled();
+  });
+
+  test('a resource of an unknown kind is refused by name', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    await expect(send('download:addDownload', { unpackedResource: { __PACK_NAME__: 'NoSuchResource' } }))
+      .resolves.toMatchObject({ result: false, errorName: expect.any(String) });
+    expect(console.error).toHaveBeenCalledWith('Could not add the download', expect.any(Error));
+  });
 });
 
 describe('download:addDownload for an ugoira', () => {
