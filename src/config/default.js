@@ -226,15 +226,6 @@ export default Object.assign({}, {
     fanboxPostRenameImageRule: 'p{pageNum}',
 
     /**
-     * internal
-     * @since 6.2.0
-     */
-    ugoiraFFmpegGIFCliArgs: '-f concat -i input.txt -plays 0 out.gif',
-    ugoiraFFmpegAPNGCliArgs: '-f concat -i input.txt -plays 0 output.apng',
-    ugoiraFFmpegWEBMCliArgs: '-f concat -i input.txt -safe 0 output.webm',
-    ugoiraFFmpegMP4CliArgs: '-f concat -i input.txt -safe 0 -c:v libx264 -pix_fmt yuv420p -vf pad=ceil(iw/2)*2:ceil(ih/2)*2 -fps_mode vfr -movflags +faststart output.mp4',
-
-    /**
      * The codec each WebCodecs ugoira format tries first (see VIDEO_FORMAT_CODECS). Unset, as on
      * installs from before 6.4.7, reads as the container's default.
      * @since 6.4.7
