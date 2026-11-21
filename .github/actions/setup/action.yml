@@ -1,0 +1,58 @@
+name: Set up Node and dependencies
+description: Installs Node and pnpm through mise, then the locked dependencies. Run actions/checkout first.
+
+runs:
+  using: composite
+  steps:
+    # Caches mise's downloads rather than its installs: mise.lock checks what
+    # mise downloads, but a restored install would be trusted as is. Saved
+    # straight after the install, so a later failing step doesn't skip it.
+    - name: Restore mise downloads
+      id: mise-downloads
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/.cache/mise/downloads-cas
+        key: mise-downloads-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('mise.lock') }}
+
+    # Installs Node and pnpm from mise.toml, as locally. With mise.lock
+    # present the action runs `mise install --locked`, which fails on a
+    # version or platform the lock doesn't cover.
+    # No separate check against `engines`: pnpm enforces the root project's
+    # `engines` on every install, so an out-of-range pin fails the install.
+    - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
+      with:
+        version: 2026.11.11
+        cache: false
+
+    - name: Save mise downloads
+      if: steps.mise-downloads.outputs.cache-hit != 'true'
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/.cache/mise/downloads-cas
+        key: ${{ steps.mise-downloads.outputs.cache-primary-key }}
+
+    - name: Locate pnpm store
+      id: pnpm-store
+      shell: bash
+      run: |
+        path=$(pnpm store path --silent)
+        echo "path=$path" >> "$GITHUB_OUTPUT"
+
+    - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ steps.pnpm-store.outputs.path }}
+        key: pnpm-store-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+    # pnpm denies dependency lifecycle scripts by default and fails the
+    # install if a package wants to build without an entry in `allowBuilds`
+    # (see pnpm-workspace.yaml, where every such package is denied).
+    # The same setting protects local installs.
+    #
+    # --frozen-lockfile is the `npm ci` equivalent: install exactly the
+    # locked tree and fail if package.json and pnpm-lock.yaml disagree. It
+    # also re-checks the locked versions against the supply-chain policies,
+    # so the cooldown and trust settings still apply even though no
+    # resolution happens here.
+    - name: Install dependencies
+      shell: bash
+      run: pnpm install --frozen-lockfile
