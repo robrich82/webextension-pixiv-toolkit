@@ -30,6 +30,7 @@ describe('relatedArgs', () => {
     ['the CI workflow', '.github/workflows/ci.yml', ['test/ciChanges.spec.js']],
     ['an E2E test', 'e2e/illust.e2e.js', ['test/ciChanges.spec.js']],
     ['this hook', '.claude/hooks/related-tests.js', ['test/relatedTestsHook.spec.js']],
+    ['the settings reminder hook', '.claude/hooks/settings-migration-reminder.js', ['test/settingsMigrationReminder.spec.js']],
     ['docs', 'docs/testing.md', []],
     ['markdown under test/', 'test/fixtures/README.md', []],
     ['agent config', '.claude/settings.json', []]
