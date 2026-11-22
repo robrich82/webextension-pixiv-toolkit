@@ -7,7 +7,8 @@
  *   node scripts/apiShape.mjs snippet <url>              # JS to evaluate on the API's site
  *   node scripts/apiShape.mjs compare <fixture> <shape>  # shape: the snippet's result, saved as a file
  *
- * compare exits 1 when a path the fixture has is missing live or changed type.
+ * compare exits 1 when a path the fixture has is missing live or changed type,
+ * and 2 when it can't compare.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -17,9 +18,10 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 /**
  * Every key path in `value` (`$.body.urls.original`) with the sorted types
- * seen there. Array elements share one path (`$.body[]`), and so do the
- * entries of an object whose key ends in `Map` (Fanbox's `imageMap.*`), whose
- * keys are ids. Self-contained: snippet() sends its source to the browser.
+ * seen there. Array elements share one path (`$.body[]`). So do the entries
+ * of an object whose key ends in `Map` (Fanbox's `imageMap.*`), and all-digit
+ * keys (Pixiv's `userIllusts.*`): both are ids, which stay in the browser.
+ * Self-contained: snippet() sends its source to the browser.
  */
 export function shapeOf(value) {
   const shape = {};
@@ -32,17 +34,18 @@ export function shapeOf(value) {
       add(at, 'null');
     } else if (Array.isArray(node)) {
       add(at, 'array');
-      node.forEach((item) => walk(item, `${at}[]`));
+      node.forEach((item) => walk(item, `${at}[]`, ''));
     } else if (typeof node === 'object') {
       add(at, 'object');
       for (const [childKey, child] of Object.entries(node)) {
-        walk(child, `${at}.${/Map$/.test(key || '') ? '*' : childKey}`, childKey);
+        const id = /Map$/.test(key) || /^\d+$/.test(childKey);
+        walk(child, `${at}.${id ? '*' : childKey}`, id ? '*' : childKey);
       }
     } else {
       add(at, typeof node);
     }
   };
-  walk(value, '$');
+  walk(value, '$', '');
   for (const types of Object.values(shape)) types.sort();
   return shape;
 }
@@ -56,8 +59,8 @@ function parentOf(at) {
 /**
  * The fixture's paths that the live shape lacks or types differently:
  * `missing`, `type` (a type the fixture has that live never shows), or
- * `unverified` (an array that was empty live, or a parent that wasn't an
- * object). Below a path that is already reported missing, nothing more is.
+ * `unverified` (an array or id map that was empty live, or a parent that
+ * wasn't an object). Below a path that is already reported missing, nothing more is.
  * Paths only the live response has are ignored: the fixtures are trimmed to
  * what the parsers read.
  */
@@ -68,7 +71,8 @@ export function drift(fixture, live) {
     if (!seen) {
       const parent = parentOf(at);
       if (parent !== undefined && !live[parent]) continue;
-      const kind = parent === undefined || (!at.endsWith('[]') && live[parent].includes('object')) ? 'missing' : 'unverified';
+      const element = at.endsWith('[]') || at.endsWith('.*');
+      const kind = parent === undefined || (!element && live[parent].includes('object')) ? 'missing' : 'unverified';
       found.push({ kind, path: at, fixture: types, live: [] });
     } else if (types.some((type) => !seen.includes(type))) {
       found.push({ kind: 'type', path: at, fixture: types, live: seen });
@@ -114,26 +118,46 @@ export function snippet(url) {
 })()`;
 }
 
-/** The compare report, one line per finding, and whether anything drifted. */
+/**
+ * The compare report, one line per finding, and whether anything drifted.
+ * Throws when the shape file isn't a snippet result.
+ */
 export function report(fixtureFile, shapeFile) {
-  const live = JSON.parse(fs.readFileSync(shapeFile, 'utf8'));
-  if (live.error) return { drifted: true, lines: [`request failed: ${live.error}`] };
+  let live = JSON.parse(fs.readFileSync(shapeFile, 'utf8'));
+  // The browser tool's string result, saved with its quotes.
+  if (typeof live === 'string') live = JSON.parse(live);
+  if (live?.error) return { drifted: true, lines: [`request failed: ${live.error}`] };
+  if (!live || typeof live !== 'object' || !live.$) throw new Error(`${shapeFile} is not a shape from the snippet`);
   const found = drift(shapeOf(JSON.parse(fs.readFileSync(fixtureFile, 'utf8'))), live);
   const lines = found.map(({ kind, path: at, fixture, live: seen }) =>
     `${kind.padEnd(10)} ${at}  fixture: ${fixture.join('|')}${seen.length ? `  live: ${seen.join('|')}` : ''}`);
   return { drifted: found.some(({ kind }) => kind !== 'unverified'), lines: lines.length ? lines : ['no drift'] };
 }
 
-if (process.argv[1] && fs.realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) {
+const isMain = () => {
+  try {
+    return fs.realpathSync(process.argv[1]) === fileURLToPath(import.meta.url);
+  } catch {
+    return false;
+  }
+};
+
+// Exit 1 means drift, so anything that stops the check exits 2.
+if (process.argv[1] && isMain()) {
   const [command, ...args] = process.argv.slice(2);
-  if (command === 'snippet' && args.length === 1) {
-    console.log(snippet(args[0]));
-  } else if (command === 'compare' && args.length === 2) {
-    const { drifted, lines } = report(...args);
-    console.log(lines.join('\n'));
-    process.exitCode = drifted ? 1 : 0;
-  } else {
-    console.error('usage: node scripts/apiShape.mjs snippet <url> | compare <fixture> <shape>');
+  try {
+    if (command === 'snippet' && args.length === 1) {
+      console.log(snippet(args[0]));
+    } else if (command === 'compare' && args.length === 2) {
+      const { drifted, lines } = report(...args);
+      console.log(lines.join('\n'));
+      process.exitCode = drifted ? 1 : 0;
+    } else {
+      console.error('usage: node scripts/apiShape.mjs snippet <url> | compare <fixture> <shape>');
+      process.exitCode = 2;
+    }
+  } catch (error) {
+    console.error(error.message);
     process.exitCode = 2;
   }
 }

@@ -9,7 +9,9 @@ import crypto from 'crypto';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { pathToFileURL } from 'url';
 import vm from 'vm';
+import { encrypteHashKey } from '@/modules/Parser/PixivComic/config';
 import { drift, report, shapeOf, snippet } from '../scripts/apiShape.mjs';
 
 const ROOT = path.resolve(__dirname, '..');
@@ -40,6 +42,19 @@ describe('shapeOf', () => {
       '$.imageMap.*.id': ['string'],
       '$.imageMap.*.width': ['number']
     });
+  });
+
+  test('folds all-digit keys, so work ids stay out of the shape', () => {
+    expect(shapeOf({ userIllusts: { 12345: { id: '12345' }, 678: null } })).toEqual({
+      '$': ['object'],
+      '$.userIllusts': ['object'],
+      '$.userIllusts.*': ['null', 'object'],
+      '$.userIllusts.*.id': ['string']
+    });
+  });
+
+  test('keeps the fields of a map entry whose id happens to end in Map', () => {
+    expect(shapeOf({ imageMap: { abcMap: { id: 'x' } } })).toHaveProperty(['$.imageMap.*.id']);
   });
 });
 
@@ -90,12 +105,26 @@ describe('drift', () => {
     ]);
   });
 
+  test('cannot tell what an empty id map holds', () => {
+    const fixtureShape = shapeOf({ imageMap: { a: { id: 'a' } } });
+
+    expect(drift(fixtureShape, shapeOf({ imageMap: {} }))).toEqual([
+      { kind: 'unverified', path: '$.imageMap.*', fixture: ['object'], live: [] }
+    ]);
+  });
+
+  test('reports an array that became an object, without guessing at its elements', () => {
+    expect(drift(shapeOf({ pages: [{ url: 'u' }] }), shapeOf({ pages: { url: 'u' } }))).toEqual([
+      { kind: 'type', path: '$.pages', fixture: ['array'], live: ['object'] },
+      { kind: 'unverified', path: '$.pages[]', fixture: ['object'], live: [] }
+    ]);
+  });
+
   test('reports the root of an empty shape as missing', () => {
     expect(drift(shapeOf({ a: 1 }), {})).toEqual([{ kind: 'missing', path: '$', fixture: ['object'], live: [] }]);
   });
 
-  // The parser accepts Fanbox's older un-nested body; a live response in that shape reports everything under $.body.post.
-  test('compares the Fanbox fixtures across ids in imageMap', () => {
+  test('matches a Fanbox post whose imageMap has other ids', () => {
     const live = readFixture('fanbox/post-article.json');
     const { img1, img2 } = live.body.post.body.imageMap;
     live.body.post.body.imageMap = { Xk3pQ: img1, b72Lm: img2 };
@@ -112,7 +141,7 @@ describe('snippet', () => {
       requests.push({ target, init });
       return { ok, status, json: async () => body };
     };
-    const context = vm.createContext({ fetch, crypto: globalThis.crypto, TextEncoder, Date, String, Array, Uint8Array, Math, Object, JSON, URL });
+    const context = vm.createContext({ fetch, crypto: globalThis.crypto, TextEncoder });
     const result = JSON.parse(await vm.runInContext(snippet(url), context));
 
     return { result, requests };
@@ -130,17 +159,42 @@ describe('snippet', () => {
   test('signs a Pixiv Comic request the way EpisodeParser does', async () => {
     const { requests } = await evaluate('https://comic.pixiv.net/api/app/episodes/1/read_v4', readFixture('pixivComic/episode.json'));
     const { headers } = requests[0].init;
-    const key = fs.readFileSync(path.join(ROOT, 'src/modules/Parser/PixivComic/config.js'), 'utf8').match(/encrypteHashKey = '([^']+)'/)[1];
 
     expect(headers['x-client-time']).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/);
-    expect(headers['x-client-hash']).toBe(crypto.createHash('sha256').update(headers['x-client-time'] + key).digest('hex'));
+    expect(headers['x-client-hash']).toBe(crypto.createHash('sha256').update(headers['x-client-time'] + encrypteHashKey).digest('hex'));
     expect(headers['x-requested-with']).toBe('pixivcomic');
+  });
+
+  // CI runs in UTC, so the offset is only exercised in a child process with its own TZ.
+  test.each(['UTC', 'America/St_Johns', 'Asia/Kathmandu', 'Pacific/Chatham'])('formats x-client-time as moment does in %s', (tz) => {
+    const program = `
+      import vm from 'node:vm';
+      import moment from 'moment';
+      import { snippet } from ${JSON.stringify(pathToFileURL(SCRIPT).href)};
+      const FIXED = Date.UTC(2026, 0, 5, 3, 4, 5);
+      class FixedDate extends Date { constructor(...args) { super(...(args.length ? args : [FIXED])); } }
+      let headers;
+      const fetch = async (url, init) => { headers = init.headers; return { ok: true, json: async () => ({}) }; };
+      await vm.runInContext(snippet('https://comic.pixiv.net/api/app/episodes/1/read_v4'), vm.createContext({ fetch, crypto, TextEncoder, Date: FixedDate }));
+      console.log(JSON.stringify([headers['x-client-time'], moment(FIXED).format('YYYY-MM-DDTHH:mm:ssZ')]));
+    `;
+    const result = spawnSync(process.execPath, ['--input-type=module', '-e', program], { cwd: ROOT, encoding: 'utf8', env: { ...process.env, TZ: tz } });
+    const [sent, expected] = JSON.parse(result.stdout);
+
+    expect(sent).toBe(expected);
   });
 
   test('returns the status of a failed request', async () => {
     const { result } = await evaluate('https://www.pixiv.net/ajax/novel/1', {}, { ok: false, status: 404 });
 
     expect(result).toEqual({ error: 'HTTP 404' });
+  });
+
+  test('returns the error when the request throws', async () => {
+    const context = vm.createContext({ fetch: async () => { throw new TypeError('Failed to fetch'); } });
+    const result = JSON.parse(await vm.runInContext(snippet('https://api.fanbox.cc/post.info?postId=1'), context));
+
+    expect(result).toEqual({ error: 'TypeError: Failed to fetch' });
   });
 });
 
@@ -178,6 +232,41 @@ describe('the CLI', () => {
     expect(result.status).toBe(1);
   });
 
+  test('exits 1 and shows both types when a key changed type', () => {
+    const live = readFixture('pixiv/illust-single.json');
+    live.body.pageCount = '1';
+    const result = compare('pixiv/illust-single.json', shapeOf(live));
+
+    expect(result.stdout).toMatch(/^type +\$\.body\.pageCount +fixture: number +live: string$/m);
+    expect(result.status).toBe(1);
+  });
+
+  test('exits 0 when every finding is unverified', () => {
+    const live = readFixture('pixiv/illust-ugoira-meta.json');
+    live.body.frames = [];
+    const result = compare('pixiv/illust-ugoira-meta.json', shapeOf(live));
+
+    expect(result.stdout).toMatch(/^unverified +\$\.body\.frames\[\]/m);
+    expect(result.status).toBe(0);
+  });
+
+  test('reads a shape saved as the JSON string the browser tool returned', () => {
+    const result = compare('pixiv/novel-single.json', JSON.stringify(shapeOf(readFixture('pixiv/novel-single.json'))));
+
+    expect(result.stdout.trim()).toBe('no drift');
+    expect(result.status).toBe(0);
+  });
+
+  test.each([
+    ['a file that is not a shape', null],
+    ['a raw response instead of its shape', { error: false, body: {} }]
+  ])('exits 2 for %s', (_, content) => {
+    const result = compare('pixiv/novel-single.json', content);
+
+    expect(result.stderr).toMatch(/is not a shape from the snippet/);
+    expect(result.status).toBe(2);
+  });
+
   test('exits 1 when the request failed', () => {
     const result = compare('pixiv/illust-single.json', { error: 'HTTP 403' });
 
@@ -190,6 +279,13 @@ describe('the CLI', () => {
 
     expect(result.status).toBe(0);
     expect(() => new vm.Script(result.stdout)).not.toThrow();
+  });
+
+  test('exits 2 for a URL it cannot parse', () => {
+    const result = spawnSync(process.execPath, [SCRIPT, 'snippet', 'not a url'], { encoding: 'utf8' });
+
+    expect(result.stderr).toMatch(/Invalid URL/);
+    expect(result.status).toBe(2);
   });
 
   test('exits 2 with usage on bad arguments', () => {
