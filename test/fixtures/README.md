@@ -12,7 +12,9 @@ so changes every downloaded filename. They do **not** catch **Pixiv's**
 changes. A fixture is a frozen copy; when Pixiv renames a key, the fixture keeps
 the old name and the spec keeps passing. Only a live request would notice, and
 that doesn't belong in CI — it needs a session cookie and would fail on Pixiv's
-schedule rather than ours.
+schedule rather than ours. The `/pixiv-api-drift` Claude skill makes that live
+check by hand, comparing response shapes from a signed-in browser with these
+files.
 
 The `missing-field` fixtures are the closest we get: they pin down what happens
 when an expected key is gone, so at least the failure mode is deliberate.
