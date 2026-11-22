@@ -26,7 +26,8 @@ test.each([
 
 test.each([
   ['another file', edit(path.join(ROOT, 'src/config/index.js'))],
-  ['a file that only ends like it', edit(path.join(ROOT, 'src/config/default.json'))],
+  ['another extension', edit(path.join(ROOT, 'src/config/default.json'))],
+  ['a name that only ends like it', edit(path.join(ROOT, 'src/config/xdefault.js'))],
   ['the same name elsewhere', edit(path.join(ROOT, 'test/config/default.js'))],
   ['input that is not JSON', 'not json'],
   ['a tool call without a file', JSON.stringify({ tool_input: {} })]

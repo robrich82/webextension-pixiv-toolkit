@@ -29,14 +29,7 @@ function output(input) {
   return JSON.stringify({ hookSpecificOutput: { hookEventName: 'PostToolUse', additionalContext: REMINDER } });
 }
 
-if (require.main === module) {
-  let input = '';
+let input = '';
 
-  process.stdin.on('data', chunk => { input += chunk; });
-  process.stdin.on('end', () => {
-    process.stdout.write(output(input));
-    process.exit(0);
-  });
-}
-
-module.exports = { output };
+process.stdin.on('data', chunk => { input += chunk; });
+process.stdin.on('end', () => process.stdout.write(output(input)));
