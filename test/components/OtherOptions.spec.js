@@ -96,9 +96,13 @@ describe('OtherOptions', () => {
   });
 
   describe('importSettings()', () => {
+    beforeEach(() => {
+      window.alert = vi.fn();
+    });
+
     // Opens the file picker and feeds `contents` through the change and load
     // listeners. jsdom logs a "Not implemented: navigation" console.error for
-    // the window.location.reload() this ends in; expected noise, not a failure.
+    // the window.location.reload() a successful import ends in; expected noise.
     async function importFile(contents) {
       let loadListener;
 
@@ -122,7 +126,6 @@ describe('OtherOptions', () => {
         }
       });
       vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(() => {});
-      window.alert = vi.fn();
 
       shallowMountOption(OtherOptions).vm.importSettings();
 
@@ -150,10 +153,21 @@ describe('OtherOptions', () => {
       expect(window.alert).toHaveBeenCalledWith('Settings imported');
     });
 
+    test('announces the import only once the write has landed', async () => {
+      let storedAtAlert;
+      window.alert = vi.fn(() => {
+        storedAtAlert = { ...browser.storage.local.items };
+      });
+
+      await importFile(JSON.stringify({ language: 'ja' }));
+
+      expect(storedAtAlert).toEqual({ language: 'ja' });
+    });
+
     test("keeps the stored version, so the next update doesn't rerun migrations", async () => {
       browser.storage.local.items = { version: '6.4.7' };
 
-      await importFile(JSON.stringify({ version: '6.0.0', language: 'ja' }));
+      await importFile(JSON.stringify({ version: '6.4.6', language: 'ja' }));
 
       expect(browser.storage.local.items).toEqual({ version: '6.4.7', language: 'ja' });
     });
@@ -173,32 +187,86 @@ describe('OtherOptions', () => {
     });
 
     test('rejects a value of another type, but reads a numeric string for a number setting as that number', async () => {
-      browser.storage.local.items = { enablePtkSearch: true, multipleDownloadsGapTime: 150 };
+      browser.storage.local.items = { enablePtkSearch: true, multipleDownloadsGapTime: 150, workCoverSize: 1 };
 
       await importFile(JSON.stringify({
         enablePtkSearch: 'false',
         maxHistoryItems: '5000',
+        downloadSaveMode: '0',
+        globalTaskPageNumberLength: '-1',
         multipleDownloadsGapTime: 'fast',
         maxProcessDownloadTasks: ' ',
-        language: 7
+        workCoverSize: 'Infinity',
+        language: 7,
+        visitHistoryType: null
       }));
 
       expect(browser.storage.local.items).toEqual({
         enablePtkSearch: true,
         maxHistoryItems: 5000,
-        multipleDownloadsGapTime: 150
+        downloadSaveMode: 0,
+        globalTaskPageNumberLength: -1,
+        multipleDownloadsGapTime: 150,
+        workCoverSize: 1
       });
     });
 
-    test("doesn't write or announce an import when the file isn't a settings object", async () => {
-      vi.spyOn(console, 'log').mockImplementation(() => {});
+    // The pre-6.4.7 default. update6_4_7 repairs it in storage, but doesn't run on an import.
+    test("repairs a backup's old mangaRenameRule default and leaves other rules alone", async () => {
+      await importFile(JSON.stringify({ mangaRenameRule: '{id}_{title}}', illustRenameRule: '{id}_{title}}' }));
+
+      expect(browser.storage.local.items).toEqual({
+        mangaRenameRule: '{id}_{title}',
+        illustRenameRule: '{id}_{title}}'
+      });
+    });
+
+    test.each(['5.9.10', '5.0'])('refuses a backup from %s, whose naming settings no migration would fold in', async version => {
+      browser.storage.local.items = { language: 'en' };
+
+      await importFile(JSON.stringify({ version, language: 'ja', mangaRenameFormat: '{title}' }));
+
+      expect(browser.storage.local.items).toEqual({ language: 'en' });
+      expect(window.alert).toHaveBeenCalledWith('Settings backups from before 6.0.0 cannot be imported');
+    });
+
+    test.each([
+      ['null', 'null'],
+      ['a number', '5'],
+      ['an array', JSON.stringify([{ language: 'ja' }])],
+      ['an empty object', '{}'],
+      ['only a version', JSON.stringify({ version: '6.4.6' })],
+      ['only unknown keys', JSON.stringify({ foo: 1 })],
+      ['only values of the wrong type', JSON.stringify({ language: 7 })]
+    ])("doesn't write or announce an import for %s", async (_, contents) => {
+      browser.storage.local.items = { language: 'en' };
+
+      await importFile(contents);
+
+      expect(browser.storage.local.items).toEqual({ language: 'en' });
+      expect(window.alert).toHaveBeenCalledTimes(1);
+      expect(window.alert).toHaveBeenCalledWith('This file has no settings to import');
+    });
+
+    test('reports a file that is not JSON', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {});
       browser.storage.local.items = { language: 'en' };
 
       await importFile('not json');
-      await importFile('null');
 
       expect(browser.storage.local.items).toEqual({ language: 'en' });
-      expect(window.alert).not.toHaveBeenCalled();
+      expect(window.alert).toHaveBeenCalledTimes(1);
+      expect(window.alert.mock.calls[0][0]).toMatch(/^Settings could not be imported: /);
+    });
+
+    test("reports a write that fails, and doesn't announce an import", async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      browser.storage.local.set.mockRejectedValueOnce(new Error('QUOTA_BYTES quota exceeded'));
+
+      await importFile(JSON.stringify({ language: 'ja' }));
+
+      expect(window.alert).toHaveBeenCalledTimes(1);
+      expect(window.alert).toHaveBeenCalledWith('Settings could not be imported: QUOTA_BYTES quota exceeded');
     });
   });
 });

@@ -43,15 +43,24 @@
 
 <script>
 import defaultSettings from '@/config/default';
+import repairMangaRenameRule from '@/config/repairMangaRenameRule';
+import versionCompare from '@/modules/Util/versionCompare';
+
+function isNumericString(value) {
+  return typeof value === 'string' && value.trim() !== '' && Number.isFinite(Number(value));
+}
 
 /**
- * The settings in a backup that can be written back. Leaves out `version`,
- * which says which migrations have already run on this install, and keys the
- * defaults don't have. A value has to match its default's type; a numeric
- * string for a number setting is accepted as that number, as number fields
- * may have stored it as a string.
+ * The settings in a backup that can be written back. Leaves out `version`, so
+ * the stored one still says which migrations have run, and keys the defaults
+ * don't have. A value has to match its default's type, except that a numeric
+ * string for a number setting is read as that number (`maxHistoryItems` is
+ * saved as a string).
+ *
+ * Migrations don't run on imported values, so one that reshapes a value a
+ * backup can carry needs a matching step here.
  */
-export function pickImportableSettings(backup) {
+function pickImportableSettings(backup) {
   const settings = {};
 
   Object.keys(defaultSettings).forEach(key => {
@@ -63,13 +72,24 @@ export function pickImportableSettings(backup) {
 
     if (typeof value === typeof defaultSettings[key]) {
       settings[key] = value;
-    } else if (typeof defaultSettings[key] === 'number' && typeof value === 'string' &&
-      value.trim() !== '' && Number.isFinite(Number(value))) {
+    } else if (typeof defaultSettings[key] === 'number' && isNumericString(value)) {
       settings[key] = Number(value);
     }
   });
 
+  if ('mangaRenameRule' in settings) {
+    settings.mangaRenameRule = repairMangaRenameRule(settings.mangaRenameRule);
+  }
+
   return settings;
+}
+
+/**
+ * update6_0_0 folds a v5 backup's naming settings into the 6.x rename rules,
+ * and it can't run on an import.
+ */
+function isPreV6Backup(backup) {
+  return typeof backup.version === 'string' && versionCompare(backup.version, '6.0.0') < 0;
 }
 
 export default {
@@ -99,18 +119,34 @@ export default {
 
         fileReader.addEventListener('load', async () => {
           try {
-            let backup = JSON.parse(fileReader.result);
+            const backup = JSON.parse(fileReader.result);
 
-            if (backup && typeof backup === 'object') {
-              // Only the backup's keys are written, so settings it lacks keep their current values.
-              await browser.storage.local.set(pickImportableSettings(backup));
-
-              alert('Settings imported');
-
-              window.location.reload();
+            if (!backup || typeof backup !== 'object' || Array.isArray(backup)) {
+              alert('This file has no settings to import');
+              return;
             }
+
+            if (isPreV6Backup(backup)) {
+              alert('Settings backups from before 6.0.0 cannot be imported');
+              return;
+            }
+
+            const settings = pickImportableSettings(backup);
+
+            if (Object.keys(settings).length === 0) {
+              alert('This file has no settings to import');
+              return;
+            }
+
+            // Only the backup's keys are written, so settings it lacks keep their current values.
+            await browser.storage.local.set(settings);
+
+            alert('Settings imported');
+
+            window.location.reload();
           } catch (e) {
-            console.log(e)
+            console.error(e);
+            alert('Settings could not be imported: ' + e.message);
           }
         });
 
