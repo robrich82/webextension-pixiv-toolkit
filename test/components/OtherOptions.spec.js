@@ -3,9 +3,9 @@ import { mountOption, shallowMountOption } from '../helpers/mountOptionComponent
 import OtherOptions from '@/options_page/components/options/OtherOptions.vue';
 import defaultSettings from '@/config/default';
 
-// `defaultSettings` is a shared module-level singleton that importSettings()
-// mutates in place; snapshot it once so any test that changes it can be
-// undone regardless of whether that test itself passes or fails.
+// `defaultSettings` is a shared module-level singleton; snapshot it so a test
+// can check that importSettings() leaves it alone, and so afterEach can undo
+// a change if it doesn't.
 const defaultSettingsSnapshot = { ...defaultSettings };
 const originalFileReader = global.FileReader;
 
@@ -95,56 +95,110 @@ describe('OtherOptions', () => {
     expect(captured[0]).toEqual({ language: 'en', maxHistoryItems: 5000 });
   });
 
-  // jsdom logs a "Not implemented: navigation" console.error for the
-  // window.location.reload() this exercises — expected noise, not a failure.
-  test('importSettings() merges same-typed keys, including falsy values, from the file into the shared defaults and persists them', async () => {
-    let loadListener;
+  describe('importSettings()', () => {
+    // Opens the file picker and feeds `contents` through the change and load
+    // listeners. jsdom logs a "Not implemented: navigation" console.error for
+    // the window.location.reload() this ends in; expected noise, not a failure.
+    async function importFile(contents) {
+      let loadListener;
 
-    global.FileReader = class {
-      addEventListener(event, listener) {
-        if (event === 'load') {
-          loadListener = listener;
+      global.FileReader = class {
+        addEventListener(event, listener) {
+          if (event === 'load') {
+            loadListener = listener;
+          }
         }
-      }
 
-      readAsText() {
-        this.result = JSON.stringify({
-          language: 'ja',
-          maxHistoryItems: 5000,
-          enablePtkSearch: false,
-          notInDefaults: 'ignored',
-          // a settings file exported before 6.4.7
-          historyBackup: [{ id: 1 }]
-        });
-        loadListener();
-      }
-    };
+        readAsText() {
+          this.result = contents;
+          loadListener();
+        }
+      };
 
-    let changeListener;
-    vi.spyOn(HTMLInputElement.prototype, 'addEventListener').mockImplementation(function (event, listener) {
-      if (event === 'change') {
-        changeListener = listener;
-      }
+      let changeListener;
+      vi.spyOn(HTMLInputElement.prototype, 'addEventListener').mockImplementation(function (event, listener) {
+        if (event === 'change') {
+          changeListener = listener;
+        }
+      });
+      vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(() => {});
+      window.alert = vi.fn();
+
+      shallowMountOption(OtherOptions).vm.importSettings();
+
+      expect(HTMLInputElement.prototype.click).toHaveBeenCalled();
+
+      changeListener({ target: { files: ['fake-file'] } });
+      await browser._fake.flush();
+    }
+
+    test('writes same-typed keys, including falsy values, and drops keys the defaults lack', async () => {
+      await importFile(JSON.stringify({
+        language: 'ja',
+        maxHistoryItems: 5000,
+        enablePtkSearch: false,
+        notInDefaults: 'ignored',
+        // a settings file exported before 6.4.7
+        historyBackup: [{ id: 1 }]
+      }));
+
+      expect(browser.storage.local.items).toEqual({
+        language: 'ja',
+        maxHistoryItems: 5000,
+        enablePtkSearch: false
+      });
+      expect(window.alert).toHaveBeenCalledWith('Settings imported');
     });
-    vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(() => {});
-    window.alert = vi.fn();
 
-    const wrapper = shallowMountOption(OtherOptions);
+    test("keeps the stored version, so the next update doesn't rerun migrations", async () => {
+      browser.storage.local.items = { version: '6.4.7' };
 
-    wrapper.vm.importSettings();
+      await importFile(JSON.stringify({ version: '6.0.0', language: 'ja' }));
 
-    expect(HTMLInputElement.prototype.click).toHaveBeenCalled();
+      expect(browser.storage.local.items).toEqual({ version: '6.4.7', language: 'ja' });
+    });
 
-    changeListener({ target: { files: ['fake-file'] } });
-    await browser._fake.flush();
+    test('keeps the current value of settings the backup lacks', async () => {
+      browser.storage.local.items = { maxHistoryItems: 3000, language: 'en' };
 
-    expect(defaultSettings.language).toBe('ja');
-    expect(defaultSettings.maxHistoryItems).toBe(5000);
-    expect(defaultSettings.enablePtkSearch).toBe(false);
-    expect(defaultSettings.notInDefaults).toBeUndefined();
-    expect('historyBackup' in browser.storage.local.items).toBe(false);
-    expect(browser.storage.local.items.language).toBe('ja');
-    expect(browser.storage.local.items.maxHistoryItems).toBe(5000);
-    expect(window.alert).toHaveBeenCalledWith('Settings imported');
+      await importFile(JSON.stringify({ language: 'ja' }));
+
+      expect(browser.storage.local.items).toEqual({ maxHistoryItems: 3000, language: 'ja' });
+    });
+
+    test("doesn't change the shared defaults", async () => {
+      await importFile(JSON.stringify({ language: 'ja', maxHistoryItems: 5000 }));
+
+      expect(defaultSettings).toEqual(defaultSettingsSnapshot);
+    });
+
+    test('rejects a value of another type, but reads a numeric string for a number setting as that number', async () => {
+      browser.storage.local.items = { enablePtkSearch: true, multipleDownloadsGapTime: 150 };
+
+      await importFile(JSON.stringify({
+        enablePtkSearch: 'false',
+        maxHistoryItems: '5000',
+        multipleDownloadsGapTime: 'fast',
+        maxProcessDownloadTasks: ' ',
+        language: 7
+      }));
+
+      expect(browser.storage.local.items).toEqual({
+        enablePtkSearch: true,
+        maxHistoryItems: 5000,
+        multipleDownloadsGapTime: 150
+      });
+    });
+
+    test("doesn't write or announce an import when the file isn't a settings object", async () => {
+      vi.spyOn(console, 'log').mockImplementation(() => {});
+      browser.storage.local.items = { language: 'en' };
+
+      await importFile('not json');
+      await importFile('null');
+
+      expect(browser.storage.local.items).toEqual({ language: 'en' });
+      expect(window.alert).not.toHaveBeenCalled();
+    });
   });
 });

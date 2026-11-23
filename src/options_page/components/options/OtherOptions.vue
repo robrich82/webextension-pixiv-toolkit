@@ -44,6 +44,34 @@
 <script>
 import defaultSettings from '@/config/default';
 
+/**
+ * The settings in a backup that can be written back. Leaves out `version`,
+ * which says which migrations have already run on this install, and keys the
+ * defaults don't have. A value has to match its default's type; a numeric
+ * string for a number setting is accepted as that number, as number fields
+ * may have stored it as a string.
+ */
+export function pickImportableSettings(backup) {
+  const settings = {};
+
+  Object.keys(defaultSettings).forEach(key => {
+    if (key === 'version' || !(key in backup)) {
+      return;
+    }
+
+    const value = backup[key];
+
+    if (typeof value === typeof defaultSettings[key]) {
+      settings[key] = value;
+    } else if (typeof defaultSettings[key] === 'number' && typeof value === 'string' &&
+      value.trim() !== '' && Number.isFinite(Number(value))) {
+      settings[key] = Number(value);
+    }
+  });
+
+  return settings;
+}
+
 export default {
   methods: {
     exportSettings() {
@@ -69,22 +97,13 @@ export default {
 
         let fileReader = new FileReader()
 
-        fileReader.addEventListener('load', () => {
+        fileReader.addEventListener('load', async () => {
           try {
-            let importSettings = JSON.parse(fileReader.result);
+            let backup = JSON.parse(fileReader.result);
 
-            if (importSettings) {
-              let setting;
-
-              Object.keys(defaultSettings).forEach(key => {
-                if (key in importSettings &&
-                  (typeof defaultSettings[key] === typeof importSettings[key] || typeof importSettings[key] === 'string')
-                ) {
-                  defaultSettings[key] = importSettings[key];
-                }
-              });
-
-              browser.storage.local.set(defaultSettings);
+            if (backup && typeof backup === 'object') {
+              // Only the backup's keys are written, so settings it lacks keep their current values.
+              await browser.storage.local.set(pickImportableSettings(backup));
 
               alert('Settings imported');
 
