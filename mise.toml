@@ -13,7 +13,7 @@ experimental = true
 [tools]
 node = "26.13.1"
 # Must match `packageManager` in package.json; test/toolchainPins.spec.js checks.
-pnpm = "12.21.0"
+pnpm = "12.23.0"
 
 # `mise deps` runs this when pnpm-lock.yaml or package.json changed or
 # node_modules is missing; `mise exec` and `mise run` do it first too.
