@@ -66,7 +66,9 @@ Cross-origin fetches (for example Fanbox) are made from the background, not from
 
 ### Settings and migrations
 
-Default settings live in `src/config/default.js`, and `SettingService` (one on each side) mirrors `storage.local` through `onChanged`. Renaming, removing or re-shaping a stored setting needs a versioned migration in `src/background/updates/`. The `add-settings-migration` skill has the rules.
+Default settings live in `src/config/default.js`, and `SettingService` (one on each side) mirrors `storage.local` through `onChanged`. Renaming, removing or re-shaping a stored setting needs a versioned migration in `src/background/updates/`. The `add-settings-migration` skill has the rules, and a hook points at it after each Edit or Write of `default.js` (not after a shell edit).
+
+`.claude/agents/` holds project reviewers such as `cross-browser-reviewer` and `settings-storage-reviewer`. Add each to a self-review or PR review whose diff touches the areas its description lists.
 
 UI strings are in `src/statics/_locales`. `src/statics/HISTORY_<locale>` (one per locale in `histories.json`) is the Change History page. Each release adds its user-facing entries to every locale in the version bump PR, and `test/components/ChangeLog.spec.js` fails while the newest entry isn't `package.json`'s version.
 

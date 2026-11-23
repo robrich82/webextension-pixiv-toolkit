@@ -27,7 +27,8 @@ const READ_BY = [
   [/^pnpm-lock\.yaml$/, ['test/engines.spec.js']],
   [/^mise\.(toml|lock)$/, ['test/toolchainPins.spec.js']],
   [/^(\.github\/workflows\/ci\.yml|e2e\/|e2e-firefox\/)/, ['test/ciChanges.spec.js']],
-  [/^\.claude\/hooks\/related-tests\.js$/, ['test/relatedTestsHook.spec.js']]
+  [/^\.claude\/hooks\/related-tests\.js$/, ['test/relatedTestsHook.spec.js']],
+  [/^\.claude\/hooks\/settings-migration-reminder\.js$/, ['test/settingsMigrationReminder.spec.js']]
 ];
 
 /**
