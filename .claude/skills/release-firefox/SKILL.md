@@ -16,8 +16,7 @@ Run these from the **main checkout**, not a worktree. Releases are cut from `mai
    `git fetch origin && git status -sb` shows `## main...origin/main` with no changes. If it doesn't, stop.
 2. **The version has been bumped.** Releases are a `chore/release-X.Y.Z` PR, merged before releasing, that changes `package.json` `version` and adds the release's user-facing entries to every `src/statics/HISTORY_<locale>` (see CLAUDE.md, "Settings and migrations"). Compare it with the latest release:
    `node -p "require('./package.json').version"` and `gh release list --repo robrich82/webextension-pixiv-toolkit --limit 1`
-   If the version is not higher than the latest release, stop and offer to open the bump PR.
-   For its HISTORY entries, list what merged since the last release with `git log <latest-tag>..origin/main --first-parent --oneline`, and keep only what a user would notice (skip tests, CI, docs and dependency updates).
+   If the version is not higher than the latest release, stop: the bump PR comes first, through `/release-bump`.
 3. **Settings migrations are covered.** Every key in `src/background/updates/index.js` must be `<=` the new version (see `add-settings-migration`).
 4. **CI is green on `main`.** Run `gh run list --repo robrich82/webextension-pixiv-toolkit --branch main --limit 1`. If you want to double-check locally, run `pnpm test`.
 5. **Credentials.** `WEB_EXT_API_KEY` and `WEB_EXT_API_SECRET` must be set in the user's shell. Check only that they are set (`[ -n "$WEB_EXT_API_KEY" ]`). Never print them or pass them as arguments. `gh auth status` must show access to the fork.
