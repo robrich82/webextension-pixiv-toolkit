@@ -20,6 +20,7 @@ Settings are read raw from `storage.local` everywhere (e.g. `background/Applicat
 - **The key is the version the change ships in**: `package.json`'s version (`node -p "require('./package.json').version"`) if it is above the latest release (`gh release list --repo robrich82/webextension-pixiv-toolkit --limit 1`), otherwise the version the next bump will set.
 - **If that version already has a migration, extend it.** The registry is a `Map`, one entry per key.
 - A key above the version that actually ships it reruns on each update until the stored version reaches it. The `release-firefox` skill checks for this.
+- **Settings import doesn't run migrations.** It keeps the stored version, so a value an older backup carries is written in its old shape. A migration that rewrites a value a backup can hold (rather than only removing a key that isn't in `default.js`) needs the matching step in `pickImportableSettings` (`src/options_page/components/options/OtherOptions.vue`), as `repairMangaRenameRule` does for 6.4.7.
 
 ## Steps
 

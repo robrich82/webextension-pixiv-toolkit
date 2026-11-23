@@ -221,6 +221,20 @@ describe('OtherOptions', () => {
       });
     });
 
+    test("keeps a backup's own mangaRenameRule", async () => {
+      await importFile(JSON.stringify({ mangaRenameRule: '{title}_{id}' }));
+
+      expect(browser.storage.local.items).toEqual({ mangaRenameRule: '{title}_{id}' });
+    });
+
+    // 6.0.0 is what most 6.x backups carry: fresh installs store it, and only 6.4.4+ stamp the manifest version.
+    test.each(['6.0.0', '6.4.6', 6, undefined])('accepts a backup whose version is %j', async version => {
+      await importFile(JSON.stringify({ version, language: 'ja' }));
+
+      expect(browser.storage.local.items).toEqual({ language: 'ja' });
+      expect(window.alert).toHaveBeenCalledWith('Settings imported');
+    });
+
     test.each(['5.9.10', '5.0'])('refuses a backup from %s, whose naming settings no migration would fold in', async version => {
       browser.storage.local.items = { language: 'en' };
 
@@ -256,15 +270,18 @@ describe('OtherOptions', () => {
 
       expect(browser.storage.local.items).toEqual({ language: 'en' });
       expect(window.alert).toHaveBeenCalledTimes(1);
-      expect(window.alert.mock.calls[0][0]).toMatch(/^Settings could not be imported: /);
+      expect(window.alert.mock.calls[0][0]).toMatch(/^Settings could not be imported: \S/);
+      expect(console.error).toHaveBeenCalledWith(expect.any(SyntaxError));
     });
 
     test("reports a write that fails, and doesn't announce an import", async () => {
       vi.spyOn(console, 'error').mockImplementation(() => {});
-      browser.storage.local.set.mockRejectedValueOnce(new Error('QUOTA_BYTES quota exceeded'));
+      const failure = new Error('QUOTA_BYTES quota exceeded');
+      browser.storage.local.set.mockRejectedValueOnce(failure);
 
       await importFile(JSON.stringify({ language: 'ja' }));
 
+      expect(console.error).toHaveBeenCalledWith(failure);
       expect(window.alert).toHaveBeenCalledTimes(1);
       expect(window.alert).toHaveBeenCalledWith('Settings could not be imported: QUOTA_BYTES quota exceeded');
     });
