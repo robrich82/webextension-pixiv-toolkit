@@ -1,8 +1,7 @@
 import { app } from "../Application";
 import migrateIllustHistory from "../modules/migrateIllustHistory";
 import migrateHistoryBackup from "../modules/migrateHistoryBackup";
-
-const OLD_MANGA_RENAME_RULE = '{id}_{title}}';
+import repairMangaRenameRule from "@/config/repairMangaRenameRule";
 
 /**
  * Update to 6.4.7
@@ -37,8 +36,10 @@ export default async () => {
 
   const { mangaRenameRule } = await settingService.getSetting('mangaRenameRule');
 
-  if (mangaRenameRule === OLD_MANGA_RENAME_RULE) {
-    await settingService.updateSettings({ mangaRenameRule: '{id}_{title}' });
+  const repairedRule = repairMangaRenameRule(mangaRenameRule);
+
+  if (repairedRule !== mangaRenameRule) {
+    await settingService.updateSettings({ mangaRenameRule: repairedRule });
   }
 
   await migrateIllustHistory(app().getService('history'));

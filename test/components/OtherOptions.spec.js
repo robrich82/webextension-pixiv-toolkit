@@ -3,9 +3,9 @@ import { mountOption, shallowMountOption } from '../helpers/mountOptionComponent
 import OtherOptions from '@/options_page/components/options/OtherOptions.vue';
 import defaultSettings from '@/config/default';
 
-// `defaultSettings` is a shared module-level singleton that importSettings()
-// mutates in place; snapshot it once so any test that changes it can be
-// undone regardless of whether that test itself passes or fails.
+// `defaultSettings` is a shared module-level singleton; snapshot it so a test
+// can check that importSettings() leaves it alone, and so afterEach can undo
+// a change if it doesn't.
 const defaultSettingsSnapshot = { ...defaultSettings };
 const originalFileReader = global.FileReader;
 
@@ -95,56 +95,195 @@ describe('OtherOptions', () => {
     expect(captured[0]).toEqual({ language: 'en', maxHistoryItems: 5000 });
   });
 
-  // jsdom logs a "Not implemented: navigation" console.error for the
-  // window.location.reload() this exercises — expected noise, not a failure.
-  test('importSettings() merges same-typed keys, including falsy values, from the file into the shared defaults and persists them', async () => {
-    let loadListener;
-
-    global.FileReader = class {
-      addEventListener(event, listener) {
-        if (event === 'load') {
-          loadListener = listener;
-        }
-      }
-
-      readAsText() {
-        this.result = JSON.stringify({
-          language: 'ja',
-          maxHistoryItems: 5000,
-          enablePtkSearch: false,
-          notInDefaults: 'ignored',
-          // a settings file exported before 6.4.7
-          historyBackup: [{ id: 1 }]
-        });
-        loadListener();
-      }
-    };
-
-    let changeListener;
-    vi.spyOn(HTMLInputElement.prototype, 'addEventListener').mockImplementation(function (event, listener) {
-      if (event === 'change') {
-        changeListener = listener;
-      }
+  describe('importSettings()', () => {
+    beforeEach(() => {
+      window.alert = vi.fn();
     });
-    vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(() => {});
-    window.alert = vi.fn();
 
-    const wrapper = shallowMountOption(OtherOptions);
+    // Opens the file picker and feeds `contents` through the change and load
+    // listeners. jsdom logs a "Not implemented: navigation" console.error for
+    // the window.location.reload() a successful import ends in; expected noise.
+    async function importFile(contents) {
+      let loadListener;
 
-    wrapper.vm.importSettings();
+      global.FileReader = class {
+        addEventListener(event, listener) {
+          if (event === 'load') {
+            loadListener = listener;
+          }
+        }
 
-    expect(HTMLInputElement.prototype.click).toHaveBeenCalled();
+        readAsText() {
+          this.result = contents;
+          loadListener();
+        }
+      };
 
-    changeListener({ target: { files: ['fake-file'] } });
-    await browser._fake.flush();
+      let changeListener;
+      vi.spyOn(HTMLInputElement.prototype, 'addEventListener').mockImplementation(function (event, listener) {
+        if (event === 'change') {
+          changeListener = listener;
+        }
+      });
+      vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(() => {});
 
-    expect(defaultSettings.language).toBe('ja');
-    expect(defaultSettings.maxHistoryItems).toBe(5000);
-    expect(defaultSettings.enablePtkSearch).toBe(false);
-    expect(defaultSettings.notInDefaults).toBeUndefined();
-    expect('historyBackup' in browser.storage.local.items).toBe(false);
-    expect(browser.storage.local.items.language).toBe('ja');
-    expect(browser.storage.local.items.maxHistoryItems).toBe(5000);
-    expect(window.alert).toHaveBeenCalledWith('Settings imported');
+      shallowMountOption(OtherOptions).vm.importSettings();
+
+      expect(HTMLInputElement.prototype.click).toHaveBeenCalled();
+
+      changeListener({ target: { files: ['fake-file'] } });
+      await browser._fake.flush();
+    }
+
+    test('writes same-typed keys, including falsy values, and drops keys the defaults lack', async () => {
+      await importFile(JSON.stringify({
+        language: 'ja',
+        maxHistoryItems: 5000,
+        enablePtkSearch: false,
+        notInDefaults: 'ignored',
+        // a settings file exported before 6.4.7
+        historyBackup: [{ id: 1 }]
+      }));
+
+      expect(browser.storage.local.items).toEqual({
+        language: 'ja',
+        maxHistoryItems: 5000,
+        enablePtkSearch: false
+      });
+      expect(window.alert).toHaveBeenCalledWith('Settings imported');
+    });
+
+    test('announces the import only once the write has landed', async () => {
+      let storedAtAlert;
+      window.alert = vi.fn(() => {
+        storedAtAlert = { ...browser.storage.local.items };
+      });
+
+      await importFile(JSON.stringify({ language: 'ja' }));
+
+      expect(storedAtAlert).toEqual({ language: 'ja' });
+    });
+
+    test("keeps the stored version, so the next update doesn't rerun migrations", async () => {
+      browser.storage.local.items = { version: '6.4.7' };
+
+      await importFile(JSON.stringify({ version: '6.4.6', language: 'ja' }));
+
+      expect(browser.storage.local.items).toEqual({ version: '6.4.7', language: 'ja' });
+    });
+
+    test('keeps the current value of settings the backup lacks', async () => {
+      browser.storage.local.items = { maxHistoryItems: 3000, language: 'en' };
+
+      await importFile(JSON.stringify({ language: 'ja' }));
+
+      expect(browser.storage.local.items).toEqual({ maxHistoryItems: 3000, language: 'ja' });
+    });
+
+    test("doesn't change the shared defaults", async () => {
+      await importFile(JSON.stringify({ language: 'ja', maxHistoryItems: 5000 }));
+
+      expect(defaultSettings).toEqual(defaultSettingsSnapshot);
+    });
+
+    test('rejects a value of another type, but reads a numeric string for a number setting as that number', async () => {
+      browser.storage.local.items = { enablePtkSearch: true, multipleDownloadsGapTime: 150, workCoverSize: 1 };
+
+      await importFile(JSON.stringify({
+        enablePtkSearch: 'false',
+        maxHistoryItems: '5000',
+        downloadSaveMode: '0',
+        globalTaskPageNumberLength: '-1',
+        multipleDownloadsGapTime: 'fast',
+        maxProcessDownloadTasks: ' ',
+        workCoverSize: 'Infinity',
+        language: 7,
+        visitHistoryType: null
+      }));
+
+      expect(browser.storage.local.items).toEqual({
+        enablePtkSearch: true,
+        maxHistoryItems: 5000,
+        downloadSaveMode: 0,
+        globalTaskPageNumberLength: -1,
+        multipleDownloadsGapTime: 150,
+        workCoverSize: 1
+      });
+    });
+
+    // The pre-6.4.7 default. update6_4_7 repairs it in storage, but doesn't run on an import.
+    test("repairs a backup's old mangaRenameRule default and leaves other rules alone", async () => {
+      await importFile(JSON.stringify({ mangaRenameRule: '{id}_{title}}', illustRenameRule: '{id}_{title}}' }));
+
+      expect(browser.storage.local.items).toEqual({
+        mangaRenameRule: '{id}_{title}',
+        illustRenameRule: '{id}_{title}}'
+      });
+    });
+
+    test("keeps a backup's own mangaRenameRule", async () => {
+      await importFile(JSON.stringify({ mangaRenameRule: '{title}_{id}' }));
+
+      expect(browser.storage.local.items).toEqual({ mangaRenameRule: '{title}_{id}' });
+    });
+
+    // 6.0.0 is what most 6.x backups carry: fresh installs store it, and only 6.4.4+ stamp the manifest version.
+    test.each(['6.0.0', '6.4.6', 6, undefined])('accepts a backup whose version is %j', async version => {
+      await importFile(JSON.stringify({ version, language: 'ja' }));
+
+      expect(browser.storage.local.items).toEqual({ language: 'ja' });
+      expect(window.alert).toHaveBeenCalledWith('Settings imported');
+    });
+
+    test.each(['5.9.10', '5.0'])('refuses a backup from %s, whose naming settings no migration would fold in', async version => {
+      browser.storage.local.items = { language: 'en' };
+
+      await importFile(JSON.stringify({ version, language: 'ja', mangaRenameFormat: '{title}' }));
+
+      expect(browser.storage.local.items).toEqual({ language: 'en' });
+      expect(window.alert).toHaveBeenCalledWith('Settings backups from before 6.0.0 cannot be imported');
+    });
+
+    test.each([
+      ['null', 'null'],
+      ['a number', '5'],
+      ['an array', JSON.stringify([{ language: 'ja' }])],
+      ['an empty object', '{}'],
+      ['only a version', JSON.stringify({ version: '6.4.6' })],
+      ['only unknown keys', JSON.stringify({ foo: 1 })],
+      ['only values of the wrong type', JSON.stringify({ language: 7 })]
+    ])("doesn't write or announce an import for %s", async (_, contents) => {
+      browser.storage.local.items = { language: 'en' };
+
+      await importFile(contents);
+
+      expect(browser.storage.local.items).toEqual({ language: 'en' });
+      expect(window.alert).toHaveBeenCalledTimes(1);
+      expect(window.alert).toHaveBeenCalledWith('This file has no settings to import');
+    });
+
+    test('reports a file that is not JSON', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      browser.storage.local.items = { language: 'en' };
+
+      await importFile('not json');
+
+      expect(browser.storage.local.items).toEqual({ language: 'en' });
+      expect(window.alert).toHaveBeenCalledTimes(1);
+      expect(window.alert.mock.calls[0][0]).toMatch(/^Settings could not be imported: \S/);
+      expect(console.error).toHaveBeenCalledWith(expect.any(SyntaxError));
+    });
+
+    test("reports a write that fails, and doesn't announce an import", async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      const failure = new Error('QUOTA_BYTES quota exceeded');
+      browser.storage.local.set.mockRejectedValueOnce(failure);
+
+      await importFile(JSON.stringify({ language: 'ja' }));
+
+      expect(console.error).toHaveBeenCalledWith(failure);
+      expect(window.alert).toHaveBeenCalledTimes(1);
+      expect(window.alert).toHaveBeenCalledWith('Settings could not be imported: QUOTA_BYTES quota exceeded');
+    });
   });
 });
