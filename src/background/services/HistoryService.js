@@ -60,7 +60,8 @@ import AbstractService from "./AbstractService";
   }
 
   async itemVisit(data) {
-    if (data.visited_at) {
+    // Unset means the default, on.
+    if (data.visited_at && this.application.settings.enableSaveVisitHistory !== false) {
       await this.saveItem(data);
     }
   }
