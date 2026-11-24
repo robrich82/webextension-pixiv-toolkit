@@ -116,6 +116,16 @@ describe('App page lifecycle', () => {
     expect(sentMessages('history:checkIfDownloaded')).toHaveLength(1);
   });
 
+  // What the background answers while download history is set to Disable.
+  test('a 0 from history:checkIfDownloaded leaves the panel unmarked', async () => {
+    respondTo({ 'history:checkIfDownloaded': 0 });
+
+    const wrapper = await mountWithPage();
+
+    expect(sentMessages('history:checkIfDownloaded')).toHaveLength(1);
+    expect(wrapper.find('.ptk__container').classes()).not.toContain('success');
+  });
+
   test('a null pagechange tears the page down again', async () => {
     const wrapper = await mountWithPage();
 

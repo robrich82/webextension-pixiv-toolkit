@@ -65,8 +65,15 @@ import AbstractService from "./AbstractService";
     }
   }
 
+  /**
+   * Only 0 ("Disable") stops recording; 2 ("Show in work only") once just hid a download-history menu entry removed in 6.0.0.
+   */
+  downloadHistoryDisabled() {
+    return this.application.settings.enableSaveDownloadHistory === 0;
+  }
+
   async itemDownload(data) {
-    if (data.downloaded_at) {
+    if (data.downloaded_at && !this.downloadHistoryDisabled()) {
       await this.saveItem(data);
     }
   }
@@ -105,6 +112,10 @@ import AbstractService from "./AbstractService";
   }
 
   async checkIfDownloaded({ uid }) {
+    if (this.downloadHistoryDisabled()) {
+      return 0;
+    }
+
     let historyRepo = Db.getDb().historyRepo();
     let item = await historyRepo.getItem({ uid });
 

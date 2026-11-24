@@ -112,6 +112,14 @@ describe('Index', () => {
     expect(menuItem(withoutHistory, '_history.message')).toBeUndefined();
   });
 
+  // enableSaveDownloadHistory 1 used to show it on its own, under the toolbar's divider.
+  test('the divider under the history entry appears only while visit history is saved', () => {
+    const dividers = browserItems => mountMenu({ enableSaveDownloadHistory: 1, ...browserItems }).wrapper
+      .findAllComponents({ name: 'VDivider' }).length;
+
+    expect(dividers({ enableSaveVisitHistory: true }) - dividers({ enableSaveVisitHistory: false })).toBe(1);
+  });
+
   test('suggests Pixiv Omina on x86 Windows, sliding it in after a second', async () => {
     vi.useFakeTimers();
     browser._fake.state.platformInfo = { os: 'win', arch: 'x86-64' };

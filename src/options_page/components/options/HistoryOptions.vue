@@ -168,7 +168,7 @@ export default {
   data() {
     return {
       enableSaveVisitHistory: true,
-      enableSaveDownloadHistory: true,
+      enableSaveDownloadHistory: 1,
       displayWorkTypeLabel: true,
       notSaveNSFWWorkInHistory: false,
       confirmDialog: false,
