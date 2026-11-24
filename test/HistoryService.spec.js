@@ -91,6 +91,35 @@ describe('HistoryService', () => {
     expect(await storedUids()).toEqual(['pixiv_illust:2']);
   });
 
+  describe('visit history', () => {
+    test.each([true, undefined])('enableSaveVisitHistory %s records visits', async value => {
+      app.settings.enableSaveVisitHistory = value;
+
+      await send('history:itemVisit', entry(1, 100));
+
+      expect(await storedUids()).toEqual(['pixiv_illust:1']);
+    });
+
+    test('switched off, records no visits and keeps the ones already recorded', async () => {
+      await send('history:itemVisit', entry(1, 100));
+      // Set as the options page does (storage.local), so SettingService's onChanged updates app.settings.
+      app.getService('setting');
+      await browser.storage.local.set({ enableSaveVisitHistory: false });
+
+      await send('history:itemVisit', entry(2, 200));
+
+      expect(await storedUids()).toEqual(['pixiv_illust:1']);
+    });
+
+    test('switched off, still records downloads', async () => {
+      app.settings.enableSaveVisitHistory = false;
+
+      await send('history:itemDownload', entry(1, undefined, { downloaded_at: 500 }));
+
+      expect(await send('history:checkIfDownloaded', { uid: 'pixiv_illust:1' })).toBe(500);
+    });
+  });
+
   describe('download history', () => {
     const download = (id, downloaded_at) => entry(id, undefined, { downloaded_at });
 
