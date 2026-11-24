@@ -5,7 +5,6 @@ import DownloadAdapter from "../modules/DownloadAdapter";
 import DownloadManager from "../modules/DownloadManager";
 import MimeType from "@/modules/Util/MimeType";
 import PageResourceFactory from '@/modules/PageResource/Factory';
-import Db from "@/modules/Db/Db";
 import DownloadTaskExistsError from "@/errors/DownloadTaskExistsError";
 import DownloadTaskNotFoundError from "@/errors/DownloadTaskNotFoundError";
 
@@ -208,17 +207,6 @@ class DownloadService extends AbstractService {
         windowId: tab.windowId,
       }
     };
-  }
-
-  async checkIfDownloaded({ uid }) {
-    let historyRepo = Db.getDb().historyRepo();
-    let item = await historyRepo.getItem({ uid });
-
-    if (item && item.downloaded_at) {
-      return item.downloaded_at;
-    } else {
-      return 0;
-    }
   }
 }
 

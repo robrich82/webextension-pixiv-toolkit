@@ -247,7 +247,7 @@ describe('download history', () => {
     const before = Math.floor(Date.now() / 1000);
     await send('download:addDownload', addDownloadArgs(1));
     await browser._fake.flush();
-    expect(await send('download:checkIfDownloaded', { uid: 'pixiv_illust:1' })).toBe(0);
+    expect(await historyItem()).toBeUndefined();
 
     background.request(work).complete();
     await vi.waitFor(() => expect(manager().getTask('pixiv_illust:1').isComplete()).toBe(true));
@@ -258,7 +258,7 @@ describe('download history', () => {
       title: 'Work 1',
       url: 'https://www.pixiv.net/artworks/1'
     });
-    expect(await send('download:checkIfDownloaded', { uid: 'pixiv_illust:1' })).toBeGreaterThanOrEqual(before);
+    expect((await historyItem()).downloaded_at).toBeGreaterThanOrEqual(before);
   });
 
   test('a task that fails leaves no download history', async () => {
@@ -297,18 +297,6 @@ describe('download history', () => {
     await browser._fake.flush();
 
     expect(browser.runtime.sendMessage.mock.calls.filter(([message]) => message.action === 'history:itemDownload')).toHaveLength(2);
-  });
-});
-
-describe('download:checkIfDownloaded', () => {
-  test('answers with when a uid was downloaded, and 0 when it was only visited or never seen', async () => {
-    const history = Db.getDb().historyRepo();
-    await history.addItem({ uid: 'pixiv_illust:1', title: 'Work 1', visited_at: 10, downloaded_at: 20 });
-    await history.addItem({ uid: 'pixiv_illust:2', title: 'Work 2', visited_at: 30 });
-
-    await expect(send('download:checkIfDownloaded', { uid: 'pixiv_illust:1' })).resolves.toBe(20);
-    await expect(send('download:checkIfDownloaded', { uid: 'pixiv_illust:2' })).resolves.toBe(0);
-    await expect(send('download:checkIfDownloaded', { uid: 'pixiv_illust:3' })).resolves.toBe(0);
   });
 });
 
