@@ -84,7 +84,11 @@ class Application {
     /**
      * Get settings before doing anything else.
      */
-    this.settings = await settingService.getSettings();
+    this.settingsLoaded = settingService.getSettings().then(settings => {
+      this.settings = settings;
+    });
+
+    await this.settingsLoaded;
 
     /**
      * Initialize DownloadService here to ensure the event onDetermingFilename has been listened
@@ -174,6 +178,9 @@ class Application {
      */
     if (message.to === 'ws' && message.action) {
       (async () => {
+        // Bootstrap doesn't await onBeforeBoot, and the message that wakes the worker arrives before the stored settings replace the defaults.
+        await this.settingsLoaded;
+
         let [serviceName, methodName] = message.action.split(':');
 
         let service = this.getService(serviceName);

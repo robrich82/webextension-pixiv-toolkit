@@ -66,7 +66,7 @@ import AbstractService from "./AbstractService";
   }
 
   /**
-   * 1 and 2 both record downloads; 2 ("show in work only") once also hid a Downloads page that no longer exists.
+   * Only 0 ("Disable") stops recording; 2 ("Show in work only") once just hid a download-history menu entry removed in 6.0.0.
    */
   downloadHistoryDisabled() {
     return this.application.settings.enableSaveDownloadHistory === 0;

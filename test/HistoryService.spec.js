@@ -94,7 +94,8 @@ describe('HistoryService', () => {
   describe('download history', () => {
     const download = (id, downloaded_at) => entry(id, undefined, { downloaded_at });
 
-    test.each([1, 2])('enableSaveDownloadHistory %s records downloads and reports them', async value => {
+    // undefined: an install whose storage doesn't have the key yet.
+    test.each([1, 2, undefined])('enableSaveDownloadHistory %s records downloads and reports them', async value => {
       app.settings.enableSaveDownloadHistory = value;
 
       await send('history:itemDownload', download(1, 500));
@@ -105,7 +106,7 @@ describe('HistoryService', () => {
 
     test('Disable records no downloads and reports none already recorded', async () => {
       await send('history:itemDownload', download(1, 500));
-      // The way the History option's select changes it, through SettingService's onChanged.
+      // Set as the options page does (storage.local), so SettingService's onChanged updates app.settings.
       app.getService('setting');
       await browser.storage.local.set({ enableSaveDownloadHistory: 0 });
 
@@ -113,6 +114,16 @@ describe('HistoryService', () => {
 
       expect(await storedUids()).toEqual(['pixiv_illust:1']);
       expect(await send('history:checkIfDownloaded', { uid: 'pixiv_illust:1' })).toBe(0);
+    });
+
+    test('Disable holds for the message that wakes the background, before its settings load', async () => {
+      await browser.storage.local.set({ enableSaveDownloadHistory: 0 });
+
+      const booting = app.onBeforeBoot();
+      await send('history:itemDownload', download(1, 500));
+      await booting;
+
+      expect(await storedUids()).toEqual([]);
     });
 
     test('Disable still records visits', async () => {
