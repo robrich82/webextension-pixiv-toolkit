@@ -65,8 +65,15 @@ import AbstractService from "./AbstractService";
     }
   }
 
+  /**
+   * 1 and 2 both record downloads; 2 ("show in work only") once also hid a Downloads page that no longer exists.
+   */
+  downloadHistoryDisabled() {
+    return this.application.settings.enableSaveDownloadHistory === 0;
+  }
+
   async itemDownload(data) {
-    if (data.downloaded_at) {
+    if (data.downloaded_at && !this.downloadHistoryDisabled()) {
       await this.saveItem(data);
     }
   }
@@ -105,6 +112,10 @@ import AbstractService from "./AbstractService";
   }
 
   async checkIfDownloaded({ uid }) {
+    if (this.downloadHistoryDisabled()) {
+      return 0;
+    }
+
     let historyRepo = Db.getDb().historyRepo();
     let item = await historyRepo.getItem({ uid });
 

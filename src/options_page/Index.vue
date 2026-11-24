@@ -42,7 +42,7 @@
             <span>{{ tl('_history') }}</span>
           </v-list-item>
 
-          <v-divider v-if="browserItems.enableSaveVisitHistory === true || browserItems.enableSaveDownloadHistory === 1"></v-divider>
+          <v-divider v-if="browserItems.enableSaveVisitHistory === true"></v-divider>
 
           <v-list-item
             ripple

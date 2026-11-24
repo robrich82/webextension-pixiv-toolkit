@@ -7,6 +7,7 @@ import './helpers/fakeIndexedDb';
 import browser from './doubles/browser';
 import Application from '@/background/Application';
 import HistoryService from '@/background/services/HistoryService';
+import SettingService from '@/background/services/SettingService';
 import Db from '@/modules/Db/Db';
 import HistoryRepo from '@/modules/Db/Repository/HistoryRepo';
 
@@ -25,6 +26,7 @@ describe('HistoryService', () => {
   beforeEach(() => {
     Application.instance = undefined;
     HistoryService.instance = undefined;
+    SettingService.instance = undefined;
     Db.instance = undefined;
     HistoryRepo.instance = undefined;
 
@@ -87,6 +89,43 @@ describe('HistoryService', () => {
     await send('history:itemVisit', entry(2, 200));
 
     expect(await storedUids()).toEqual(['pixiv_illust:2']);
+  });
+
+  describe('download history', () => {
+    const download = (id, downloaded_at) => entry(id, undefined, { downloaded_at });
+
+    test.each([1, 2])('enableSaveDownloadHistory %s records downloads and reports them', async value => {
+      app.settings.enableSaveDownloadHistory = value;
+
+      await send('history:itemDownload', download(1, 500));
+
+      expect(await storedUids()).toEqual(['pixiv_illust:1']);
+      expect(await send('history:checkIfDownloaded', { uid: 'pixiv_illust:1' })).toBe(500);
+    });
+
+    test('Disable records no downloads and reports none already recorded', async () => {
+      await send('history:itemDownload', download(1, 500));
+      // The way the History option's select changes it, through SettingService's onChanged.
+      app.getService('setting');
+      await browser.storage.local.set({ enableSaveDownloadHistory: 0 });
+
+      await send('history:itemDownload', download(2, 600));
+
+      expect(await storedUids()).toEqual(['pixiv_illust:1']);
+      expect(await send('history:checkIfDownloaded', { uid: 'pixiv_illust:1' })).toBe(0);
+    });
+
+    test('Disable still records visits', async () => {
+      app.settings.enableSaveDownloadHistory = 0;
+
+      await send('history:itemVisit', entry(1, 100));
+
+      expect(await storedUids()).toEqual(['pixiv_illust:1']);
+    });
+
+    test('a work never downloaded reports 0', async () => {
+      expect(await send('history:checkIfDownloaded', { uid: 'pixiv_illust:9' })).toBe(0);
+    });
   });
 
   test('history:clear empties the table', async () => {
