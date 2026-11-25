@@ -1,6 +1,6 @@
 /**
- * Packages a real Chrome build, then reads the zip back as the Chrome Web
- * Store would: manifest.json at the root and no names Chrome reserves.
+ * Packages a real Chrome build, then reads the zip back: manifest.json at the
+ * root and no names Chrome reserves.
  */
 import { execFile } from 'child_process';
 import crypto from 'crypto';
@@ -9,7 +9,7 @@ import os from 'os';
 import path from 'path';
 import { promisify } from 'util';
 import { strFromU8, unzipSync } from 'fflate';
-import { packageChrome, packagedFiles } from '../scripts/package-chrome.mjs';
+import { PackageError, packageChrome, packagedFiles } from '../scripts/package-chrome.mjs';
 
 const run = promisify(execFile);
 const ROOT = path.resolve(__dirname, '..');
@@ -97,6 +97,7 @@ describe('packageChrome refuses', () => {
     const dir = writeTree(path.join(tmp, 'old'), { 'manifest.json': JSON.stringify({ version: '0.0.1' }) });
     const zipPath = path.join(tmp, 'old.zip');
 
+    expect(() => packageChrome({ dir, version: '9.9.9', zipPath })).toThrow(PackageError);
     expect(() => packageChrome({ dir, version: '9.9.9', zipPath })).toThrow('old is a build of 0.0.1, not 9.9.9.');
     expect(fs.existsSync(zipPath)).toBe(false);
   });
