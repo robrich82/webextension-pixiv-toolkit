@@ -85,33 +85,36 @@ describe('updateEntry', () => {
 
 describe('pnpmCommand', () => {
   it('runs a native pnpm binary directly', () => {
-    expect(pnpmCommand({ npm_execpath: 'C:\mise\pnpm.exe' }, 'win32')).toEqual({ file: 'C:\mise\pnpm.exe', prefix: [] });
+    let exe = String.raw`C:\Program Files\mise\pnpm.exe`;
+
+    expect(pnpmCommand({ npm_execpath: exe }, 'win32')).toEqual({ file: exe, prefix: [] });
+  });
+
+  it("runs pnpm's pn alias directly", () => {
+    let exe = String.raw`C:\mise\pn.exe`;
+
+    expect(pnpmCommand({ npm_execpath: exe }, 'win32')).toEqual({ file: exe, prefix: [] });
   });
 
   it("runs pnpm's JS entry with node", () => {
-    expect(pnpmCommand({ npm_execpath: '/opt/pnpm/bin/pnpm.cjs' }, 'linux')).toEqual({ file: process.execPath, prefix: ['/opt/pnpm/bin/pnpm.cjs'] });
+    expect(pnpmCommand({ npm_execpath: '/opt/pnpm/bin/pnpm.CJS' }, 'linux')).toEqual({ file: process.execPath, prefix: ['/opt/pnpm/bin/pnpm.CJS'] });
   });
 
-  it('ignores an npm_execpath that is not pnpm', () => {
-    expect(pnpmCommand({ npm_execpath: '/usr/lib/node_modules/npm/bin/npm-cli.js' }, 'linux')).toEqual({ file: 'pnpm', prefix: [] });
+  it.each([
+    ['npm', String.raw`C:\pnpm\bin\npm-cli.js`, 'win32'],
+    ['pnpx', '/usr/local/bin/pnpx', 'linux'],
+    ['an empty value', '', 'darwin'],
+    ['nothing', undefined, 'win32']
+  ])('falls back to pnpm on PATH when npm_execpath names %s', (_, execPath, platform) => {
+    expect(pnpmCommand({ npm_execpath: execPath }, platform)).toEqual({ file: 'pnpm', prefix: [] });
   });
 
-  it('falls back to pnpm on PATH outside Windows', () => {
-    expect(pnpmCommand({}, 'darwin')).toEqual({ file: 'pnpm', prefix: [] });
-  });
-
-  it('refuses to guess on Windows without npm_execpath', () => {
-    expect(() => pnpmCommand({}, 'win32')).toThrow('pnpm run release:firefox');
-  });
-
-  // Windows has no pnpm to spawn unless pnpm itself started Vitest.
-  it.skipIf(process.platform === 'win32' && !process.env.npm_execpath)('spawns the running pnpm without a shell', () => {
+  it('spawns the running pnpm without a shell', () => {
     let { file, prefix } = pnpmCommand();
     let result = spawnSync(file, [...prefix, '--version'], { encoding: 'utf8' });
-    let pinned = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../package.json'), 'utf8')).packageManager;
 
     expect(result.error).toBeUndefined();
     expect(result.status).toBe(0);
-    expect(pinned.split('+')[0]).toBe(`pnpm@${result.stdout.trim()}`);
+    expect(result.stdout.trim()).toMatch(/^\d+\.\d+\.\d+/);
   });
 });

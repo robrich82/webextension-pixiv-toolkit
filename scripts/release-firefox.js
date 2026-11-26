@@ -30,26 +30,23 @@ const EXTENSION_ID = 'webextension-pixiv-toolkit-fork@robrich82';
 const ARTIFACTS_DIR = path.join(ROOT, 'web-ext-artifacts');
 
 /**
- * How to spawn pnpm without a shell. Under `pnpm run`, npm_execpath names the
- * running pnpm: a JS entry (run it with node) or a native binary such as
- * mise's pnpm.exe (run it directly). Without it, plain `pnpm` resolves on PATH
- * everywhere except Windows, where only pnpm.cmd exists and Node won't spawn a
- * .cmd without shell:true (deprecated with array args, DEP0190).
+ * How to spawn pnpm without a shell, since shell:true with array args is
+ * deprecated (DEP0190). Under `pnpm run`, npm_execpath names the running pnpm
+ * (or its `pn` alias): a JS entry, run with node, or a native binary such as
+ * mise's pnpm.exe, run directly. Otherwise `pnpm` is looked up on PATH, which
+ * on Windows finds pnpm.exe but not a pnpm.cmd shim.
  *
  * The AMO key/secret are never passed as CLI args: web-ext reads
  * WEB_EXT_API_KEY / WEB_EXT_API_SECRET from the inherited environment.
  */
 function pnpmCommand(env = process.env, platform = process.platform) {
   let execPath = env.npm_execpath;
+  let name = execPath ? path[platform === 'win32' ? 'win32' : 'posix'].basename(execPath) : '';
 
-  if (execPath && /pnpm/i.test(path.basename(execPath))) {
-    return /\.[cm]?js$/i.test(execPath)
+  if (/^(pn|pnpm)(\.[^.]+)?$/i.test(name)) {
+    return /\.[cm]?js$/i.test(name)
       ? { file: process.execPath, prefix: [execPath] }
       : { file: execPath, prefix: [] };
-  }
-
-  if (platform === 'win32') {
-    throw new Error('Run this through `pnpm run release:firefox`, so npm_execpath names pnpm.');
   }
 
   return { file: 'pnpm', prefix: [] };
