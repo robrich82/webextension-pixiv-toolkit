@@ -12,11 +12,13 @@ A release starts with a `chore/release-X.Y.Z` PR that sets `package.json` `versi
 
 ```bash
 git fetch origin --tags
-gh release view --repo robrich82/webextension-pixiv-toolkit --json tagName -q .tagName   # the bare version, e.g. 6.4.6
-git log <latest-tag>..origin/main --first-parent --oneline
+TAG=$(gh release view --repo robrich82/webextension-pixiv-toolkit --json tagName -q .tagName)   # the bare version, e.g. 6.4.6
+gh pr list --repo robrich82/webextension-pixiv-toolkit --state merged --limit 1000 \
+  --json number,title,mergeCommit -q '.[] | "\(.mergeCommit.oid) #\(.number) \(.title)"' |
+  grep -Ff <(git rev-list "$TAG..origin/main") | cut -d' ' -f2-
 ```
 
-If nothing merged since the latest tag, stop.
+This lists every PR whose merge commit is new on `main` since the tag, including stacked PRs that merged into another PR's branch: they never appear in `main`'s first-parent log or in a `--base main` listing. If it lists nothing, stop.
 
 For each merged PR, read its title and, where the title doesn't say what a user would notice, its description (`gh pr view <n> --json title,body`). Keep only changes a user would notice: fixes, new or changed features, new settings, visible UI changes, removed features, a raised minimum browser version, and permission changes. Skip tests, CI, docs, refactors, toolchain and dependency updates unless they change what users see. Group several PRs that fix the same thing into one entry.
 
