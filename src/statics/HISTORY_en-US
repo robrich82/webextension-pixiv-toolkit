@@ -1,9 +1,13 @@
 v7.0.0
 Now needs Chrome 111 or later, or Firefox 130 or later;
 Removed the Custom FFmpeg command for ugoira;
-Ugoira WEBM and MP4 are now made by the browser instead of FFmpeg, which is much faster, and MP4 is now H.264 so browsers can play it;
+Ugoira WEBM, MP4, MKV and MOV are now encoded by the browser, and GIF and APNG by the extension's own encoders, so FFmpeg is no longer needed and MP4 is now H.264 so browsers can play it;
+The extension is much smaller without FFmpeg, about 30 MB down to 6 MB unpacked;
 Ugoira GIFs now keep their transparency;
 Added a DL Zip button for ugoira, and converting an ugoira no longer also saves the frames zip;
+Added DL MKV and DL MOV buttons for ugoira;
+Added a codec setting for each ugoira video format, which falls back to another codec if the browser can't encode it, and the download manager names the codec it used;
+Fixed ugoira frame timing: every frame, including the last, now plays for its own delay;
 The settings and download manager pages now follow the system's light or dark theme;
 Firefox now asks for missing site permissions;
 The download manager now shows why a task failed, and the Diagnosis page shows the background's errors;
@@ -16,6 +20,8 @@ Saves that fail, and novels or Pixiv Comic pages that can't be saved, now fail t
 info.json is now saved beside the work instead of in the Downloads folder;
 Turning off "Enable save download history" or "Enable save visit history" now stops recording, download history is recorded when a task completes, and visit history is sorted by visit time;
 Fixed clearing history, the empty history message and Fanbox history thumbnails;
+Visit history from before 6.0 now appears on the History page, and Export visit history now downloads the history;
+Removed the Recovery history button, since the update moves that backup into History;
 Fixed the Download Manager link not opening the tab;
 Fixed page selection on multi-page works keeping stale or duplicate pages;
 Fixed the manga rename rule default, which had a stray "}";
