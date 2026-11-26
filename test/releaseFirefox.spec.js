@@ -1,14 +1,15 @@
 /**
  * What scripts/release-firefox.js reads from the signed .xpi (a zip holding
  * the manifest the Firefox build writes) and the `updates.json` entry it
- * builds from that.
+ * builds from that, and how it spawns pnpm.
  */
+import { spawnSync } from 'child_process';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { strToU8, zipSync } from 'fflate';
 import { transformManifest } from '../scripts/manifest.mjs';
-import { assertXpiVersion, updateEntry, xpiManifest } from '../scripts/release-firefox.js';
+import { assertXpiVersion, pnpmCommand, updateEntry, xpiManifest } from '../scripts/release-firefox.js';
 
 const source = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../src/statics/manifest.json'), 'utf8'));
 const built = transformManifest(source, { platform: 'firefox', version: '1.2.3', floors: { chrome: '1', firefox: '456' } });
@@ -79,5 +80,38 @@ describe('updateEntry', () => {
       update_link: 'https://example.test/a.xpi',
       update_hash: 'sha256:abc'
     });
+  });
+});
+
+describe('pnpmCommand', () => {
+  it('runs a native pnpm binary directly', () => {
+    expect(pnpmCommand({ npm_execpath: 'C:\mise\pnpm.exe' }, 'win32')).toEqual({ file: 'C:\mise\pnpm.exe', prefix: [] });
+  });
+
+  it("runs pnpm's JS entry with node", () => {
+    expect(pnpmCommand({ npm_execpath: '/opt/pnpm/bin/pnpm.cjs' }, 'linux')).toEqual({ file: process.execPath, prefix: ['/opt/pnpm/bin/pnpm.cjs'] });
+  });
+
+  it('ignores an npm_execpath that is not pnpm', () => {
+    expect(pnpmCommand({ npm_execpath: '/usr/lib/node_modules/npm/bin/npm-cli.js' }, 'linux')).toEqual({ file: 'pnpm', prefix: [] });
+  });
+
+  it('falls back to pnpm on PATH outside Windows', () => {
+    expect(pnpmCommand({}, 'darwin')).toEqual({ file: 'pnpm', prefix: [] });
+  });
+
+  it('refuses to guess on Windows without npm_execpath', () => {
+    expect(() => pnpmCommand({}, 'win32')).toThrow('pnpm run release:firefox');
+  });
+
+  // Windows has no pnpm to spawn unless pnpm itself started Vitest.
+  it.skipIf(process.platform === 'win32' && !process.env.npm_execpath)('spawns the running pnpm without a shell', () => {
+    let { file, prefix } = pnpmCommand();
+    let result = spawnSync(file, [...prefix, '--version'], { encoding: 'utf8' });
+    let pinned = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../package.json'), 'utf8')).packageManager;
+
+    expect(result.error).toBeUndefined();
+    expect(result.status).toBe(0);
+    expect(pinned.split('+')[0]).toBe(`pnpm@${result.stdout.trim()}`);
   });
 });
