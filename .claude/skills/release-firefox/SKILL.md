@@ -47,3 +47,4 @@ If `gh release create` failed partway, run `gh release view <version>` before re
 - Report the release URL from the script's output and the `.xpi`'s sha256.
 - Confirm that `updates.json` on the new release lists the new version:
   `gh release download <version> --repo robrich82/webextension-pixiv-toolkit -p updates.json -O -`
+- Run `pnpm run package:chrome` from the same checkout, and give the user the zip's absolute path (the script prints it relative to the checkout) and its sha256. They upload it to the Chrome Web Store themselves. The Firefox release is already out, so if this step fails, report it and fix it separately.
