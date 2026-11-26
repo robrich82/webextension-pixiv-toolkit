@@ -30,19 +30,27 @@ const EXTENSION_ID = 'webextension-pixiv-toolkit-fork@robrich82';
 const ARTIFACTS_DIR = path.join(ROOT, 'web-ext-artifacts');
 
 /**
- * On Windows, `pnpm` only exists as `pnpm.CMD`/`pnpm.ps1` (PATHEXT resolution
- * is a shell feature), so execFileSync('pnpm', ...) fails with ENOENT there.
- * Node refuses to spawn a .cmd/.bat file at all unless shell:true is set
- * (see the child_process docs on Windows batch-file argument escaping), so
- * that's needed here regardless of platform - which is also why the AMO api
- * key/secret are never passed as CLI args below: shell:true only
- * concatenates array args rather than escaping them, so anything with shell
- * metacharacters in it could break out. web-ext reads WEB_EXT_API_KEY /
- * WEB_EXT_API_SECRET from the environment directly (yargs .env('WEB_EXT')),
- * which every spawned child inherits by default, so there's no need to pass
- * them as arguments at all.
+ * How to spawn pnpm without a shell, since shell:true with array args is
+ * deprecated (DEP0190). Under `pnpm run`, npm_execpath names the running pnpm
+ * (or its `pn` alias): a JS entry, run with node, or a native binary such as
+ * mise's pnpm.exe, run directly. Otherwise `pnpm` is looked up on PATH, which
+ * on Windows finds pnpm.exe but not a pnpm.cmd shim.
+ *
+ * The AMO key/secret are never passed as CLI args: web-ext reads
+ * WEB_EXT_API_KEY / WEB_EXT_API_SECRET from the inherited environment.
  */
-const PNPM = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
+function pnpmCommand(env = process.env, platform = process.platform) {
+  let execPath = env.npm_execpath;
+  let name = execPath ? path[platform === 'win32' ? 'win32' : 'posix'].basename(execPath) : '';
+
+  if (/^(pn|pnpm)(\.[^.]+)?$/i.test(name)) {
+    return /\.[cm]?js$/i.test(name)
+      ? { file: process.execPath, prefix: [execPath] }
+      : { file: execPath, prefix: [] };
+  }
+
+  return { file: 'pnpm', prefix: [] };
+}
 
 function run(cmd, args, options = {}) {
   console.log(`> ${cmd} ${args.join(' ')}`);
@@ -53,16 +61,11 @@ function runCapture(cmd, args, options = {}) {
   return execFileSync(cmd, args, { cwd: ROOT, encoding: 'utf8', ...options });
 }
 
-/**
- * Only for pnpm.cmd, and only because Node refuses to spawn a .cmd/.bat file
- * without shell:true. Every argument here is a short, static, developer-
- * controlled token (no secrets, no spaces, no shell metacharacters), which is
- * what makes shell:true's unescaped concatenation acceptable in this one
- * spot - it would not be for anything derived from user input or a secret.
- */
 function runPnpm(args, options = {}) {
-  console.log(`> ${PNPM} ${args.join(' ')}`);
-  return execFileSync(PNPM, args, { stdio: 'inherit', cwd: ROOT, shell: true, ...options });
+  let { file, prefix } = pnpmCommand();
+
+  console.log(`> pnpm ${args.join(' ')}`);
+  return execFileSync(file, [...prefix, ...args], { stdio: 'inherit', cwd: ROOT, ...options });
 }
 
 function requireEnv(name) {
@@ -371,4 +374,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { assertXpiVersion, updateEntry, xpiManifest };
+module.exports = { assertXpiVersion, pnpmCommand, updateEntry, xpiManifest };

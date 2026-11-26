@@ -1,14 +1,15 @@
 /**
  * What scripts/release-firefox.js reads from the signed .xpi (a zip holding
  * the manifest the Firefox build writes) and the `updates.json` entry it
- * builds from that.
+ * builds from that, and how it spawns pnpm.
  */
+import { spawnSync } from 'child_process';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { strToU8, zipSync } from 'fflate';
 import { transformManifest } from '../scripts/manifest.mjs';
-import { assertXpiVersion, updateEntry, xpiManifest } from '../scripts/release-firefox.js';
+import { assertXpiVersion, pnpmCommand, updateEntry, xpiManifest } from '../scripts/release-firefox.js';
 
 const source = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../src/statics/manifest.json'), 'utf8'));
 const built = transformManifest(source, { platform: 'firefox', version: '1.2.3', floors: { chrome: '1', firefox: '456' } });
@@ -79,5 +80,41 @@ describe('updateEntry', () => {
       update_link: 'https://example.test/a.xpi',
       update_hash: 'sha256:abc'
     });
+  });
+});
+
+describe('pnpmCommand', () => {
+  it('runs a native pnpm binary directly', () => {
+    let exe = String.raw`C:\Program Files\mise\pnpm.exe`;
+
+    expect(pnpmCommand({ npm_execpath: exe }, 'win32')).toEqual({ file: exe, prefix: [] });
+  });
+
+  it("runs pnpm's pn alias directly", () => {
+    let exe = String.raw`C:\mise\pn.exe`;
+
+    expect(pnpmCommand({ npm_execpath: exe }, 'win32')).toEqual({ file: exe, prefix: [] });
+  });
+
+  it("runs pnpm's JS entry with node", () => {
+    expect(pnpmCommand({ npm_execpath: '/opt/pnpm/bin/pnpm.CJS' }, 'linux')).toEqual({ file: process.execPath, prefix: ['/opt/pnpm/bin/pnpm.CJS'] });
+  });
+
+  it.each([
+    ['npm', String.raw`C:\pnpm\bin\npm-cli.js`, 'win32'],
+    ['pnpx', '/usr/local/bin/pnpx', 'linux'],
+    ['an empty value', '', 'darwin'],
+    ['nothing', undefined, 'win32']
+  ])('falls back to pnpm on PATH when npm_execpath names %s', (_, execPath, platform) => {
+    expect(pnpmCommand({ npm_execpath: execPath }, platform)).toEqual({ file: 'pnpm', prefix: [] });
+  });
+
+  it('spawns the running pnpm without a shell', () => {
+    let { file, prefix } = pnpmCommand();
+    let result = spawnSync(file, [...prefix, '--version'], { encoding: 'utf8' });
+
+    expect(result.error).toBeUndefined();
+    expect(result.status).toBe(0);
+    expect(result.stdout.trim()).toMatch(/^\d+\.\d+\.\d+/);
   });
 });
