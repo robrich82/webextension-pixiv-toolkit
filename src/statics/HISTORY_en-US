@@ -1,3 +1,38 @@
+v7.0.0
+Now needs Chrome 111 or later, or Firefox 130 or later;
+Removed the Custom FFmpeg command for ugoira;
+Ugoira WEBM, MP4, MKV and MOV are now encoded by the browser, and GIF and APNG by the extension's own encoders, so FFmpeg is no longer needed and MP4 is now H.264 so browsers can play it;
+The extension is much smaller without FFmpeg, about 30 MB down to 6 MB unpacked;
+Ugoira GIFs now keep their transparency;
+Added a DL Zip button for ugoira, and converting an ugoira no longer also saves the frames zip;
+Added DL MKV and DL MOV buttons for ugoira;
+Added a codec setting for each ugoira video format, which falls back to another codec if the browser can't encode it, and the download manager names the codec it used;
+Fixed ugoira frame timing: every frame, including the last, now plays for its own delay;
+The settings and download manager pages now follow the system's light or dark theme;
+Firefox now asks for missing site permissions;
+The download manager now shows why a task failed, and the Diagnosis page shows the background's errors;
+The Pixiv Omina suggestion can now be closed for good;
+Fixed downloading a different work when Pixiv moved on to another page after the click;
+Fixed retry and resume not starting the task, and complete tasks restarting;
+Fixed download progress showing Infinity% or not appearing until the task finished;
+Downloads now run as many files at once as "Number of download requests" allows;
+Saves that fail, and novels or Pixiv Comic pages that can't be saved, now fail the task instead of showing as complete or hanging;
+info.json is now saved beside the work instead of in the Downloads folder;
+Turning off "Enable save download history" or "Enable save visit history" now stops recording, download history is recorded when a task completes, and visit history is sorted by visit time;
+Fixed clearing history, the empty history message and Fanbox history thumbnails;
+Visit history from before 6.0 now appears on the History page, and Export visit history now downloads the history;
+Removed the Recovery history button, since the update moves that backup into History;
+Fixed the Download Manager link not opening the tab;
+Fixed page selection on multi-page works keeping stale or duplicate pages;
+Fixed the manga rename rule default, which had a stray "}";
+Fixed the rename dialog's cursor and the Pixiv Comic image rename dialog not opening;
+Importing settings no longer restores the backup's version;
+Fanbox posts you can't access now show a notice;
+Closing the download manager now only warns while a task is unfinished;
+The panel's buttons now wrap in a narrow window, and a failed download shows as failed and can be retried;
+Fixed Chinese weekday and time-of-day labels;
+Help and GitHub links now point at this fork, and the Third-Party page shows the right library versions.
+
 v6.4.6
 Fixed the background script crashing on startup in 6.4.5, which broke downloads, Fanbox posts, visit history and messaging;
 Clearing and importing visit history in the settings now works;
