@@ -21,7 +21,7 @@ describe('jobsFor', () => {
   test.each([
     ['docs', ['docs/testing.md', 'docs/img/shot.png'], []],
     ['markdown outside src/', ['README.md', '.github/pull_request_template.md'], []],
-    ['agent config', ['.claude/settings.json', '.cursor/rules/x.mdc', '.agents', '.mcp.json'], []],
+    ['agent config', ['.claude/settings.local.json', '.cursor/rules/x.mdc', '.agents', '.mcp.json'], []],
     ['editor config', ['.editorconfig', '.gitignore', 'jsconfig.json'], []],
     ['Renovate config', ['renovate.json', '.github/workflows/renovate-config.yml'], []],
     ['nothing', [], []],
@@ -30,6 +30,7 @@ describe('jobsFor', () => {
     ['the Vitest config', ['vitest.config.mjs'], ['test']],
     ['the related-tests hook', ['.claude/hooks/related-tests.js'], ['test']],
     ['another hook', ['.claude/hooks/other.js'], ['test']],
+    ['the Claude settings', ['.claude/settings.json'], ['test']],
     ['a test fixture', ['test/fixtures/pixiv/illust.json'], JOBS],
     ['the fixtures README', ['test/fixtures/README.md'], JOBS],
     ['a probe helper', ['test/helpers/probeGif.mjs'], JOBS],
