@@ -15,22 +15,20 @@ node = "26.13.1"
 # Must match `packageManager` in package.json; test/toolchainPins.spec.js checks.
 pnpm = "12.23.0"
 
-# `mise deps` runs this when pnpm-lock.yaml or package.json changed or
-# node_modules is missing; `mise exec` and `mise run` do it first too.
-# `mise install` doesn't.
+# `mise deps` runs this when its inputs changed or node_modules is missing
+# (`mise deps pnpm --explain` lists them). `mise exec` and `mise run` do it
+# first too; `mise install` doesn't.
 [deps.pnpm]
 auto = true
 run = "pnpm install --frozen-lockfile"
 
-# The commands. `mise run <task>` installs the tools and dependencies above
-# first; arguments after the task name are appended to its command, and
-# `mise run --skip-deps <task>` skips its `depends`.
+# The commands; `mise tasks` lists them, and test/miseTasks.spec.js checks them.
 [tasks.dev]
 description = "Watch build for Chrome into dist/chrome; restart after editing src/statics or reinstalling dependencies"
 run = "node scripts/build.mjs --watch"
 
 [tasks."dev:firefox"]
-description = "Watch build for Firefox into dist/firefox"
+description = "Watch build for Firefox into dist/firefox; restart after editing src/statics or reinstalling dependencies"
 run = "node scripts/build.mjs --platform=firefox --watch"
 
 [tasks.build]
@@ -63,8 +61,9 @@ run = "pnpm audit --audit-level=moderate"
 description = "Build and zip the Chrome Web Store upload into dist/"
 run = "node scripts/package-chrome.mjs"
 
-# AMO signs a version only once. Without a terminal the prompt fails the task,
-# unless `--yes`, MISE_YES or CI (set to anything but `false`) answers it.
+# AMO signs a version only once. The prompt guards against accidents, not
+# agents: `--yes`, a truthy MISE_YES or CI, and the mise MCP server's
+# run_task all answer it. Without a terminal or one of those, the task fails.
 [tasks."release:firefox"]
 description = "Build, sign through AMO and publish the Firefox release of package.json's version"
 confirm = "Sign and publish this version? AMO signs a version only once."

@@ -26,6 +26,7 @@ describe('relatedArgs', () => {
     ['package.json', 'package.json', ['test/components/ChangeLog.spec.js', 'test/engines.spec.js', 'test/manifest.spec.js', 'test/onlyPnpm.spec.js', 'test/toolchainPins.spec.js']],
     ['the script onlyPnpm spawns', 'scripts/only-pnpm.js', ['scripts/only-pnpm.js', 'test/onlyPnpm.spec.js']],
     ['the pnpm lockfile', 'pnpm-lock.yaml', ['test/engines.spec.js']],
+    ['the mise config', 'mise.toml', ['test/miseTasks.spec.js', 'test/toolchainPins.spec.js']],
     ['the mise lockfile', 'mise.lock', ['test/toolchainPins.spec.js']],
     ['the CI workflow', '.github/workflows/ci.yml', ['test/ciChanges.spec.js']],
     ['an E2E test', 'e2e/illust.e2e.js', ['test/ciChanges.spec.js']],
