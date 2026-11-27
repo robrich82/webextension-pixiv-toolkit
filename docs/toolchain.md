@@ -166,6 +166,11 @@ it — the two files agree, they are just both wrong. No setting prevents this:
 have gone. Name the version you want, and let the `package.json` diff carry the
 decision.
 
+## Tasks
+
+The commands are `[tasks]` in `mise.toml`, and `mise tasks` lists them.
+`test/miseTasks.spec.js` checks them through the real mise.
+
 ## Build
 
 `scripts/build.mjs` builds each target with Vite. Vite lowers syntax to its

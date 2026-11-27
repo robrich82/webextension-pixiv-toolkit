@@ -21,3 +21,51 @@ pnpm = "12.23.0"
 [deps.pnpm]
 auto = true
 run = "pnpm install --frozen-lockfile"
+
+# The commands. `mise run <task>` installs the tools and dependencies above
+# first; arguments after the task name are appended to its command, and
+# `mise run --skip-deps <task>` skips its `depends`.
+[tasks.dev]
+description = "Watch build for Chrome into dist/chrome; restart after editing src/statics or reinstalling dependencies"
+run = "node scripts/build.mjs --watch"
+
+[tasks."dev:firefox"]
+description = "Watch build for Firefox into dist/firefox"
+run = "node scripts/build.mjs --platform=firefox --watch"
+
+[tasks.build]
+description = "Production build for Chrome into dist/chrome"
+run = "node scripts/build.mjs"
+
+[tasks."build:firefox"]
+description = "Production build for Firefox into dist/firefox"
+run = "node scripts/build.mjs --platform=firefox"
+
+[tasks.test]
+description = "Vitest, unit and components projects, with coverage thresholds"
+run = "pnpm exec vitest run"
+
+[tasks."test:e2e"]
+description = "Playwright against a fresh dist/chrome"
+depends = ["build"]
+run = "pnpm exec playwright test"
+
+[tasks."test:e2e:firefox"]
+description = "node --test in real Firefox against a fresh dist/firefox (prerequisites: docs/testing.md, \"Firefox\")"
+depends = ["build:firefox"]
+run = 'node --test --test-reporter=spec "e2e-firefox/*.test.mjs"'
+
+[tasks.audit]
+description = "pnpm audit at the level CI reports"
+run = "pnpm audit --audit-level=moderate"
+
+[tasks."package:chrome"]
+description = "Build and zip the Chrome Web Store upload into dist/"
+run = "node scripts/package-chrome.mjs"
+
+# AMO signs a version only once. Without a terminal the prompt fails the task,
+# unless `--yes`, MISE_YES or CI (set to anything but `false`) answers it.
+[tasks."release:firefox"]
+description = "Build, sign through AMO and publish the Firefox release of package.json's version"
+confirm = "Sign and publish this version? AMO signs a version only once."
+run = "node scripts/release-firefox.js"

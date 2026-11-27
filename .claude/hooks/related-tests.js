@@ -25,7 +25,8 @@ const READ_BY = [
   [/^package\.json$/, ['test/components/ChangeLog.spec.js', 'test/engines.spec.js', 'test/manifest.spec.js', 'test/onlyPnpm.spec.js', 'test/toolchainPins.spec.js']],
   [/^(scripts\/only-pnpm\.js|\.npmrc)$/, ['test/onlyPnpm.spec.js']],
   [/^pnpm-lock\.yaml$/, ['test/engines.spec.js']],
-  [/^mise\.(toml|lock)$/, ['test/toolchainPins.spec.js']],
+  [/^mise\.toml$/, ['test/miseTasks.spec.js', 'test/toolchainPins.spec.js']],
+  [/^mise\.lock$/, ['test/toolchainPins.spec.js']],
   [/^(\.github\/workflows\/ci\.yml|e2e\/|e2e-firefox\/)/, ['test/ciChanges.spec.js']],
   [/^\.claude\/hooks\/related-tests\.js$/, ['test/relatedTestsHook.spec.js']],
   [/^\.claude\/hooks\/settings-migration-reminder\.js$/, ['test/settingsMigrationReminder.spec.js']]
