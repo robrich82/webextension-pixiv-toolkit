@@ -294,7 +294,7 @@ async function main() {
     fs.rmSync(ARTIFACTS_DIR, { recursive: true, force: true });
 
     console.log('\n== Build ==');
-    runPnpm(['run', 'build:firefox']);
+    run(process.execPath, [path.join('scripts', 'build.mjs'), '--platform=firefox']);
 
     console.log('\n== Sign ==');
     await sign(version);

@@ -8,22 +8,23 @@ Pixiv Toolkit is a Manifest V3 browser extension (Chrome and Firefox) that downl
 
 pnpm only (`engines.npm` refuses npm, and the `preinstall` hook refuses yarn and bun). Node and pnpm are pinned in `mise.toml` and locked in `mise.lock` (run `mise lock` after changing either); pnpm is also pinned in `packageManager`, and `test/toolchainPins.spec.js` fails when they disagree. CI uses the same pins.
 
+The commands are mise tasks in `mise.toml` (`mise tasks` lists them). `mise run` installs the pinned tools and runs `pnpm install --frozen-lockfile` first when the lockfile changed or `node_modules` is missing; arguments after the task name are appended to its command.
+
 ```bash
-pnpm install
-pnpm run build             # production build -> dist/chrome
-pnpm run build:firefox     # production build -> dist/firefox
-pnpm run dev               # watch build (dev:firefox); restart it after editing src/statics or reinstalling dependencies
-pnpm test                  # Vitest, unit + components projects, with coverage thresholds
+mise run build             # production build -> dist/chrome
+mise run build:firefox     # production build -> dist/firefox
+mise run dev               # watch build (dev:firefox); restart it after editing src/statics or reinstalling dependencies
+mise run test              # Vitest, unit + components projects, with coverage thresholds
 # Subsets need --coverage.enabled=false, or the global coverage thresholds fail the run
-pnpm exec vitest run --coverage.enabled=false test/NameFormatter.spec.js
-pnpm exec vitest run --coverage.enabled=false --project components
-pnpm run test:e2e          # Playwright; needs `pnpm run build` first (loads dist/chrome)
-pnpm run test:e2e:firefox  # node --test in real Firefox; needs `pnpm run build:firefox` first, prerequisites in docs/testing.md "Firefox"
+mise run test --coverage.enabled=false test/NameFormatter.spec.js
+mise run test --coverage.enabled=false --project components
+mise run test:e2e          # Playwright; builds dist/chrome first (--skip-deps tests the build already there)
+mise run test:e2e:firefox  # node --test in real Firefox; builds dist/firefox first, prerequisites in docs/testing.md "Firefox"
 ```
 
-There is no linter, formatter or type check. `eslint` and `eslint-plugin-compat` only check the built bundles against the browserslist floor, from `test/build.spec.js`. The `typescript` devDependency is there only for editors' language servers (and Claude's LSP tool), through TypeScript 7's own `tsc --lsp`; nothing in the build or tests uses it. CI (`.github/workflows/ci.yml`) runs `pnpm audit`, `pnpm test`, both builds and the e2e tests, skipping on a PR the jobs whose paths it doesn't touch. A suite that starts reading or importing a file outside its own directory needs a matching rule in `scripts/ciChanges.mjs`.
+There is no linter, formatter or type check. `eslint` and `eslint-plugin-compat` only check the built bundles against the browserslist floor, from `test/build.spec.js`. The `typescript` devDependency is there only for editors' language servers (and Claude's LSP tool), through TypeScript 7's own `tsc --lsp`; nothing in the build or tests uses it. CI (`.github/workflows/ci.yml`) runs the `audit` and `test` tasks, both builds and the e2e tests, skipping on a PR the jobs whose paths it doesn't touch. A suite that starts reading or importing a file outside its own directory needs a matching rule in `scripts/ciChanges.mjs`.
 
-`pnpm run release:firefox` (`scripts/release-firefox.js`) builds, signs through AMO and publishes a GitHub release with `updates.json`. AMO signs a given version only once, so don't run it without being asked. `pnpm run package:chrome` (`scripts/package-chrome.mjs`) builds and zips the Chrome Web Store upload into `dist/pixiv-toolkit-chrome-<version>.zip`; the upload itself is manual. Releases go through two user-invoked skills: `/release-bump` opens the version bump PR, and once it has merged, `/release-firefox` (`.claude/skills/release-firefox/SKILL.md`) runs the pre-flight checks and the release. A PreToolUse hook (`.claude/hooks/no-mcp-release.js`) refuses a mise MCP `run_task` call that would reach a `confirm` prompt, which `run_task` answers itself; its header lists what it can't see.
+`mise run release:firefox` (`scripts/release-firefox.js`) builds, signs through AMO and publishes a GitHub release with `updates.json`. AMO signs a given version only once, so don't run it without being asked; the task asks for confirmation, which `--yes` or a set `CI` answers. `mise run package:chrome` (`scripts/package-chrome.mjs`) builds and zips the Chrome Web Store upload into `dist/pixiv-toolkit-chrome-<version>.zip`; the upload itself is manual. Releases go through two user-invoked skills: `/release-bump` opens the version bump PR, and once it has merged, `/release-firefox` (`.claude/skills/release-firefox/SKILL.md`) runs the pre-flight checks and the release. A PreToolUse hook (`.claude/hooks/no-mcp-release.js`) refuses a mise MCP `run_task` call that would reach a `confirm` prompt, which `run_task` answers itself; its header lists what it can't see.
 
 ## Architecture
 
@@ -79,7 +80,7 @@ UI strings are in `src/statics/_locales`. `src/statics/HISTORY_<locale>` (one pe
 - Vitest has two projects: `unit` (node environment, `test/**/*.spec.js`) and `components` (jsdom, `test/components/**`). Playwright files are named `*.e2e.js` so Vitest doesn't pick them up.
 - `@/modules/Extension/browser` is mapped to the in-memory fake in `test/doubles/browser.js`. Its test controls are under `browser._fake` (`reset`, `flush`, `addTab`, …), and it's reset before every test. Specs that open a port need `await browser._fake.flush()`.
 - Services are singletons that register listeners in their constructor. Clear `Service.instance = undefined` in `beforeEach` when a spec needs live listeners.
-- `coverage.thresholds` in `vitest.config.mjs` is a ratchet with per-directory floors. A new untested file can fail `pnpm test`, so either cover it or lower the floor in the same PR and say why.
+- `coverage.thresholds` in `vitest.config.mjs` is a ratchet with per-directory floors. A new untested file can fail `mise run test`, so either cover it or lower the floor in the same PR and say why.
 - A PostToolUse hook (`.claude/hooks/related-tests.js`) runs the related Vitest specs after each Edit or Write of a `.js`/`.mjs`/`.vue`/`.json` file under `src/`, `test/` or `scripts/`, or of a file its `READ_BY` table lists (a spec that starts reading a file with fs, rather than importing it, needs a row there), in whichever checkout the file is in, and skips until that checkout has had `pnpm install`. Its failures come back as hook feedback. Fix them rather than treating them as a stray run.
 
 Other docs: `docs/toolchain.md` (build toolchain). Track open work in GitHub issues, not in `docs/`.

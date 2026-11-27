@@ -84,14 +84,11 @@ To build the extension, you need these tools below:
 * nodejs within `engines.node` in `package.json`
 * pnpm within `engines.pnpm`
 
-[mise](https://mise.jdx.dev) installs the pinned versions of both: run `mise install` in the repo.
-
-After you install these, run commands step by step:
+[mise](https://mise.jdx.dev) installs the pinned versions of both, then the dependencies, and runs the build:
 
 ```bash
-pnpm install --frozen-lockfile
-pnpm run build         # build for Chrome
-pnpm run build:firefox # build for Firefox
+mise run build         # build for Chrome
+mise run build:firefox # build for Firefox
 ```
 
 See [docs/toolchain.md](docs/toolchain.md) for build tooling notes.
@@ -183,14 +180,11 @@ FFmpeg.wasm 是一个非常强大的库，它拥有比其他库，如`gif.js`和
 * nodejs，版本范围见 `package.json` 的 `engines.node`
 * pnpm，版本范围见 `engines.pnpm`
 
-[mise](https://mise.jdx.dev) 会安装两者的固定版本：在仓库目录下执行 `mise install`。
-
-安装完成后，执行以下操作来进行构造：
+[mise](https://mise.jdx.dev) 会安装两者的固定版本和依赖，并执行构建：
 
 ```bash
-pnpm install --frozen-lockfile
-pnpm run build         # build for Chrome
-pnpm run build:firefox # build for Firefox
+mise run build         # build for Chrome
+mise run build:firefox # build for Firefox
 ```
 
 构建工具链的说明请见 [docs/toolchain.md](docs/toolchain.md)。

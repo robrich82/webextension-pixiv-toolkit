@@ -3,7 +3,7 @@
  * Builds dist/chrome and zips it for a Chrome Web Store upload, which is done
  * by hand in the developer dashboard.
  *
- *   pnpm run package:chrome
+ *   mise run package:chrome
  *
  * Writes dist/pixiv-toolkit-chrome-<version>.zip.
  */

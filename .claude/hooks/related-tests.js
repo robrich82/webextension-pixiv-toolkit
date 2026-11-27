@@ -16,7 +16,7 @@ const path = require('path');
 // Specs that `vitest related` can't find from the edited file: they read it with fs,
 // scan a whole tree, or spawn it. A spec that starts reading a file that way needs a row.
 // package.json is listed rather than passed, since Vitest reruns every spec for it;
-// build.spec also reads it but takes ~20s, so it's left to `pnpm test`.
+// build.spec also reads it but takes ~20s, so it's left to `mise run test`.
 const READ_BY = [
   [/^src\/statics\/_locales\//, ['test/i18nKeys.spec.js']],
   [/^src\/statics\/HISTORY_/, ['test/components/ChangeLog.spec.js']],

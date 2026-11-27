@@ -31,4 +31,4 @@ Settings are read raw from `storage.local` everywhere (e.g. `background/Applicat
    - every other setting being left alone;
    - a no-op when the old key was never there;
    - for renames, which value wins when both keys exist. State the rule in the migration's doc comment.
-4. Run `pnpm test`.
+4. Run `mise run test`.
