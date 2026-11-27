@@ -32,6 +32,12 @@ const UNSAFE_ARG = /["%]/;
 // Windows env names are case-insensitive, to mise as well.
 const SCRUB = new Set(['CI', 'MISE_YES', 'MISE_TASK_SKIP_DEPENDS']);
 
+// Set by the dry run itself, so dropped in any letter case first.
+const SET_HERE = new Set(['MISE_STATE_DIR', '__MISE_REQUIRE_EXPLICIT_TRUST', 'MISE_YES', 'NO_COLOR']);
+
+// Which configs the user trusted, and which they ignored after trusting them.
+const TRUST_RECORDS = ['trusted-configs', 'ignored-configs'];
+
 const VIA_BASH = 'Run it through Bash instead.';
 
 /**
@@ -41,7 +47,7 @@ const VIA_BASH = 'Run it through Bash instead.';
  *
  * A dry run records a task's sources as if it had run, so the real run would
  * skip it as up to date. It gets its own state directory, holding only a copy
- * of mise's trust records. Like run_task's own child, it requires explicit
+ * of mise's trust and ignore records. Like run_task's own child, it requires explicit
  * trust: otherwise `mise run` trusts the config, and runs its templates, before
  * run_task could refuse it.
  */
@@ -50,12 +56,14 @@ function dryRun(task, args, cwd) {
   const state = process.env.MISE_STATE_DIR
     || path.join(process.env.XDG_STATE_HOME || path.join(os.homedir(), '.local', 'state'), 'mise');
   const env = Object.fromEntries(Object.entries(process.env)
-    .filter(([name]) => !SCRUB.has(name.toUpperCase()) && name.toUpperCase() !== 'MISE_STATE_DIR'));
+    .filter(([name]) => !SCRUB.has(name.toUpperCase()) && !SET_HERE.has(name.toUpperCase())));
   const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'no-mcp-release-'));
 
   try {
-    const trusted = path.join(state, 'trusted-configs');
-    if (fs.existsSync(trusted)) fs.cpSync(trusted, path.join(scratch, 'trusted-configs'), { recursive: true });
+    for (const records of TRUST_RECORDS) {
+      const from = path.join(state, records);
+      if (fs.existsSync(from)) fs.cpSync(from, path.join(scratch, records), { recursive: true });
+    }
 
     return spawnSync('mise', ['run', '--dry-run', '--force', '--skip-tools', task, '--', ...args], {
       cwd,
@@ -103,6 +111,12 @@ function refusal(toolInput, cwd) {
   if (/requires confirmation/.test(output)) {
     return `\`${task}\` reaches a task that asks for confirmation, which the mise MCP server answers itself. `
       + `${VIA_BASH} For a release, follow the release-firefox skill.`;
+  }
+
+  // run_task refuses it too. Through Bash, `mise run` would trust it without asking.
+  if (/are not trusted/.test(output)) {
+    return `\`${task}\` is in a project whose mise config isn't trusted. Ask the user to review it and run \`mise trust\`.\n`
+      + output.slice(-1500);
   }
 
   if (result.status !== 0) {

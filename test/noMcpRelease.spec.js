@@ -120,26 +120,45 @@ describe('the hook', { timeout: 30000 }, () => {
   });
 
   // run_task refuses a config nobody trusted; the dry run mustn't load it first.
-  test('refuses an untrusted project without running its config', () => {
-    const untrusted = fs.mkdtempSync(path.join(os.tmpdir(), 'no-mcp-release-untrusted-'));
-    fs.writeFileSync(path.join(untrusted, 'mise.toml'), `
+  // The project trusts nothing by path, and mise trusts everything on a CI runner.
+  describe('a project that is not trusted', () => {
+    const { MISE_TRUSTED_CONFIG_PATHS, GITHUB_ACTIONS, CONTINUOUS_INTEGRATION, ...rest } = env;
+    let dir;
+    let untrusted;
+
+    beforeEach(() => {
+      dir = fs.mkdtempSync(path.join(os.tmpdir(), 'no-mcp-release-untrusted-'));
+      fs.writeFileSync(path.join(dir, 'mise.toml'), `
 [env]
 MARK = "{{ exec(command='echo x > MARKER') }}"
 
 [tasks.plain]
 run = "echo plain"
 `);
-    const { MISE_TRUSTED_CONFIG_PATHS, ...rest } = env;
+      untrusted = { ...rest, CLAUDE_PROJECT_DIR: dir, MISE_CEILING_PATHS: path.dirname(dir) };
+    });
 
-    try {
-      const result = hook(runTask('plain'), { ...rest, CLAUDE_PROJECT_DIR: untrusted, MISE_CEILING_PATHS: path.dirname(untrusted) });
+    afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
+
+    const refusesWithoutLoading = () => {
+      const result = hook(runTask('plain'), untrusted);
 
       expect(result.status, result.stderr).toBe(0);
-      expect(JSON.parse(result.stdout)).toEqual(denied('not trusted'));
-      expect(fs.existsSync(path.join(untrusted, 'MARKER'))).toBe(false);
-    } finally {
-      fs.rmSync(untrusted, { recursive: true, force: true });
-    }
+      expect(JSON.parse(result.stdout)).toEqual(denied('Ask the user'));
+      expect(fs.existsSync(path.join(dir, 'MARKER'))).toBe(false);
+    };
+
+    test('is refused without its config running', refusesWithoutLoading);
+
+    // `mise trust --ignore` keeps the trust record; run_task honours the ignore.
+    test('is refused once ignored after being trusted', () => {
+      for (const args of [['trust', dir], ['trust', '--ignore', dir]]) {
+        const result = spawnSync('mise', args, { cwd: dir, env: untrusted, encoding: 'utf8', timeout: 30000 });
+        expect(result.status, result.stderr).toBe(0);
+      }
+
+      refusesWithoutLoading();
+    });
   });
 
   // Windows env names are case-insensitive, to mise too.
