@@ -213,7 +213,7 @@ importers:
         version: 2.3.0
       mediabunny:
         specifier: ^1.66.0
-        version: 1.66.4
+        version: 1.66.5
       mitt:
         specifier: ^3.0.1
         version: 3.0.1
@@ -2051,8 +2051,8 @@ packages:
   mdn-data@2.27.1:
     resolution: {integrity: sha512-9Yubnt3e8A0OKwxYSXyhLymGW4sCufcLG6VdiDdUGVkPhpqLxlvP5vl1983gQjJl3tqbrM731mjaZaP68AgosQ==}
 
-  mediabunny@1.66.4:
-    resolution: {integrity: sha512-VIPwwaVpY5mUnf9mAOJlBii4P1nHK05X8//veRjJrddn514BSOuYaMrUy1UReLMVVsm85id6eMu0z5K71Kkf+g==}
+  mediabunny@1.66.5:
+    resolution: {integrity: sha512-g2H+TdA0cKszM4ZKae9JszxWKLUpmte1Je/F9TY5Et0uO9a6k82V7HGrI3X9RT6ILFOK3Vi2nB9SjifWn5yyPw==}
 
   minimatch@11.0.3:
     resolution: {integrity: sha512-iny/40PEGkNJQ5/Pv6z3nm6FbRAby32GeZRjCUJk2WnNDbgPSTcdI+DDvLqsgBdD4cD5sMtMheqPPnehCCa8Nw==}
@@ -4531,7 +4531,7 @@ snapshots:
 
   mdn-data@2.27.1: {}
 
-  mediabunny@1.66.4:
+  mediabunny@1.66.5:
     dependencies:
       '@types/dom-mediacapture-transform': 0.1.12
       '@types/dom-webcodecs': 0.1.13
