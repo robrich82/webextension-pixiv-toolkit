@@ -106,6 +106,11 @@ function refusal(toolInput, cwd) {
     return `Couldn't dry-run \`${task}\` to check it for a confirmation prompt: ${cause}. ${VIA_BASH}`;
   }
 
+  if (result.status === 0) {
+    return null;
+  }
+
+  // Only now: a clean dry run prints each command, which may contain these words.
   const output = `${result.stdout}${result.stderr}`.trim();
 
   if (/requires confirmation/.test(output)) {
@@ -113,18 +118,14 @@ function refusal(toolInput, cwd) {
       + `${VIA_BASH} For a release, follow the release-firefox skill.`;
   }
 
-  // run_task refuses it too. Through Bash, `mise run` would trust it without asking.
+  // Outside CI, run_task refuses it too, and `mise run` through Bash may trust it without asking.
   if (/are not trusted/.test(output)) {
     return `\`${task}\` is in a project whose mise config isn't trusted. Ask the user to review it and run \`mise trust\`.\n`
       + output.slice(-1500);
   }
 
-  if (result.status !== 0) {
-    return `The dry run of \`${task}\` failed, so it couldn't be checked for a confirmation prompt. ${VIA_BASH}\n`
-      + output.slice(-1500);
-  }
-
-  return null;
+  return `The dry run of \`${task}\` failed, so it couldn't be checked for a confirmation prompt. ${VIA_BASH}\n`
+    + output.slice(-1500);
 }
 
 /** The hook's stdout for one tool call's JSON input; empty unless the call is refused. */

@@ -56,6 +56,9 @@ outputs = ["out.txt"]
 confirm = "Really?"
 run = "echo fresh > out.txt"
 
+[tasks.wordy]
+run = "echo this requires confirmation, as certs are not trusted"
+
 [tasks.untouched]
 sources = ["mise.toml"]
 run = "echo untouched ran"
@@ -235,7 +238,9 @@ run = "echo plain"
     ['one with arguments', runTask('plain', ['--coverage.enabled=false', 'test/NameFormatter.spec.js'])],
     // Arguments go after a `--`, so this can't start a second task.
     ['a chain in the arguments', runTask('plain', [':::', 'ask'])],
-    ['a call without arguments', JSON.stringify({ tool_input: { task: 'plain' } })]
+    ['a call without arguments', JSON.stringify({ tool_input: { task: 'plain' } })],
+    // A dry run prints the command; only a failed one is read for a reason.
+    ['a command that mentions confirmation and trust', runTask('wordy')]
   ])('allows %s', (_, input) => {
     const result = hook(input);
 
