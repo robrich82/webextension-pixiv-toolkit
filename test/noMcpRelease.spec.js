@@ -119,6 +119,29 @@ describe('the hook', { timeout: 30000 }, () => {
     expect(run.stdout).toContain('untouched ran');
   });
 
+  // run_task refuses a config nobody trusted; the dry run mustn't load it first.
+  test('refuses an untrusted project without running its config', () => {
+    const untrusted = fs.mkdtempSync(path.join(os.tmpdir(), 'no-mcp-release-untrusted-'));
+    fs.writeFileSync(path.join(untrusted, 'mise.toml'), `
+[env]
+MARK = "{{ exec(command='echo x > MARKER') }}"
+
+[tasks.plain]
+run = "echo plain"
+`);
+    const { MISE_TRUSTED_CONFIG_PATHS, ...rest } = env;
+
+    try {
+      const result = hook(runTask('plain'), { ...rest, CLAUDE_PROJECT_DIR: untrusted, MISE_CEILING_PATHS: path.dirname(untrusted) });
+
+      expect(result.status, result.stderr).toBe(0);
+      expect(JSON.parse(result.stdout)).toEqual(denied('not trusted'));
+      expect(fs.existsSync(path.join(untrusted, 'MARKER'))).toBe(false);
+    } finally {
+      fs.rmSync(untrusted, { recursive: true, force: true });
+    }
+  });
+
   // Windows env names are case-insensitive, to mise too.
   test('refuses with CI spelled in lower case', () => {
     const { CI, ...rest } = env;
@@ -232,6 +255,11 @@ describe('.claude/settings.json', () => {
     'mcp__Mise__run_task',
     'mcp__claude_ai_Mise__run_task',
     'mcp__mise2__run_task',
+    'mcp__localmise__run_task',
+    'mcp__myMise__run_task',
+    // Broad on purpose: a server that only contains the word has its calls
+    // refused, which fails closed, rather than a mise server going unguarded.
+    'mcp__promise__run_task',
     'mcp__plugin_mise_mise__run_task'
   ])('runs the hook before %s', (tool) => {
     expect(runs(tool)).toBeDefined();
@@ -241,8 +269,6 @@ describe('.claude/settings.json', () => {
     'mcp__mise__list_tasks',
     'mcp__other__run_task',
     'mcp__mise__run_task_x',
-    // Every call would be refused: its tasks aren't mise's.
-    'mcp__promise__run_task',
     'Bash'
   ])('leaves %s alone', (tool) => {
     expect(runs(tool)).toBeUndefined();

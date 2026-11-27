@@ -2,7 +2,7 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "^mcp__([\\w-]*[_-])?[Mm][Ii][Ss][Ee][\\w-]*__run_task$",
+        "matcher": "^mcp__[\\w-]*[Mm][Ii][Ss][Ee][\\w-]*__run_task$",
         "hooks": [
           {
             "type": "command",

@@ -41,7 +41,9 @@ const VIA_BASH = 'Run it through Bash instead.';
  *
  * A dry run records a task's sources as if it had run, so the real run would
  * skip it as up to date. It gets its own state directory, holding only a copy
- * of mise's trust records.
+ * of mise's trust records. Like run_task's own child, it requires explicit
+ * trust: otherwise `mise run` trusts the config, and runs its templates, before
+ * run_task could refuse it.
  */
 function dryRun(task, args, cwd) {
   // process.env looks names up case-insensitively on Windows; a copy of it doesn't.
@@ -58,12 +60,16 @@ function dryRun(task, args, cwd) {
     return spawnSync('mise', ['run', '--dry-run', '--force', '--skip-tools', task, '--', ...args], {
       cwd,
       encoding: 'utf8',
-      env: { ...env, MISE_STATE_DIR: scratch, MISE_YES: 'false', NO_COLOR: '1' },
+      env: { ...env, MISE_STATE_DIR: scratch, __MISE_REQUIRE_EXPLICIT_TRUST: '1', MISE_YES: 'false', NO_COLOR: '1' },
       stdio: ['ignore', 'pipe', 'pipe'],
       timeout: 10000
     });
   } finally {
-    fs.rmSync(scratch, { recursive: true, force: true });
+    try {
+      fs.rmSync(scratch, { recursive: true, force: true, maxRetries: 3 });
+    } catch (error) {
+      // A leftover temp directory doesn't change the verdict.
+    }
   }
 }
 
