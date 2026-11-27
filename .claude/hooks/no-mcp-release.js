@@ -14,10 +14,14 @@
  *
  * It guards against accidents and isn't a sandbox. A dry run can't see inside
  * scripts: a script that runs `mise run` inherits MISE_YES=1, and an argument
- * a script takes through `{{usage.*}}` or a pwsh shell isn't quoted.
+ * a script takes through `{{usage.*}}` or a pwsh shell isn't quoted. A task
+ * graph templated on CI or MISE_YES differs between the dry run and the real one.
  */
 
 const { spawnSync } = require('child_process');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 
 // mise quotes the arguments it appends, but on Windows it hands them to cmd.exe,
 // which ignores `\"`: what follows a `"` runs as a command, and `%NAME%` expands
@@ -34,17 +38,33 @@ const VIA_BASH = 'Run it through Bash instead.';
  * A dry run of `task` with nobody to answer `confirm`. --force reaches a task
  * whose sources are fresh only until a dependency rewrites them; --skip-tools
  * keeps it from installing anything.
+ *
+ * A dry run records a task's sources as if it had run, so the real run would
+ * skip it as up to date. It gets its own state directory, holding only a copy
+ * of mise's trust records.
  */
 function dryRun(task, args, cwd) {
-  const env = Object.fromEntries(Object.entries(process.env).filter(([name]) => !SCRUB.has(name.toUpperCase())));
+  // process.env looks names up case-insensitively on Windows; a copy of it doesn't.
+  const state = process.env.MISE_STATE_DIR
+    || path.join(process.env.XDG_STATE_HOME || path.join(os.homedir(), '.local', 'state'), 'mise');
+  const env = Object.fromEntries(Object.entries(process.env)
+    .filter(([name]) => !SCRUB.has(name.toUpperCase()) && name.toUpperCase() !== 'MISE_STATE_DIR'));
+  const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'no-mcp-release-'));
 
-  return spawnSync('mise', ['run', '--dry-run', '--force', '--skip-tools', task, '--', ...args], {
-    cwd,
-    encoding: 'utf8',
-    env: { ...env, MISE_YES: 'false', NO_COLOR: '1' },
-    stdio: ['ignore', 'pipe', 'pipe'],
-    timeout: 10000
-  });
+  try {
+    const trusted = path.join(state, 'trusted-configs');
+    if (fs.existsSync(trusted)) fs.cpSync(trusted, path.join(scratch, 'trusted-configs'), { recursive: true });
+
+    return spawnSync('mise', ['run', '--dry-run', '--force', '--skip-tools', task, '--', ...args], {
+      cwd,
+      encoding: 'utf8',
+      env: { ...env, MISE_STATE_DIR: scratch, MISE_YES: 'false', NO_COLOR: '1' },
+      stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: 10000
+    });
+  } finally {
+    fs.rmSync(scratch, { recursive: true, force: true });
+  }
 }
 
 /** Why the call is refused, or null to let it through. */
@@ -52,7 +72,7 @@ function refusal(toolInput, cwd) {
   const task = toolInput?.task;
   const args = toolInput?.args ?? [];
 
-  // run_task's schema requires both, so anything else is a call this hook can't read.
+  // run_task's schema requires a task name and makes args a list of strings.
   if (typeof task !== 'string' || !Array.isArray(args) || !args.every((arg) => typeof arg === 'string')) {
     return `Couldn't read the run_task call to check it for a confirmation prompt. ${VIA_BASH}`;
   }
@@ -97,7 +117,13 @@ function output(input) {
     parsed = null;
   }
 
-  const reason = refusal(parsed?.tool_input, process.env.CLAUDE_PROJECT_DIR || parsed?.cwd || process.cwd());
+  let reason;
+
+  try {
+    reason = refusal(parsed?.tool_input, process.env.CLAUDE_PROJECT_DIR || parsed?.cwd || process.cwd());
+  } catch (error) {
+    reason = `Couldn't check the run_task call for a confirmation prompt: ${error.message}. ${VIA_BASH}`;
+  }
 
   return reason === null ? '' : JSON.stringify({
     hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: reason }

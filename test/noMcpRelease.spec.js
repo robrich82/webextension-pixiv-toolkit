@@ -55,6 +55,10 @@ sources = ["src.txt"]
 outputs = ["out.txt"]
 confirm = "Really?"
 run = "echo fresh > out.txt"
+
+[tasks.untouched]
+sources = ["mise.toml"]
+run = "echo untouched ran"
 `);
 
 afterAll(() => fs.rmSync(PROJECT, { recursive: true, force: true }));
@@ -105,6 +109,16 @@ describe('the hook', { timeout: 30000 }, () => {
     expect(JSON.parse(result.stdout)).toEqual(denied('asks for confirmation'));
   });
 
+  // A dry run records the sources as if the task had run; this one mustn't.
+  test('leaves a task it allows to run, not skipped as up to date', () => {
+    const result = hook(runTask('untouched'));
+    expect(result.stdout, result.stderr).toBe('');
+
+    const run = spawnSync('mise', ['run', 'untouched'], { cwd: PROJECT, env, encoding: 'utf8', timeout: 30000 });
+    expect(run.status, run.stderr).toBe(0);
+    expect(run.stdout).toContain('untouched ran');
+  });
+
   // Windows env names are case-insensitive, to mise too.
   test('refuses with CI spelled in lower case', () => {
     const { CI, ...rest } = env;
@@ -144,6 +158,13 @@ describe('the hook', { timeout: 30000 }, () => {
 
     expect(result.status, result.stderr).toBe(0);
     expect(JSON.parse(result.stdout)).toEqual(denied('can\'t contain'));
+  });
+
+  test('refuses, with a reason, a call it fails to check', () => {
+    const result = hook(runTask('plain\0'));
+
+    expect(result.status, result.stderr).toBe(0);
+    expect(JSON.parse(result.stdout)).toEqual(denied('Couldn\'t check'));
   });
 
   test('refuses a flag in place of a task name', () => {
@@ -209,6 +230,8 @@ describe('.claude/settings.json', () => {
     'mcp__mise__run_task',
     'mcp__mise-dev__run_task',
     'mcp__Mise__run_task',
+    'mcp__claude_ai_Mise__run_task',
+    'mcp__mise2__run_task',
     'mcp__plugin_mise_mise__run_task'
   ])('runs the hook before %s', (tool) => {
     expect(runs(tool)).toBeDefined();
@@ -218,6 +241,8 @@ describe('.claude/settings.json', () => {
     'mcp__mise__list_tasks',
     'mcp__other__run_task',
     'mcp__mise__run_task_x',
+    // Every call would be refused: its tasks aren't mise's.
+    'mcp__promise__run_task',
     'Bash'
   ])('leaves %s alone', (tool) => {
     expect(runs(tool)).toBeUndefined();
