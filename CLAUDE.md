@@ -70,7 +70,7 @@ Default settings live in `src/config/default.js`, and `SettingService` (one on e
 
 `.claude/agents/` holds project reviewers such as `cross-browser-reviewer` and `settings-storage-reviewer`. Add each to a self-review or PR review whose diff touches the areas its description lists.
 
-A PreToolUse hook (`.claude/hooks/no-mcp-release.js`) refuses release tasks and task patterns sent through the mise MCP server's `run_task`, which answers a task's confirmation prompt itself.
+A PreToolUse hook (`.claude/hooks/no-mcp-release.js`) refuses a mise MCP `run_task` call whose dry run reaches a confirmation prompt, such as a release's, since `run_task` answers the prompt itself. It guards against accidents; it isn't a sandbox.
 
 UI strings are in `src/statics/_locales`. `src/statics/HISTORY_<locale>` (one per locale in `histories.json`) is the Change History page. Each release adds its user-facing entries to every locale in the version bump PR, and `test/components/ChangeLog.spec.js` fails while the newest entry isn't `package.json`'s version.
 

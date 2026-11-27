@@ -2,13 +2,14 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "mcp__mise__run_task",
+        "matcher": "^mcp__(plugin_[\\w-]+_)?[\\w-]*mise[\\w-]*__run_task$",
         "hooks": [
           {
             "type": "command",
             "shell": "bash",
             "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/no-mcp-release.js\"",
-            "timeout": 10
+            "timeout": 20,
+            "onFailure": "block"
           }
         ]
       }
