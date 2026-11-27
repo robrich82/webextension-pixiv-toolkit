@@ -23,7 +23,7 @@ pnpm run test:e2e:firefox  # node --test in real Firefox; needs `pnpm run build:
 
 There is no linter, formatter or type check. `eslint` and `eslint-plugin-compat` only check the built bundles against the browserslist floor, from `test/build.spec.js`. The `typescript` devDependency is there only for editors' language servers (and Claude's LSP tool), through TypeScript 7's own `tsc --lsp`; nothing in the build or tests uses it. CI (`.github/workflows/ci.yml`) runs `pnpm audit`, `pnpm test`, both builds and the e2e tests, skipping on a PR the jobs whose paths it doesn't touch. A suite that starts reading or importing a file outside its own directory needs a matching rule in `scripts/ciChanges.mjs`.
 
-`pnpm run release:firefox` (`scripts/release-firefox.js`) builds, signs through AMO and publishes a GitHub release with `updates.json`. AMO signs a given version only once, so don't run it without being asked. `pnpm run package:chrome` (`scripts/package-chrome.mjs`) builds and zips the Chrome Web Store upload into `dist/pixiv-toolkit-chrome-<version>.zip`; the upload itself is manual. Releases go through two user-invoked skills: `/release-bump` opens the version bump PR, and once it has merged, `/release-firefox` (`.claude/skills/release-firefox/SKILL.md`) runs the pre-flight checks and the release.
+`pnpm run release:firefox` (`scripts/release-firefox.js`) builds, signs through AMO and publishes a GitHub release with `updates.json`. AMO signs a given version only once, so don't run it without being asked. `pnpm run package:chrome` (`scripts/package-chrome.mjs`) builds and zips the Chrome Web Store upload into `dist/pixiv-toolkit-chrome-<version>.zip`; the upload itself is manual. Releases go through two user-invoked skills: `/release-bump` opens the version bump PR, and once it has merged, `/release-firefox` (`.claude/skills/release-firefox/SKILL.md`) runs the pre-flight checks and the release. A PreToolUse hook (`.claude/hooks/no-mcp-release.js`) refuses a mise MCP `run_task` call that would reach a `confirm` prompt, which `run_task` answers itself; its header lists what it can't see.
 
 ## Architecture
 
@@ -69,8 +69,6 @@ Cross-origin fetches (for example Fanbox) are made from the background, not from
 Default settings live in `src/config/default.js`, and `SettingService` (one on each side) mirrors `storage.local` through `onChanged`. Renaming, removing or re-shaping a stored setting needs a versioned migration in `src/background/updates/`. The `add-settings-migration` skill has the rules, and a hook points at it after each Edit or Write of `default.js` (not after a shell edit).
 
 `.claude/agents/` holds project reviewers such as `cross-browser-reviewer` and `settings-storage-reviewer`. Add each to a self-review or PR review whose diff touches the areas its description lists.
-
-A PreToolUse hook (`.claude/hooks/no-mcp-release.js`) refuses a mise MCP `run_task` call whose dry run reaches a confirmation prompt, such as a release's, since `run_task` answers the prompt itself. It guards against accidents; it isn't a sandbox.
 
 UI strings are in `src/statics/_locales`. `src/statics/HISTORY_<locale>` (one per locale in `histories.json`) is the Change History page. Each release adds its user-facing entries to every locale in the version bump PR, and `test/components/ChangeLog.spec.js` fails while the newest entry isn't `package.json`'s version.
 
