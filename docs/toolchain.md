@@ -241,8 +241,8 @@ caches mise's downloads, keyed on `mise.lock`. The pnpm store is cached with
 To relock by hand, run `mise lock`; it keeps the platforms already in the lock.
 
 Each of the jobs below starts with `.github/actions/setup`, which does the
-above and installs the dependencies with `mise deps`. Then each step runs a
-`mise run` task:
+above and installs the dependencies with `mise deps`. The build, test and E2E
+steps then run mise tasks:
 
 - `test` runs the `audit` and `test` tasks.
 - `build` builds for Chrome and Firefox and uploads each `dist/` directory as an
@@ -276,5 +276,5 @@ A red audit step still needs clearing: `pnpm update`, an `overrides` floor, or
 — when the package is abandoned and there is no fixed version —
 `auditConfig.ignoreGhsas` in `pnpm-workspace.yaml`, with the reason beside it.
 
-The `test` step is the Vitest suite; see `docs/testing.md` for how it is
+The `test` task is the Vitest suite; see `docs/testing.md` for how it is
 configured and for the extension API double the specs run against.
