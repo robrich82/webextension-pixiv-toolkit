@@ -295,9 +295,10 @@ every spec here. Check options-page styling by loading the built extension.
 `mise run test:e2e` builds `dist/chrome`, then runs Playwright over
 `e2e/*.e2e.js` (not `.spec.js`, which Vitest would claim). Each test launches
 Playwright's full Chromium with `dist/chrome` loaded. `mise run --skip-deps
-test:e2e` skips the build and tests whatever is in `dist/`, stale or not. The `channel: 'chromium'` in `e2e/fixtures.js` is
-load-bearing: without it Playwright runs its headless shell, which can't load
-extensions, and branded Chrome ignores `--load-extension`.
+test:e2e` skips the build and tests whatever is in `dist/chrome`, stale or
+not. The `channel: 'chromium'` in `e2e/fixtures.js` is load-bearing: without
+it Playwright runs its headless shell, which can't load extensions, and
+branded Chrome ignores `--load-extension`.
 
 Pixiv is never contacted. `mockPixiv()` in `e2e/fixtures.js` answers
 `www.pixiv.net` and `i.pximg.net` from the route table in

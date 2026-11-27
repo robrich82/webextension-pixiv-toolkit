@@ -31,10 +31,11 @@ const ARTIFACTS_DIR = path.join(ROOT, 'web-ext-artifacts');
 
 /**
  * How to spawn pnpm without a shell, since shell:true with array args is
- * deprecated (DEP0190). Under `pnpm run`, npm_execpath names the running pnpm
- * (or its `pn` alias): a JS entry, run with node, or a native binary such as
- * mise's pnpm.exe, run directly. Otherwise `pnpm` is looked up on PATH, which
- * on Windows finds pnpm.exe but not a pnpm.cmd shim.
+ * deprecated (DEP0190). Under pnpm (`pnpm exec`), npm_execpath names the
+ * running pnpm (or its `pn` alias): a JS entry, run with node, or a native
+ * binary such as mise's pnpm.exe, run directly. Otherwise, as under
+ * `mise run`, `pnpm` is looked up on PATH, which on Windows finds pnpm.exe but
+ * not a pnpm.cmd shim.
  *
  * The AMO key/secret are never passed as CLI args: web-ext reads
  * WEB_EXT_API_KEY / WEB_EXT_API_SECRET from the inherited environment.

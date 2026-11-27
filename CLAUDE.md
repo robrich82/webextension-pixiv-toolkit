@@ -8,7 +8,7 @@ Pixiv Toolkit is a Manifest V3 browser extension (Chrome and Firefox) that downl
 
 pnpm only (`engines.npm` refuses npm, and the `preinstall` hook refuses yarn and bun). Node and pnpm are pinned in `mise.toml` and locked in `mise.lock` (run `mise lock` after changing either); pnpm is also pinned in `packageManager`, and `test/toolchainPins.spec.js` fails when they disagree. CI uses the same pins.
 
-The commands are mise tasks in `mise.toml` (`mise tasks` lists them). `mise run` installs the pinned tools and runs `pnpm install --frozen-lockfile` first when the lockfile changed or `node_modules` is missing; arguments after the task name are appended to its command.
+The commands are mise tasks in `mise.toml` (`mise tasks` lists them). `mise run` installs the pinned tools, and the dependencies when they're stale, first. Arguments after the task name are appended to its command, so mise's own flags go before it.
 
 ```bash
 mise run build             # production build -> dist/chrome
@@ -18,13 +18,13 @@ mise run test              # Vitest, unit + components projects, with coverage t
 # Subsets need --coverage.enabled=false, or the global coverage thresholds fail the run
 mise run test --coverage.enabled=false test/NameFormatter.spec.js
 mise run test --coverage.enabled=false --project components
-mise run test:e2e          # Playwright; builds dist/chrome first (--skip-deps tests the build already there)
+mise run test:e2e          # Playwright; builds dist/chrome first (`mise run --skip-deps test:e2e` tests the build already there)
 mise run test:e2e:firefox  # node --test in real Firefox; builds dist/firefox first, prerequisites in docs/testing.md "Firefox"
 ```
 
 There is no linter, formatter or type check. `eslint` and `eslint-plugin-compat` only check the built bundles against the browserslist floor, from `test/build.spec.js`. The `typescript` devDependency is there only for editors' language servers (and Claude's LSP tool), through TypeScript 7's own `tsc --lsp`; nothing in the build or tests uses it. CI (`.github/workflows/ci.yml`) runs the `audit` and `test` tasks, both builds and the e2e tests, skipping on a PR the jobs whose paths it doesn't touch. A suite that starts reading or importing a file outside its own directory needs a matching rule in `scripts/ciChanges.mjs`.
 
-`mise run release:firefox` (`scripts/release-firefox.js`) builds, signs through AMO and publishes a GitHub release with `updates.json`. AMO signs a given version only once, so don't run it without being asked; the task asks for confirmation, which `--yes` or a set `CI` answers. `mise run package:chrome` (`scripts/package-chrome.mjs`) builds and zips the Chrome Web Store upload into `dist/pixiv-toolkit-chrome-<version>.zip`; the upload itself is manual. Releases go through two user-invoked skills: `/release-bump` opens the version bump PR, and once it has merged, `/release-firefox` (`.claude/skills/release-firefox/SKILL.md`) runs the pre-flight checks and the release. A PreToolUse hook (`.claude/hooks/no-mcp-release.js`) refuses a mise MCP `run_task` call that would reach a `confirm` prompt, which `run_task` answers itself; its header lists what it can't see.
+`mise run release:firefox` (`scripts/release-firefox.js`) builds, signs through AMO and publishes a GitHub release with `updates.json`. AMO signs a given version only once, so don't run it without being asked; the task asks for confirmation, but `--yes`, a truthy `CI` or `MISE_YES`, and the mise MCP server's `run_task` all answer it. `mise run package:chrome` (`scripts/package-chrome.mjs`) builds and zips the Chrome Web Store upload into `dist/pixiv-toolkit-chrome-<version>.zip`; the upload itself is manual. Releases go through two user-invoked skills: `/release-bump` opens the version bump PR, and once it has merged, `/release-firefox` (`.claude/skills/release-firefox/SKILL.md`) runs the pre-flight checks and the release. A PreToolUse hook (`.claude/hooks/no-mcp-release.js`) refuses a `run_task` call that would reach any `confirm` prompt; its header lists what it can't see.
 
 ## Architecture
 

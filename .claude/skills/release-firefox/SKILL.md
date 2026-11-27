@@ -30,7 +30,7 @@ Summarise the results of all six checks and get an explicit go-ahead before goin
 mise run --yes release:firefox
 ```
 
-`--yes` answers the task's confirmation prompt, which the go-ahead above stands in for; without a terminal the task fails without it. Run it in the background (`run_in_background`). It can outlast the Bash tool's 10-minute foreground limit, because web-ext waits up to 15 minutes for AMO approval on each attempt.
+`--yes` answers the task's confirmation prompt; the go-ahead above stands in for it. Run it in the background (`run_in_background`). It can outlast the Bash tool's 10-minute foreground limit, because web-ext waits up to 15 minutes for AMO approval on each attempt.
 
 **If it fails, read the end of its output before rerunning.** After a failed sign, the script asks AMO whether it has the version. It retries only while AMO has none, and otherwise prints what to do:
 - **AMO has the version** (web-ext creates it before approval and download, and AMO won't take it again): download the signed `.xpi` from the AMO developer hub once it's approved, save it in `web-ext-artifacts/` with its version in the name (`*-<version>.xpi`), and rerun.

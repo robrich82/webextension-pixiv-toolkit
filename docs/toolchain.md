@@ -15,8 +15,7 @@
   `node_modules` is missing, and `mise exec` and `mise run` run it first too
 
 Any other pnpm fetches and runs the `packageManager` version instead (pnpm's
-default `pmOnFail: download`), so a stray global pnpm does no harm. Without
-mise, only the `engines` ranges apply.
+default `pmOnFail: download`), so a stray global pnpm does no harm.
 
 ## Toolchain pinning
 
