@@ -211,7 +211,20 @@ job. It skips what any `.gitignore` lists, so `scripts/ciChanges.mjs` runs
 
 `eslint` and `eslint-plugin-compat` are not a source linter. They drive the
 bundle API floor check (`test/helpers/bundleApiFloor.js`) over the built
-bundles, which Vite+'s Oxlint doesn't replace.
+bundles. Oxlint can load eslint-plugin-compat as a JS plugin (`jsPlugins`), and
+it reports the same APIs in a file it reads, but it can't replace ESLint here:
+
+- Oxlint never lints a file whose name contains `.min.`, `-min.` or `_min.`,
+  even one named on the command line, and has no option to turn that off. The
+  vendor files in `lib/` (`dexie.min.js`, `jszip.min.js`) are the ones Vite
+  doesn't lower, and Dexie's `navigator.userAgentData` (Firefox 130) is the
+  check's only current report.
+- ESLint parses at `ecmaVersion: 2023` and reports a file with newer syntax
+  (such as a `/v` regex) as a parse error. Oxlint parses the latest syntax and
+  reports nothing.
+
+Dropping `eslint` wouldn't remove it from the install anyway: `web-ext` brings
+its own through `addons-linter`.
 
 ## Build
 
