@@ -33,7 +33,9 @@ describe('relatedArgs', () => {
     ['the settings reminder hook', '.claude/hooks/settings-migration-reminder.js', ['test/settingsMigrationReminder.spec.js']],
     ['docs', 'docs/testing.md', []],
     ['markdown under test/', 'test/fixtures/README.md', []],
-    ['agent config', '.claude/settings.json', []]
+    ['the MCP release guard', '.claude/hooks/no-mcp-release.js', ['test/noMcpRelease.spec.js']],
+    ['the Claude settings', '.claude/settings.json', ['test/noMcpRelease.spec.js']],
+    ['agent config', '.claude/agents/cross-browser-reviewer.md', []]
   ])('%s', (_, file, expected) => {
     expect(relatedArgs(file)).toEqual(expected);
   });
