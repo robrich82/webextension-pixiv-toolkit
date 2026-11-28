@@ -22,6 +22,9 @@ const env = {
   MISE_CEILING_PATHS: path.dirname(ROOT),
   MISE_YES: 'false',
   MISE_TASK_OUTPUT: 'prefix',
+  // Without a terminal mise cuts each echoed command at 80 columns, unless it
+  // detects an AI coding agent, so a local run inside one wouldn't catch it.
+  MISE_TASK_SHOW_FULL_CMD: 'true',
   NO_COLOR: '1'
 };
 
