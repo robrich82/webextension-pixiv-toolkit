@@ -5,16 +5,7 @@
   "author": "leoding86 <leoding86@msn.com>",
   "private": false,
   "scripts": {
-    "preinstall": "node scripts/only-pnpm.js",
-    "dev": "node scripts/build.mjs --watch",
-    "dev:firefox": "node scripts/build.mjs --platform=firefox --watch",
-    "build": "node scripts/build.mjs",
-    "build:firefox": "node scripts/build.mjs --platform=firefox",
-    "package:chrome": "node scripts/package-chrome.mjs",
-    "release:firefox": "node scripts/release-firefox.js",
-    "test": "vitest run",
-    "test:e2e": "playwright test",
-    "test:e2e:firefox": "node --test --test-reporter=spec \"e2e-firefox/*.test.mjs\""
+    "preinstall": "node scripts/only-pnpm.js"
   },
   "dependencies": {
     "@mdi/font": "^7.4.47",

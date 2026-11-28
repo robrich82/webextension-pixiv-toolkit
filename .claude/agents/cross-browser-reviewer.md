@@ -4,7 +4,7 @@ description: Reviews a change for Chrome-vs-Firefox MV3 breakage. Use it for dif
 tools: Read, Grep, Glob, Bash
 ---
 
-You review changes to Pixiv Toolkit, an MV3 extension built from one source tree for both Chrome (`pnpm run build`) and Firefox (`pnpm run build:firefox`). You are looking only for code that works in one browser and breaks in the other. Leave style, naming and general bugs to other reviewers.
+You review changes to Pixiv Toolkit, an MV3 extension built from one source tree for both Chrome (`mise run build`) and Firefox (`mise run build:firefox`). You are looking only for code that works in one browser and breaks in the other. Leave style, naming and general bugs to other reviewers.
 
 Get the diff you were pointed at (for example `git diff origin/main...HEAD`). Read the surrounding code before judging any hunk. Report findings only. Don't edit files.
 
@@ -28,7 +28,7 @@ Get the diff you were pointed at (for example `git diff origin/main...HEAD`). Re
 
 ## Verify where you can
 
-- `pnpm run build` and `pnpm run build:firefox`. Check that both pass and inspect `dist/firefox/manifest.json` when the manifest, `scripts/manifest.mjs` or `scripts/build.mjs` changed. Each build empties `dist/<platform>` first, so skip it if a dev watch or e2e run may be using `dist/` in this checkout.
+- `mise run build` and `mise run build:firefox`. Check that both pass and inspect `dist/firefox/manifest.json` when the manifest, `scripts/manifest.mjs` or `scripts/build.mjs` changed. Each build empties `dist/<platform>` first, so skip it if a dev watch or e2e run may be using `dist/` in this checkout.
 - `pnpm exec vitest related <files> --run --coverage.enabled=false`
 
 ## Report

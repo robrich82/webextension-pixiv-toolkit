@@ -50,7 +50,7 @@ Create the worktree per the global rules, off a freshly fetched `origin/main`, o
 
 ```bash
 pnpm exec vitest run --coverage.enabled=false test/components/ChangeLog.spec.js
-pnpm test
+mise run test
 ```
 
 `ChangeLog.spec` fails while any HISTORY file doesn't start with `v<package.json version>`. If either run fails, stop and show the output.

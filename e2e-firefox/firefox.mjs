@@ -106,7 +106,7 @@ function extensionId() {
   const manifest = path.join(EXTENSION_PATH, 'manifest.json');
 
   if (!fs.existsSync(manifest)) {
-    throw new Error(`No Firefox build at ${EXTENSION_PATH}; run \`pnpm run build:firefox\` first.`);
+    throw new Error(`No Firefox build at ${EXTENSION_PATH}; run \`mise run build:firefox\` first.`);
   }
 
   const id = JSON.parse(fs.readFileSync(manifest, 'utf8')).browser_specific_settings?.gecko?.id;

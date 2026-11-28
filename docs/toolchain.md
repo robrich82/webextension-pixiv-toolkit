@@ -15,8 +15,7 @@
   `node_modules` is missing, and `mise exec` and `mise run` run it first too
 
 Any other pnpm fetches and runs the `packageManager` version instead (pnpm's
-default `pmOnFail: download`), so a stray global pnpm does no harm. Without
-mise, only the `engines` ranges apply.
+default `pmOnFail: download`), so a stray global pnpm does no harm.
 
 ## Toolchain pinning
 
@@ -192,7 +191,7 @@ Change them in `package.json`'s `browserslist`: autoprefixer reads it, and
 `scripts/build.mjs` derives Vite's `build.target` and the manifests' minimum
 versions from it. `test/build.spec.js` checks the built JS and CSS against
 the floors (`test/helpers/bundleApiFloor.js`, whose header lists what it can't
-see), so a dependency bump that uses a newer API it knows fails `pnpm test`.
+see), so a dependency bump that uses a newer API it knows fails `mise run test`.
 Either raise the floor, or add the use to `GUARDED`/`GUARDED_COMPAT` (behind a
 feature check) or `ACCEPTED` (degrades acceptably, with an issue) in that spec.
 

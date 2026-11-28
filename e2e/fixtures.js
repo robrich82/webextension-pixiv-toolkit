@@ -239,7 +239,7 @@ const test = base.extend({
   // build race on it, and the loser runs without the extension (#400), so each worker loads its own copy.
   extensionPath: [async ({}, use) => {
     if (!fs.existsSync(path.join(EXTENSION_PATH, 'manifest.json'))) {
-      throw new Error(`No extension build at ${EXTENSION_PATH}; run \`pnpm run build\` first.`);
+      throw new Error(`No extension build at ${EXTENSION_PATH}; run \`mise run build\` first.`);
     }
 
     const copy = fs.mkdtempSync(path.join(os.tmpdir(), 'ptk-e2e-extension-'));

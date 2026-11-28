@@ -24,9 +24,9 @@ What a user sees before and after. Call out:
 ### Verification
 
 ```
-pnpm test                 #
-pnpm run build            #
-pnpm run build:firefox    #
+mise run test             #
+mise run build            #
+mise run build:firefox    #
 ```
 
 <!-- Manual checks: which browser(s), which pixiv/fanbox pages, what you did and what happened. -->

@@ -1,6 +1,6 @@
 # Tests
 
-`pnpm test` runs Vitest over every `*.spec.js` under `test/`, with coverage
+`mise run test` runs Vitest over every `*.spec.js` under `test/`, with coverage
 collected from `src/**/*.{js,vue}`. `vitest.config.mjs` defines two projects:
 `unit` (everything under `test/` except `test/components/`, in the `node`
 environment, see below for why; one spec opts into jsdom, see "Downloads") and `components` (`test/components/**/*.spec.js`,
@@ -20,7 +20,7 @@ Coverage is always on, and a subset run fails the floors below, so add
 ## The coverage floor
 
 `coverage.thresholds` in `vitest.config.mjs` fails the run — and so CI, which just
-calls `pnpm test` — when coverage drops below where it already is. It is a
+calls `mise run test` — when coverage drops below where it already is. It is a
 ratchet, not a target: the numbers are set a hair under the current ones, so
 nothing can quietly regress, and they get raised whenever a change clears them
 by a useful margin.
@@ -292,12 +292,13 @@ every spec here. Check options-page styling by loading the built extension.
 
 ## End-to-end tests
 
-`pnpm run test:e2e` runs Playwright over `e2e/*.e2e.js` (not `.spec.js`, which
-Vitest would claim). Each test launches Playwright's full Chromium with
-`dist/chrome` loaded, so run `pnpm run build` first; it tests whatever is in
-`dist/`, stale or not. The `channel: 'chromium'` in `e2e/fixtures.js` is
-load-bearing: without it Playwright runs its headless shell, which can't load
-extensions, and branded Chrome ignores `--load-extension`.
+`mise run test:e2e` builds `dist/chrome`, then runs Playwright over
+`e2e/*.e2e.js` (not `.spec.js`, which Vitest would claim). Each test launches
+Playwright's full Chromium with `dist/chrome` loaded. `mise run --skip-deps
+test:e2e` skips the build and tests whatever is in `dist/chrome`, stale or
+not. The `channel: 'chromium'` in `e2e/fixtures.js` is load-bearing: without
+it Playwright runs its headless shell, which can't load extensions, and
+branded Chrome ignores `--load-extension`.
 
 Pixiv is never contacted. `mockPixiv()` in `e2e/fixtures.js` answers
 `www.pixiv.net` and `i.pximg.net` from the route table in
@@ -321,8 +322,8 @@ Two limits worth knowing before adding a test:
 
 ### Firefox
 
-`pnpm run test:e2e:firefox` runs `e2e-firefox/*.test.mjs` with `node --test`
-against `dist/firefox`, so run `pnpm run build:firefox` first. It needs
+`mise run test:e2e:firefox` builds `dist/firefox`, then runs
+`e2e-firefox/*.test.mjs` against it with `node --test`. It needs
 Firefox 148 or later and `openssl` 1.1.1 or later on the PATH; on Linux, the
 MP4 decode checks also need the system libavcodec (`libavcodec-extra`). Firefox is
 looked up at its default install location on Windows and macOS and on the PATH

@@ -107,6 +107,11 @@ describe('mise tasks', { timeout: 30000 }, () => {
     ]);
   });
 
+  // scripts/build.mjs's parseArgs would reject a `--` that reached it.
+  test('a `--` before the arguments is dropped, not passed on', () => {
+    expect(dryRun('build', '--', '--out-dir=x')).toEqual(['build: node scripts/build.mjs --out-dir=x']);
+  });
+
   // AMO signs a version once, so a run with nobody to answer must not start one.
   test('release:firefox refuses to start without a terminal or --yes', () => {
     const { status, stderr } = mise('run', '-n', 'release:firefox');

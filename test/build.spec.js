@@ -271,16 +271,6 @@ it('leaves an unrelated --out-dir untouched and fails', async () => {
   expect(fs.existsSync(path.join(dir, 'keep.txt'))).toBe(true);
 }, 30000);
 
-it('reads flags after the `--` that `pnpm run <script> -- <flags>` appends', async () => {
-  const dir = path.join(tmp, 'after-dashdash');
-  fs.mkdirSync(dir);
-  fs.writeFileSync(path.join(dir, 'keep.txt'), '');
-
-  // pnpm puts the `--` after the script's own --platform. The refusal shows --out-dir was read.
-  await expect(run(process.execPath, [SCRIPT, '--platform=firefox', '--', `--out-dir=${dir}`], { cwd: ROOT }))
-    .rejects.toMatchObject({ code: 1, stderr: expect.stringContaining(`Refusing to build into ${dir}`) });
-}, 30000);
-
 describe('buildTarget', () => {
   it("targets the browserslist floors, so Vite lowers syntax to the manifest's minimum versions", () => {
     expect(buildTarget({ chrome: '123', firefox: '456' })).toEqual(['chrome123', 'firefox456']);

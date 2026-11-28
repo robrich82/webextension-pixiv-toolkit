@@ -306,12 +306,8 @@ export async function buildExtension({ platform = 'chrome', watch = false, outDi
 }
 
 if (import.meta.main) {
-  // `pnpm run build:firefox -- --flag` passes the `--` through, after the script's own args.
-  const args = process.argv.slice(2);
-  if (args.includes('--')) args.splice(args.indexOf('--'), 1);
-
   const { values } = parseArgs({
-    args,
+    args: process.argv.slice(2),
     options: {
       platform: { type: 'string', default: 'chrome' },
       watch: { type: 'boolean', default: false },
