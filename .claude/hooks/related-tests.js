@@ -56,18 +56,22 @@ function relatedArgs(relative) {
 const CONFIGS = ['vite.config.mjs', 'vitest.config.mjs'];
 
 /**
- * The Vitest CLI that `vp test` runs (the copy vite-plus ships), or before Vite+ the
- * project's own. Run directly rather than through vp, which spawns Vitest as a child the
- * timeout below wouldn't stop. Undefined before `pnpm install`.
+ * The Vitest CLI for a checkout whose root holds `config`: with Vite+, the copy vite-plus
+ * depends on, which is the one `vp test` runs; before it, the project's own. Run directly
+ * rather than through vp, which spawns Vitest as a child the timeout below wouldn't stop.
+ * Undefined until `pnpm install` has installed it, including in a Vite+ checkout that still
+ * has a pre-Vite+ node_modules, whose Vitest can't load vite.config.mjs.
  */
-function vitestBin(root) {
-  let pkg = path.join(root, 'node_modules', 'vitest', 'package.json');
+function vitestBin(root, config) {
+  let pkg;
 
   try {
-    // pnpm installs vite-plus's own dependencies beside its real path, not under root.
-    pkg = require.resolve('vitest/package.json', { paths: [fs.realpathSync(path.join(root, 'node_modules', 'vite-plus'))] });
+    pkg = config === 'vite.config.mjs'
+      // pnpm installs vite-plus's own dependencies beside its real path, not under root.
+      ? require.resolve('vitest/package.json', { paths: [fs.realpathSync(path.join(root, 'node_modules', 'vite-plus'))] })
+      : path.join(root, 'node_modules', 'vitest', 'package.json');
   } catch (error) {
-    // No vite-plus: a checkout from before Vite+, or one not installed yet.
+    return undefined;
   }
 
   if (!fs.existsSync(pkg)) {
@@ -95,8 +99,9 @@ function run(input) {
   filePath = path.resolve(filePath);
 
   let root = path.dirname(filePath);
+  let config;
 
-  while (!CONFIGS.some(config => fs.existsSync(path.join(root, config)))) {
+  while (!(config = CONFIGS.find(name => fs.existsSync(path.join(root, name))))) {
     let parent = path.dirname(root);
 
     if (parent === root) {
@@ -113,7 +118,7 @@ function run(input) {
     return 0;
   }
 
-  let vitest = vitestBin(root);
+  let vitest = vitestBin(root, config);
 
   if (!vitest) {
     // Visible but non-blocking: a fresh worktree has no node_modules until `pnpm install`.

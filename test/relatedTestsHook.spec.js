@@ -64,20 +64,35 @@ describe('the hook', () => {
   });
 });
 
+/** Writes a stub Vitest package into `dir` under `root`. */
+function stubVitest(root, dir, script) {
+  fs.mkdirSync(path.join(root, dir), { recursive: true });
+  fs.writeFileSync(path.join(root, dir, 'package.json'), JSON.stringify({ name: 'vitest', bin: { vitest: './vitest.mjs' } }));
+  fs.writeFileSync(path.join(root, dir, 'vitest.mjs'), script);
+}
+
+// pnpm's layout: node_modules/vite-plus links to its real path, beside its own vitest.
+const VITE_PLUS_STORE = 'node_modules/.pnpm/vite-plus@1.0.0/node_modules';
+
+/** Lays out a Vite+ checkout's node_modules as pnpm does, with `script` as its Vitest. */
+function vitePlusCheckout(root, script) {
+  fs.mkdirSync(path.join(root, VITE_PLUS_STORE, 'vite-plus'), { recursive: true });
+  stubVitest(root, `${VITE_PLUS_STORE}/vitest`, script);
+  fs.symlinkSync(path.join(root, VITE_PLUS_STORE, 'vite-plus'), path.join(root, 'node_modules/vite-plus'), 'junction');
+}
+
 // A checkout whose Vitest is a stub that records its arguments, and fails when told to.
 // A Vite+ checkout runs the Vitest that vite-plus depends on; an older one, its own.
 describe.each([
-  ['a Vite+ checkout', 'vite.config.mjs', 'node_modules/vite-plus/node_modules/vitest'],
-  ['a checkout from before Vite+', 'vitest.config.mjs', 'node_modules/vitest']
-])('the hook on %s', (_, config, vitestDir) => {
+  ['a Vite+ checkout', 'vite.config.mjs', vitePlusCheckout],
+  ['a checkout from before Vite+', 'vitest.config.mjs', (root, script) => stubVitest(root, 'node_modules/vitest', script)]
+])('the hook on %s', (_, config, install) => {
   let root;
 
   beforeEach(() => {
     root = fs.mkdtempSync(path.join(os.tmpdir(), 'ptk-related-tests-'));
     fs.writeFileSync(path.join(root, config), '');
-    fs.mkdirSync(path.join(root, vitestDir), { recursive: true });
-    fs.writeFileSync(path.join(root, vitestDir, 'package.json'), JSON.stringify({ name: 'vitest', bin: { vitest: './vitest.mjs' } }));
-    fs.writeFileSync(path.join(root, vitestDir, 'vitest.mjs'), `
+    install(root, `
       import fs from 'node:fs';
       fs.writeFileSync('argv.json', JSON.stringify(process.argv.slice(2)));
       if (fs.existsSync('fail')) {
@@ -129,4 +144,25 @@ describe.each([
     expect(result.status).toBe(0);
     expect(JSON.parse(result.stdout).systemMessage).toMatch(/^related-tests: skipped, no node_modules in .* \(run pnpm install\)$/);
   });
+});
+
+// After a pull brings in Vite+ but before `pnpm install`, the old Vitest can't load vite.config.mjs.
+test('the hook skips a Vite+ checkout whose node_modules predates Vite+', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ptk-related-tests-'));
+
+  try {
+    fs.writeFileSync(path.join(root, 'vite.config.mjs'), '');
+    stubVitest(root, 'node_modules/vitest', `require('fs').writeFileSync('ran', ''); process.exit(1);`);
+    const result = spawnSync(process.execPath, [HOOK], {
+      input: JSON.stringify({ tool_input: { file_path: path.join(root, 'src/statics/HISTORY_en-US') } }),
+      encoding: 'utf8',
+      timeout: 30000
+    });
+
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout).systemMessage).toMatch(/^related-tests: skipped, no node_modules in .* \(run pnpm install\)$/);
+    expect(fs.existsSync(path.join(root, 'ran'))).toBe(false);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
 });
