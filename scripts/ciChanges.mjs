@@ -16,8 +16,8 @@ export const JOBS = ['test', 'build', 'e2e_chrome', 'e2e_firefox', 'lint'];
 const E2E = ['e2e_chrome', 'e2e_firefox'];
 
 // [pattern, jobs whose inputs it is]; the first match wins. Oxlint checks
-// every JS and Vue file that .gitignore and vite.config.mjs don't exclude, so
-// each rule matching one includes lint.
+// every JS, TS and Vue file that a .gitignore and vite.config.mjs don't
+// exclude, so each rule matching one includes lint.
 const RULES = [
   // Shared by the unit specs and the E2E suites. Some helpers are unit-only,
   // which over-runs E2E rather than risk skipping it.
@@ -31,8 +31,10 @@ const RULES = [
   // Hooks, which specs such as test/relatedTestsHook.spec.js import and run,
   // and the settings that register them (test/noMcpRelease.spec.js).
   [/^\.claude\/(hooks\/|settings\.json$)/, ['test', 'lint']],
-  // Skill templates. .cursor and .agents link to .claude, and aren't linted again.
-  [/^\.claude\/.*\.[cm]?js$/, ['lint']],
+  // Skill templates, and the .gitignore files Oxlint follows. .cursor and
+  // .agents link to .claude, and aren't linted again.
+  [/^\.claude\/.*\.([cm]?[jt]sx?|vue)$/, ['lint']],
+  [/^(docs|\.claude)\/(.*\/)?\.gitignore$/, ['lint']],
   // Read by people and agents only. Markdown under src/ can ship, so it isn't here.
   [/^(docs|\.claude|\.cursor|\.agents)(\/|$)/, []],
   [/^(?!src\/).*\.md$/, []],

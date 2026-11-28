@@ -25,6 +25,8 @@ describe('jobsFor', () => {
     ['editor config', ['.editorconfig', 'jsconfig.json'], []],
     ['.gitignore, which Oxlint follows', ['.gitignore'], ['lint']],
     ['a skill template', ['.claude/skills/add-settings-migration/template.js'], ['lint']],
+    ['a skill helper in TypeScript', ['.claude/skills/x/helper.ts'], ['lint']],
+    ['a nested .gitignore, which Oxlint also follows', ['.claude/skills/.gitignore', 'docs/.gitignore'], ['lint']],
     ['Renovate config', ['renovate.json', '.github/workflows/renovate-config.yml'], []],
     ['nothing', [], []],
     ['a unit test', ['test/NameFormatter.spec.js'], ['test', 'lint']],
@@ -119,7 +121,7 @@ describe.each([
 });
 
 test('a change to any file Oxlint checks runs lint', () => {
-  const linted = TRACKED.filter((file) => /\.([cm]?js|vue)$/.test(file));
+  const linted = TRACKED.filter((file) => /\.([cm]?[jt]sx?|vue)$/.test(file));
 
   expect(linted.length).toBeGreaterThan(0);
   expect(linted.filter((file) => !jobsFor([file]).lint)).toEqual([]);
