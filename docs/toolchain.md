@@ -187,11 +187,11 @@ Chrome 110 loads them without Vuetify's `color-mix()` colours. Firefox below 121
 rejects the `:has()` selector Vuetify finds focusable elements with, and below
 128 it lacks the `@property` registrations its progress animations use.
 
-Change them in `package.json`'s `browserslist`: autoprefixer reads it, and
-`scripts/build.mjs` derives Vite's `build.target` and the manifests' minimum
-versions from it. `test/build.spec.js` checks the built JS and CSS against
-the floors (`test/helpers/bundleApiFloor.js`, whose header lists what it can't
-see), so a dependency bump that uses a newer API it knows fails `mise run test`.
+Change them in `package.json`'s `browserslist`: `scripts/build.mjs` derives
+Vite's `build.target`, the Lightning CSS targets that add vendor prefixes, and
+the manifests' minimum versions from it. `test/build.spec.js` checks the
+built JS and CSS against the floors (`test/helpers/bundleApiFloor.js`, whose
+header lists what it can't see), so a dependency bump that uses a newer API it knows fails `mise run test`.
 Either raise the floor, or add the use to `GUARDED`/`GUARDED_COMPAT` (behind a
 feature check) or `ACCEPTED` (degrades acceptably, with an issue) in that spec.
 

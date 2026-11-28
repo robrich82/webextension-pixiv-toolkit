@@ -13,7 +13,6 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import vue from '@vitejs/plugin-vue';
-import autoprefixer from 'autoprefixer';
 import { build } from 'vite';
 import { browserFloors, transformManifest } from './manifest.mjs';
 import { thirdPartyVersionsDefine } from './thirdPartyVersions.mjs';
@@ -74,7 +73,7 @@ function viteConfig({ platform, watch, globals = SHARED_GLOBALS, root: viteRoot 
       alias: { '@@': fromRoot('src/options_page'), '@': fromRoot('src') },
       extensions: ['.mjs', '.js', '.json', '.vue']
     },
-    css: { postcss: { plugins: [autoprefixer()] } },
+    css: cssOptions(floors),
     build: {
       outDir,
       emptyOutDir: false,
@@ -197,9 +196,19 @@ const isEmpty = dir => fs.readdirSync(dir, { withFileTypes: true }).every(e => e
 const isPreviousBuild = dir => fs.lstatSync(path.join(dir, BUILD_MARKER), { throwIfNoEntry: false })?.isFile();
 const isDisposable = dir => !fs.existsSync(dir) || (fs.statSync(dir).isDirectory() && (isEmpty(dir) || isPreviousBuild(dir)));
 
-/** Vite's build.target for the browserslist floors autoprefixer also reads. */
+/** Vite's build.target for the browserslist floors. */
 export function buildTarget(floors) {
   return [`chrome${floors.chrome}`, `firefox${floors.firefox}`];
+}
+
+/**
+ * Vite's css options: Lightning CSS adds the vendor prefixes the floors need.
+ * Its targets must be given, since Vite's default is its own baseline. Each is
+ * `major << 16`, the encoding lightningcss's `browserslistToTargets` returns.
+ */
+export function cssOptions(floors) {
+  const targets = Object.fromEntries(['chrome', 'firefox'].map(browser => [browser, Number(floors[browser]) << 16]));
+  return { transformer: 'lightningcss', lightningcss: { targets } };
 }
 
 export class UnsafeOutDirError extends Error {}

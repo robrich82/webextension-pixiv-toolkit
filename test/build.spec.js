@@ -8,7 +8,8 @@ import os from 'os';
 import path from 'path';
 import { promisify } from 'util';
 import vm from 'vm';
-import { assertSafeOutDir, buildTarget, emptyDir } from '../scripts/build.mjs';
+import { preprocessCSS, resolveConfig } from 'vite';
+import { assertSafeOutDir, buildTarget, cssOptions, emptyDir } from '../scripts/build.mjs';
 import { browserFloors } from '../scripts/manifest.mjs';
 import { compatReports, newerApiUses } from './helpers/bundleApiFloor';
 
@@ -274,6 +275,27 @@ it('leaves an unrelated --out-dir untouched and fails', async () => {
 describe('buildTarget', () => {
   it("targets the browserslist floors, so Vite lowers syntax to the manifest's minimum versions", () => {
     expect(buildTarget({ chrome: '123', firefox: '456' })).toEqual(['chrome123', 'firefox456']);
+  });
+});
+
+describe('cssOptions', () => {
+  // Through Vite's own CSS pipeline, so a config Vite ignores fails here too.
+  const transform = async (css, floors) => {
+    const config = await resolveConfig({ configFile: false, logLevel: 'silent', css: cssOptions(floors) }, 'build');
+    return (await preprocessCSS(css, 'test.css', config)).code;
+  };
+  const css = '.a { mask-image: none; user-select: none; }';
+
+  it('adds the prefixes the floors need', async () => {
+    // Chrome has unprefixed mask-image from 120; Firefox has had user-select unprefixed since 69.
+    const out = await transform(css, { chrome: '111', firefox: '68' });
+
+    expect(out).toContain('-webkit-mask-image');
+    expect(out).toContain('-moz-user-select');
+  });
+
+  it('adds none the floors have outgrown', async () => {
+    expect(await transform(css, { chrome: '120', firefox: '130' })).not.toMatch(/-(webkit|moz)-/);
   });
 });
 
