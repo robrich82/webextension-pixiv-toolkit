@@ -25,7 +25,7 @@ const RULES = [
   [/^e2e\/fakePixivRoutes\.js$/, ['test', ...E2E]],
   [/^(e2e\/|playwright\.config\.js$)/, ['test', 'e2e_chrome']],
   [/^e2e-firefox\//, ['test', 'e2e_firefox']],
-  [/^(test\/|vitest\.config\.mjs$)/, ['test']],
+  [/^(test\/|vite\.config\.mjs$)/, ['test']],
   // Hooks, which specs such as test/relatedTestsHook.spec.js import and run,
   // and the settings that register them (test/noMcpRelease.spec.js).
   [/^\.claude\/(hooks\/|settings\.json$)/, ['test']],

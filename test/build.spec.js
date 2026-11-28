@@ -8,7 +8,7 @@ import os from 'os';
 import path from 'path';
 import { promisify } from 'util';
 import vm from 'vm';
-import { preprocessCSS, resolveConfig } from 'vite';
+import { preprocessCSS, resolveConfig } from 'vite-plus';
 import { assertSafeOutDir, buildTarget, cssOptions, emptyDir, viteConfig } from '../scripts/build.mjs';
 import { browserFloors } from '../scripts/manifest.mjs';
 import { compatReports, newerApiUses } from './helpers/bundleApiFloor';
@@ -198,7 +198,7 @@ describe.each(['chrome', 'firefox'])('build for %s', platform => {
     expect(context.JSZip.version).toBe(JSON.parse(read(ROOT, 'node_modules/jszip/package.json')).version);
   });
 
-  // OptionsPageLayouts.spec.js runs against vitest.config.mjs's define, not this build's.
+  // OptionsPageLayouts.spec.js runs against vite.config.mjs's define, not this build's.
   it('substitutes the Third Party versions into the options pages', () => {
     const options = fs.readdirSync(path.join(out, 'options_page/static'))
       .filter(f => f.endsWith('.js'))

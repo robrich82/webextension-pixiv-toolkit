@@ -24,7 +24,8 @@ const READ_BY = [
   [/^src\/(?!statics\/).*\.(js|vue)$/, ['test/i18nKeys.spec.js', 'test/components/vuetifyRegistration.spec.js']],
   [/^package\.json$/, ['test/components/ChangeLog.spec.js', 'test/engines.spec.js', 'test/manifest.spec.js', 'test/onlyPnpm.spec.js', 'test/toolchainPins.spec.js']],
   [/^(scripts\/only-pnpm\.js|\.npmrc)$/, ['test/onlyPnpm.spec.js']],
-  [/^pnpm-lock\.yaml$/, ['test/engines.spec.js']],
+  [/^pnpm-lock\.yaml$/, ['test/engines.spec.js', 'test/toolchainPins.spec.js']],
+  [/^pnpm-workspace\.yaml$/, ['test/toolchainPins.spec.js']],
   [/^mise\.toml$/, ['test/miseTasks.spec.js', 'test/toolchainPins.spec.js']],
   [/^mise\.lock$/, ['test/toolchainPins.spec.js']],
   [/^(\.github\/workflows\/ci\.yml|e2e\/|e2e-firefox\/)/, ['test/ciChanges.spec.js']],
@@ -50,6 +51,38 @@ function relatedArgs(relative) {
   return [...new Set(args)];
 }
 
+// A checkout's root holds one of these: vite.config.mjs since Vite+, vitest.config.mjs before,
+// so a session in either kind of checkout still runs the specs of the other.
+const CONFIGS = ['vite.config.mjs', 'vitest.config.mjs'];
+
+/**
+ * The Vitest CLI for a checkout whose root holds `config`: with Vite+, the copy vite-plus
+ * depends on, which is the one `vp test` runs; before it, the project's own. Run directly
+ * rather than through vp, which spawns Vitest as a child the timeout below wouldn't stop.
+ * Undefined until `pnpm install` has installed it, including in a Vite+ checkout that still
+ * has a pre-Vite+ node_modules, whose Vitest can't load vite.config.mjs.
+ */
+function vitestBin(root, config) {
+  let pkg;
+
+  try {
+    pkg = config === 'vite.config.mjs'
+      // pnpm installs vite-plus's own dependencies beside its real path, not under root.
+      ? require.resolve('vitest/package.json', { paths: [fs.realpathSync(path.join(root, 'node_modules', 'vite-plus'))] })
+      : path.join(root, 'node_modules', 'vitest', 'package.json');
+  } catch (error) {
+    return undefined;
+  }
+
+  if (!fs.existsSync(pkg)) {
+    return undefined;
+  }
+
+  let { bin } = JSON.parse(fs.readFileSync(pkg, 'utf8'));
+
+  return path.join(path.dirname(pkg), typeof bin === 'string' ? bin : bin.vitest);
+}
+
 function run(input) {
   let filePath;
 
@@ -66,8 +99,9 @@ function run(input) {
   filePath = path.resolve(filePath);
 
   let root = path.dirname(filePath);
+  let config;
 
-  while (!fs.existsSync(path.join(root, 'vitest.config.mjs'))) {
+  while (!(config = CONFIGS.find(name => fs.existsSync(path.join(root, name))))) {
     let parent = path.dirname(root);
 
     if (parent === root) {
@@ -79,13 +113,14 @@ function run(input) {
 
   let relative = path.relative(root, filePath).split(path.sep).join('/');
   let args = relatedArgs(relative);
-  let vitest = path.join(root, 'node_modules', 'vitest', 'vitest.mjs');
 
   if (!args.length) {
     return 0;
   }
 
-  if (!fs.existsSync(vitest)) {
+  let vitest = vitestBin(root, config);
+
+  if (!vitest) {
     // Visible but non-blocking: a fresh worktree has no node_modules until `pnpm install`.
     console.log(JSON.stringify({ systemMessage: `related-tests: skipped, no node_modules in ${root} (run pnpm install)` }));
     return 0;

@@ -49,7 +49,7 @@ Create the worktree per the global rules, off a freshly fetched `origin/main`, o
 ## 4. Check it
 
 ```bash
-pnpm exec vitest run --coverage.enabled=false test/components/ChangeLog.spec.js
+pnpm exec vp test run --coverage.enabled=false test/components/ChangeLog.spec.js
 mise run test
 ```
 

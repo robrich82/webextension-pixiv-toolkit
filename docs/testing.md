@@ -1,7 +1,7 @@
 # Tests
 
 `mise run test` runs Vitest over every `*.spec.js` under `test/`, with coverage
-collected from `src/**/*.{js,vue}`. `vitest.config.mjs` defines two projects:
+collected from `src/**/*.{js,vue}`. `vite.config.mjs` defines two projects:
 `unit` (everything under `test/` except `test/components/`, in the `node`
 environment, see below for why; one spec opts into jsdom, see "Downloads") and `components` (`test/components/**/*.spec.js`,
 under `jsdom`, covered in its own section further down). Vite transforms both
@@ -13,13 +13,13 @@ also stands in for the build's `locales` global, and `define` sets
 `PRESET_BROWSER` to `chrome` and, as the build does, `__THIRD_PARTY_VERSIONS__`
 from `scripts/thirdPartyVersions.mjs`.
 
-To run a subset, use `pnpm exec vitest run <spec>` or `--project components`.
+To run a subset, use `pnpm exec vp test run <spec>` or `--project components`.
 Coverage is always on, and a subset run fails the floors below, so add
 `--coverage.enabled=false`.
 
 ## The coverage floor
 
-`coverage.thresholds` in `vitest.config.mjs` fails the run — and so CI, which just
+`coverage.thresholds` in `vite.config.mjs` fails the run — and so CI, which just
 calls `mise run test` — when coverage drops below where it already is. It is a
 ratchet, not a target: the numbers are set a hair under the current ones, so
 nothing can quietly regress, and they get raised whenever a change clears them
@@ -44,7 +44,7 @@ anything touching `browser.storage`, `browser.runtime`, `browser.downloads` or
 `browser.tabs` was untestable.
 
 `test/doubles/browser.js` is an in-memory stand-in, and `resolve.alias` in
-`vitest.config.mjs` points `@/modules/Extension/browser` at it. A spec gets it
+`vite.config.mjs` points `@/modules/Extension/browser` at it. A spec gets it
 just by importing the code under test — there is no per-spec `vi.mock` call:
 
 ```js

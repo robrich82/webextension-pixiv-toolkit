@@ -2,6 +2,9 @@
  * pnpm is pinned twice: mise.toml installs it and `packageManager` is what pnpm
  * itself runs. CI installs with `mise install --locked`, which fails on a
  * version mise.lock doesn't have. This catches a hand-edited pin before CI does.
+ *
+ * The pnpm-workspace.yaml catalog pins vite and vitest a second time, beside the
+ * vite-plus that pins them exactly; the last tests here keep the two in step.
  */
 import fs from 'fs';
 import path from 'path';
@@ -49,4 +52,24 @@ test('mise.lock has a linux-x64 url and checksum for every tool, for CI', () => 
     expect(platform?.body).toMatch(/^url = "https:\/\/\S+"$/m);
     expect(platform?.body).toMatch(/^checksum = "sha256:[0-9a-f]{64}"$/m);
   }
+});
+
+// The `name: version` lines of pnpm-workspace.yaml's `catalog:` block.
+const catalog = Object.fromEntries(
+  (read('pnpm-workspace.yaml').match(/^catalog:\n((?: {2}.*\n?)+)/m)?.[1] ?? '').trim().split('\n')
+    .map((line) => line.trim().match(/^'?([^':]+)'?: (.+)$/)?.slice(1) ?? [line])
+);
+
+test('the installed vite-plus is the catalog\'s', () => {
+  const vitePlus = JSON.parse(read('node_modules/vite-plus/package.json'));
+
+  expect(vitePlus.version).toBe(catalog['vite-plus']);
+});
+
+// A mismatch installs a second copy of Vitest's packages beside the ones vite-plus runs.
+test('the catalog\'s vite, vitest and coverage provider are the ones vite-plus pins', () => {
+  const { dependencies } = JSON.parse(read('node_modules/vite-plus/package.json'));
+
+  expect({ vite: catalog.vite, vitest: catalog.vitest, '@vitest/coverage-v8': catalog['@vitest/coverage-v8'] })
+    .toEqual({ vite: dependencies.vite, vitest: dependencies.vitest, '@vitest/coverage-v8': dependencies.vitest });
 });
