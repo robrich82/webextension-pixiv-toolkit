@@ -53,6 +53,10 @@ description = "node --test in real Firefox against a fresh dist/firefox (prerequ
 depends = ["build:firefox"]
 run = 'node --test --test-reporter=spec "e2e-firefox/*.test.mjs"'
 
+[tasks.lint]
+description = "Oxlint through Vite+; warnings fail it, as in CI"
+run = "pnpm exec vp check --deny-warnings"
+
 [tasks.audit]
 description = "pnpm audit at the level CI reports"
 run = "pnpm audit --audit-level=moderate"

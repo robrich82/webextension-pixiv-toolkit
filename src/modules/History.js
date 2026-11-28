@@ -1,5 +1,5 @@
 import Db from '@/modules/Db/Db';
-import HistoryRepo from '@/modules/Db/Repository/HistoryRepo';
+/** @import HistoryRepo from '@/modules/Db/Repository/HistoryRepo' */
 
 /**
  * @class

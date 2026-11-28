@@ -143,7 +143,7 @@ class DownloadTaskNotifier {
 /**
  * @type {DownloadTaskNotifier}
  */
-DownloadTaskNotifier.instance;
+DownloadTaskNotifier.instance = undefined;
 
 DownloadTaskNotifier.channelName = 'downloadManager:observeDownloadTasks';
 

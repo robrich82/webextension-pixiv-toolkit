@@ -4,9 +4,9 @@ import {
   PixivMangaDownloadTask as MangaDownloadTask,
   PixivUgoiraDownloadTask as UgoiraDownloadTask
 } from "@/options_page/modules/DownloadTasks";
-import AbstractDownloadTask from "../../DownloadTasks/AbstractDownloadTask";
-import AbstractResource from "@/modules/PageResource/AbstractResource";
-import IllustResource from "@/modules/PageResource/Pixiv/IllustResource";
+/** @import AbstractDownloadTask from "../../DownloadTasks/AbstractDownloadTask" */
+/** @import AbstractResource from "@/modules/PageResource/AbstractResource" */
+/** @import IllustResource from "@/modules/PageResource/Pixiv/IllustResource" */
 import { VIDEO_CONTAINERS, codecSettingKey } from "@/options_page/modules/UgoiraEncoders/video";
 
 class IllustAdapter {

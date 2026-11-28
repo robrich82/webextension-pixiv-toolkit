@@ -3,7 +3,7 @@ import {
   PixivComicEpisodeAdapter,
   PixivIllustAdapter, PixivNovelAdapter,
 } from '@/content_scripts/modules/PageAdapters';
-import AbstractAdapter from '@/content_scripts/modules/PageAdapters/AbstractAdapter';
+/** @import AbstractAdapter from '@/content_scripts/modules/PageAdapters/AbstractAdapter' */
 import { RuntimeError } from '@/errors';
 
 class Adapter {

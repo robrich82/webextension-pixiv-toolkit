@@ -6,7 +6,7 @@
  * @FilePath: \webextension-pixiv-toolkit\src\modules\Db\Repository\TrackedErrorRepo.js
  */
 import AbstractRepo from "./AbstractRepo";
-import Dexie from 'dexie';
+/** @import Dexie from 'dexie' */
 
 class TrackedErrorRepo extends AbstractRepo {
   /**

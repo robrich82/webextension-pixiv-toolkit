@@ -12,7 +12,7 @@ export default (...args) => {
   if (parts.length === 0) {
     return '';
   } else {
-    let path = parts.join('/').replace(/[\/\\]+/g, '/');
+    let path = parts.join('/').replace(/[/\\]+/g, '/');
 
     if (path.indexOf('/') === 0) {
       return path.substr(1);

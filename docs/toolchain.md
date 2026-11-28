@@ -203,6 +203,12 @@ registry used only for unreleased `0.0.0-*` builds, and `vp run`'s remote task
 cache, which is off unless `VP_REMOTE_CACHE`, `VP_REMOTE_CACHE_URL` or a
 `run.cache.remote.url` config sets it (`vp run` isn't used here).
 
+`mise run lint` is `vp check --deny-warnings`: Oxlint, configured by the
+`lint` block in `vite.config.mjs`, with Oxlint's default rules plus the
+exceptions commented there. Every warning fails it, locally and in CI's `lint`
+job. It skips what any `.gitignore` lists, so `scripts/ciChanges.mjs` runs
+`lint` for a `.gitignore` change. Formatting is off (`check: { fmt: false }`).
+
 `eslint` and `eslint-plugin-compat` are not a source linter. They drive the
 bundle API floor check (`test/helpers/bundleApiFloor.js`) over the built
 bundles, which Vite+'s Oxlint doesn't replace.

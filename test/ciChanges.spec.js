@@ -22,24 +22,28 @@ describe('jobsFor', () => {
     ['docs', ['docs/testing.md', 'docs/img/shot.png'], []],
     ['markdown outside src/', ['README.md', '.github/pull_request_template.md'], []],
     ['agent config', ['.claude/settings.local.json', '.cursor/rules/x.mdc', '.agents', '.mcp.json'], []],
-    ['editor config', ['.editorconfig', '.gitignore', 'jsconfig.json'], []],
+    ['editor config', ['.editorconfig', 'jsconfig.json'], []],
+    ['.gitignore, which Oxlint follows', ['.gitignore'], ['lint']],
+    ['a skill template', ['.claude/skills/add-settings-migration/template.js'], ['lint']],
+    ['a skill helper in TypeScript', ['.claude/skills/x/helper.ts'], ['lint']],
+    ['a nested .gitignore, which Oxlint also follows', ['.claude/skills/.gitignore', 'docs/.gitignore'], ['lint']],
     ['Renovate config', ['renovate.json', '.github/workflows/renovate-config.yml'], []],
     ['nothing', [], []],
-    ['a unit test', ['test/NameFormatter.spec.js'], ['test']],
-    ['markdown among the unit tests', ['test/components/README.md'], ['test']],
-    ['the Vitest config', ['vite.config.mjs'], ['test']],
-    ['the related-tests hook', ['.claude/hooks/related-tests.js'], ['test']],
-    ['another hook', ['.claude/hooks/other.js'], ['test']],
-    ['the Claude settings', ['.claude/settings.json'], ['test']],
+    ['a unit test', ['test/NameFormatter.spec.js'], ['test', 'lint']],
+    ['markdown among the unit tests', ['test/components/README.md'], ['test', 'lint']],
+    ['the Vite+ config', ['vite.config.mjs'], ['test', 'lint']],
+    ['the related-tests hook', ['.claude/hooks/related-tests.js'], ['test', 'lint']],
+    ['another hook', ['.claude/hooks/other.js'], ['test', 'lint']],
+    ['the Claude settings', ['.claude/settings.json'], ['test', 'lint']],
     ['a test fixture', ['test/fixtures/pixiv/illust.json'], JOBS],
     ['the fixtures README', ['test/fixtures/README.md'], JOBS],
     ['a probe helper', ['test/helpers/probeGif.mjs'], JOBS],
-    ['a Chromium E2E test', ['e2e/illust.e2e.js'], ['test', 'build', 'e2e_chrome']],
-    ['markdown in an E2E suite', ['e2e/README.md'], ['test', 'build', 'e2e_chrome']],
-    ['the Playwright config', ['playwright.config.js'], ['test', 'build', 'e2e_chrome']],
+    ['a Chromium E2E test', ['e2e/illust.e2e.js'], ['test', 'build', 'e2e_chrome', 'lint']],
+    ['markdown in an E2E suite', ['e2e/README.md'], ['test', 'build', 'e2e_chrome', 'lint']],
+    ['the Playwright config', ['playwright.config.js'], ['test', 'build', 'e2e_chrome', 'lint']],
     ['the shared pixiv routes', ['e2e/fakePixivRoutes.js'], JOBS],
-    ['a Firefox E2E test', ['e2e-firefox/downloads.test.mjs'], ['test', 'build', 'e2e_firefox']],
-    ['docs plus a Firefox E2E test', ['docs/testing.md', 'e2e-firefox/bidi.mjs'], ['test', 'build', 'e2e_firefox']],
+    ['a Firefox E2E test', ['e2e-firefox/downloads.test.mjs'], ['test', 'build', 'e2e_firefox', 'lint']],
+    ['docs plus a Firefox E2E test', ['docs/testing.md', 'e2e-firefox/bidi.mjs'], ['test', 'build', 'e2e_firefox', 'lint']],
     ['source', ['src/modules/Util/index.js'], JOBS],
     ['shipped markdown', ['src/statics/help.md'], JOBS],
     ['a name that only starts like docs', ['docs-gen/build.js', '.claude-plugin/x.js'], JOBS],
@@ -114,6 +118,13 @@ describe.each([
   test(`a change to anything it reaches runs ${job}`, () => {
     expect(reached.filter((file) => !jobsFor([file])[job])).toEqual([]);
   });
+});
+
+test('a change to any file Oxlint checks runs lint', () => {
+  const linted = TRACKED.filter((file) => /\.([cm]?[jt]sx?|vue)$/.test(file));
+
+  expect(linted.length).toBeGreaterThan(0);
+  expect(linted.filter((file) => !jobsFor([file]).lint)).toEqual([]);
 });
 
 describe('ci.yml', () => {
@@ -209,7 +220,7 @@ describe('the CLI', () => {
 
   test('a docs-only pull request runs nothing, whatever the base branch changed', () => {
     mergePullRequest(() => write('docs/a.md', '2'));
-    expect(run().stdout).toBe('test=false\nbuild=false\ne2e_chrome=false\ne2e_firefox=false\n');
+    expect(run().stdout).toBe('test=false\nbuild=false\ne2e_chrome=false\ne2e_firefox=false\nlint=false\n');
   });
 
   test('several files, one with spaces and accents in its name, combine their jobs', () => {
@@ -217,16 +228,16 @@ describe('the CLI', () => {
       write('docs/a b é.md', '1');
       write('e2e-firefox/x.mjs', '1');
     });
-    expect(run().stdout).toBe('test=true\nbuild=true\ne2e_chrome=false\ne2e_firefox=true\n');
+    expect(run().stdout).toBe('test=true\nbuild=true\ne2e_chrome=false\ne2e_firefox=true\nlint=true\n');
   });
 
   test('moving a source file into docs/ runs everything', () => {
     mergePullRequest(() => git('mv', 'src/index.js', 'docs/index.js'));
-    expect(run().stdout).toBe('test=true\nbuild=true\ne2e_chrome=true\ne2e_firefox=true\n');
+    expect(run().stdout).toBe('test=true\nbuild=true\ne2e_chrome=true\ne2e_firefox=true\nlint=true\n');
   });
 
   test('--all runs everything without looking at git', () => {
-    expect(run('--all').stdout).toBe('test=true\nbuild=true\ne2e_chrome=true\ne2e_firefox=true\n');
+    expect(run('--all').stdout).toBe('test=true\nbuild=true\ne2e_chrome=true\ne2e_firefox=true\nlint=true\n');
   });
 
   test('runs everything when HEAD is not a merge commit', () => {
@@ -237,7 +248,7 @@ describe('the CLI', () => {
     git('commit', '-am', 'docs only, but not a merge');
     const result = run();
     expect(result.status).toBe(0);
-    expect(result.stdout).toBe('test=true\nbuild=true\ne2e_chrome=true\ne2e_firefox=true\n');
+    expect(result.stdout).toBe('test=true\nbuild=true\ne2e_chrome=true\ne2e_firefox=true\nlint=true\n');
     expect(result.stderr).toMatch(/not a merge commit/);
   });
 });

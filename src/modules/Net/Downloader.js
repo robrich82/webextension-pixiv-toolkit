@@ -1,4 +1,4 @@
-import Download from '@/modules/Net/Download';
+/** @import Download from '@/modules/Net/Download' */
 import Event from '@/modules/Event';
 import browser from '../Extension/browser';
 

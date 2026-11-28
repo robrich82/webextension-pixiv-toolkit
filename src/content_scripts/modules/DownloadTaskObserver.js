@@ -63,6 +63,6 @@ class DownloadTaskObserver extends Event {
 /**
  * @type {DownloadTaskObserver}
  */
-DownloadTaskObserver.instance;
+DownloadTaskObserver.instance = undefined;
 
 export default DownloadTaskObserver;

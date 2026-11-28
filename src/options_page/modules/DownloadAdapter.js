@@ -11,16 +11,11 @@ import {
   PixivIllustResource,
   PixivNovelResource,
 } from '@/modules/PageResource/index';
-import AbstractAdapter from "@/content_scripts/modules/PageAdapters/AbstractAdapter";
-import AbstractDownloadTask from "./DownloadTasks/AbstractDownloadTask";
-import AbstractResource from "@/modules/PageResource/AbstractResource";
+/** @import AbstractAdapter from "@/content_scripts/modules/PageAdapters/AbstractAdapter" */
+/** @import AbstractDownloadTask from "./DownloadTasks/AbstractDownloadTask" */
+/** @import AbstractResource from "@/modules/PageResource/AbstractResource" */
 
 class DownloadAdapter {
-  /**
-   * @type {DownloadAdapter}
-   */
-  static default;
-
   /**
    * @type {Map.<AbstractResource, AbstractAdapter}
    */
@@ -39,18 +34,6 @@ class DownloadAdapter {
    */
   static create() {
     return new DownloadAdapter();
-  }
-
-  /**
-   *
-   * @returns {DownloadAdapter}
-   */
-  static default() {
-    if (!DownloadAdapter.default) {
-      DownloadAdapter.default = DownloadAdapter.create();
-    }
-
-    return DownloadAdapter.default;
   }
 
   /**

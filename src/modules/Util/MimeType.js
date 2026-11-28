@@ -3,7 +3,6 @@ class MimeType {
     'image/png'       : 'png',
     'image/apng'      : 'apng',
     'image/gif'       : 'gif',
-    'image/jpeg'      : 'jpeg',
     'image/jpeg'      : 'jpg',
     'image/webp'      : 'webp',
     'text/plain'      : 'txt',

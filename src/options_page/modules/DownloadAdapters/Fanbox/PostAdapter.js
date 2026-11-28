@@ -1,8 +1,7 @@
 import GlobalSettings from "@/modules/GlobalSettings";
 import { FanboxPostDownloadTask as PostDownloadTask } from "@/options_page/modules/DownloadTasks";
-import { FanboxPostParser } from "@/modules/Parser";
-import AbstractDownloadTask from "../../DownloadTasks/AbstractDownloadTask";
-import AbstractResource from "@/modules/PageResource/AbstractResource";
+/** @import AbstractDownloadTask from "../../DownloadTasks/AbstractDownloadTask" */
+/** @import AbstractResource from "@/modules/PageResource/AbstractResource" */
 
 class PostAdapter {
   /**

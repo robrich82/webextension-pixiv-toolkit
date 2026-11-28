@@ -84,6 +84,7 @@ describe('mise tasks', { timeout: 30000 }, () => {
       'build:firefox: node scripts/build.mjs --platform=firefox',
       'test:e2e:firefox: node --test --test-reporter=spec "e2e-firefox/*.test.mjs"'
     ]],
+    ['lint', ['lint: pnpm exec vp check --deny-warnings']],
     ['audit', ['audit: pnpm audit --audit-level=moderate']],
     ['package:chrome', ['package:chrome: node scripts/package-chrome.mjs']]
   ])('%s runs exactly its commands', (task, commands) => {
@@ -92,7 +93,7 @@ describe('mise tasks', { timeout: 30000 }, () => {
 
   test('every task but release:firefox is in the table above', () => {
     expect(tasks.map(({ name }) => name).sort()).toEqual([
-      'audit', 'build', 'build:firefox', 'dev', 'dev:firefox', 'package:chrome', 'release:firefox',
+      'audit', 'build', 'build:firefox', 'dev', 'dev:firefox', 'lint', 'package:chrome', 'release:firefox',
       'test', 'test:e2e', 'test:e2e:firefox'
     ]);
   });
