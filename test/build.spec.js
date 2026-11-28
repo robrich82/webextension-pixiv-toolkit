@@ -9,7 +9,7 @@ import path from 'path';
 import { promisify } from 'util';
 import vm from 'vm';
 import { preprocessCSS, resolveConfig } from 'vite';
-import { assertSafeOutDir, buildTarget, cssOptions, emptyDir } from '../scripts/build.mjs';
+import { assertSafeOutDir, buildTarget, cssOptions, emptyDir, viteConfig } from '../scripts/build.mjs';
 import { browserFloors } from '../scripts/manifest.mjs';
 import { compatReports, newerApiUses } from './helpers/bundleApiFloor';
 
@@ -296,6 +296,11 @@ describe('cssOptions', () => {
 
   it('adds none the floors have outgrown', async () => {
     expect(await transform(css, { chrome: '120', firefox: '130' })).not.toMatch(/-(webkit|moz)-/);
+  });
+
+  // The production minifier prefixes for build.target anyway, so only an unminified watch build would show it missing.
+  it.each([false, true])('is what the build uses, with watch %s', watch => {
+    expect(viteConfig({ platform: 'chrome', watch, outDir: tmp, build: {} }).css).toEqual(cssOptions(floors));
   });
 });
 

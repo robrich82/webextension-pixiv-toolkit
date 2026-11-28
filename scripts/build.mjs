@@ -46,7 +46,8 @@ function globalExternals(globals) {
   };
 }
 
-function viteConfig({ platform, watch, globals = SHARED_GLOBALS, root: viteRoot = root, outDir, build: buildOptions }) {
+// Exported for its spec.
+export function viteConfig({ platform, watch, globals = SHARED_GLOBALS, root: viteRoot = root, outDir, build: buildOptions }) {
   const rolldownOptions = buildOptions.rolldownOptions || {};
 
   return {
