@@ -2,6 +2,8 @@
 
 ## Requirements
 
+- [mise](https://mise.jdx.dev), which installs the pinned Node and pnpm and
+  runs the commands (see "Tasks"); `test/miseTasks.spec.js` needs it on the PATH
 - Node and pnpm within the `engines` ranges in `package.json`
 - `mise.toml` pins the exact Node and pnpm versions, for local development and
   CI, and `mise.lock` pins their downloads by checksum
@@ -9,9 +11,8 @@
   both pnpm pins in one PR and relocks `mise.lock` there, and
   `test/toolchainPins.spec.js` fails if the pins and the lock disagree
 - `pnpm install --frozen-lockfile` to install — `pnpm-lock.yaml` is committed
-  and CI installs from it. `mise deps` runs it when `pnpm-lock.yaml` or
-  `package.json` changed or `node_modules` is missing, and `mise exec` and
-  `mise run` run it first too
+  and CI installs from it. `mise deps` runs it when its inputs changed or
+  `node_modules` is missing, and `mise exec` and `mise run` run it first too
 
 Any other pnpm fetches and runs the `packageManager` version instead (pnpm's
 default `pmOnFail: download`), so a stray global pnpm does no harm. Without
@@ -165,6 +166,11 @@ it — the two files agree, they are just both wrong. No setting prevents this:
 `save-exact` only changes the notation, writing `8.0.1` where the caret would
 have gone. Name the version you want, and let the `package.json` diff carry the
 decision.
+
+## Tasks
+
+The commands are `[tasks]` in `mise.toml`, and `mise tasks` lists them.
+`test/miseTasks.spec.js` checks them through the real mise.
 
 ## Build
 
