@@ -38,7 +38,7 @@ export function shapeOf(value) {
     } else if (typeof node === 'object') {
       add(at, 'object');
       for (const [childKey, child] of Object.entries(node)) {
-        const id = /Map$/.test(key) || /^\d+$/.test(childKey);
+        const id = key.endsWith('Map') || /^\d+$/.test(childKey);
         walk(child, `${at}.${id ? '*' : childKey}`, id ? '*' : childKey);
       }
     } else {

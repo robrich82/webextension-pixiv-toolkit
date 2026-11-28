@@ -6,6 +6,29 @@ import { thirdPartyVersionsDefine } from './scripts/thirdPartyVersions.mjs';
 const here = path => fileURLToPath(new URL(path, import.meta.url));
 
 export default defineConfig({
+  // `mise run lint` runs Oxlint over this with --deny-warnings. Oxlint's
+  // default rules, except where noted.
+  lint: {
+    // .gitignore's paths are skipped too. .agents and .cursor are links to .claude.
+    ignorePatterns: ['src/statics/lib/**', '.agents/**', '.cursor/**'],
+    rules: {
+      // Parameters document a method's signature, overrides' included, and a
+      // catch binding names what was caught.
+      'no-unused-vars': ['warn', { args: 'none', caughtErrors: 'none', ignoreRestSiblings: true }],
+      'no-unused-expressions': ['warn', { allowShortCircuit: true, allowTernary: true }],
+      // new Array(n) preallocates on purpose.
+      'unicorn/no-new-array': 'off'
+    },
+    overrides: [
+      // Playwright reads a fixture's dependencies from its destructuring, so a
+      // fixture with none has to take `{}`.
+      { files: ['e2e/**'], rules: { 'no-empty-pattern': 'off' } },
+      // Pixiv Comic's own decrypter, kept as close to its minified source as possible.
+      { files: ['src/modules/Parser/PixivComic/ImageDecrypte.js'], rules: { 'no-unused-expressions': 'off' } }
+    ]
+  },
+  // Until there is an fmt block.
+  check: { fmt: false },
   plugins: [vue()],
   // scripts/build.mjs defines PRESET_BROWSER per platform.
   define: { PRESET_BROWSER: JSON.stringify('chrome'), ...thirdPartyVersionsDefine(here('.')) },

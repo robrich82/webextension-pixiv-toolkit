@@ -1,11 +1,11 @@
 import Browser from './Browser';
 
 function Badge() {
-  this.browser = Browser.getBrowser(),
-  this.autoRender = false,
-  this.tabId,
-  this.backgroundColor,
-  this.text;
+  this.browser = Browser.getBrowser();
+  this.autoRender = false;
+  this.tabId = undefined;
+  this.backgroundColor = undefined;
+  this.text = undefined;
 }
 
 Badge.prototype = {

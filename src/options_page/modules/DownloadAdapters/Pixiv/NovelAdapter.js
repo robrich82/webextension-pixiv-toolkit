@@ -2,8 +2,8 @@ import GlobalSettings from "@/modules/GlobalSettings";
 import {
   PixivNovelDownloadTask as NovelDownloadTask
 } from "@/options_page/modules/DownloadTasks";
-import AbstractDownloadTask from "../../DownloadTasks/AbstractDownloadTask";
-import AbstractResource from "@/modules/PageResource/AbstractResource";
+/** @import AbstractDownloadTask from "../../DownloadTasks/AbstractDownloadTask" */
+/** @import AbstractResource from "@/modules/PageResource/AbstractResource" */
 
 class NovelAdapter {
   /**

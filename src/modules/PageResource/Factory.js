@@ -1,6 +1,6 @@
 import { RuntimeError } from '@/errors';
 import * as ResourceClasses from './index';
-import AbstractResource from './AbstractResource';
+/** @import AbstractResource from './AbstractResource' */
 
 /**
  * @class

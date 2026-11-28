@@ -2,9 +2,8 @@ import GlobalSettings from "@/modules/GlobalSettings";
 import {
   PixivComicEpisodeDownloadTask as EpisodeDownloadTask
 } from "@/options_page/modules/DownloadTasks";
-import { PixivComicEpisodeParser } from "@/modules/Parser";
-import AbstractDownloadTask from "../../DownloadTasks/AbstractDownloadTask";
-import AbstractResource from "@/modules/PageResource/AbstractResource";
+/** @import AbstractDownloadTask from "../../DownloadTasks/AbstractDownloadTask" */
+/** @import AbstractResource from "@/modules/PageResource/AbstractResource" */
 
 class EpisodeAdapter {
   /**

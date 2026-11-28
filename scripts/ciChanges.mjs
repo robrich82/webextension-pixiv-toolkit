@@ -12,27 +12,32 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-export const JOBS = ['test', 'build', 'e2e_chrome', 'e2e_firefox'];
+export const JOBS = ['test', 'build', 'e2e_chrome', 'e2e_firefox', 'lint'];
 const E2E = ['e2e_chrome', 'e2e_firefox'];
 
-// [pattern, jobs whose inputs it is]; the first match wins.
+// [pattern, jobs whose inputs it is]; the first match wins. Oxlint checks
+// every JS and Vue file that .gitignore and vite.config.mjs don't exclude, so
+// each rule matching one includes lint.
 const RULES = [
   // Shared by the unit specs and the E2E suites. Some helpers are unit-only,
   // which over-runs E2E rather than risk skipping it.
-  [/^test\/(fixtures|helpers)\//, ['test', ...E2E]],
+  [/^test\/(fixtures|helpers)\//, ['test', ...E2E, 'lint']],
   // The E2E suites, which test/ciChanges.spec.js also reads. The Firefox
   // harness serves pixiv through the Chromium suite's routes.
-  [/^e2e\/fakePixivRoutes\.js$/, ['test', ...E2E]],
-  [/^(e2e\/|playwright\.config\.js$)/, ['test', 'e2e_chrome']],
-  [/^e2e-firefox\//, ['test', 'e2e_firefox']],
-  [/^(test\/|vite\.config\.mjs$)/, ['test']],
+  [/^e2e\/fakePixivRoutes\.js$/, ['test', ...E2E, 'lint']],
+  [/^(e2e\/|playwright\.config\.js$)/, ['test', 'e2e_chrome', 'lint']],
+  [/^e2e-firefox\//, ['test', 'e2e_firefox', 'lint']],
+  [/^(test\/|vite\.config\.mjs$)/, ['test', 'lint']],
   // Hooks, which specs such as test/relatedTestsHook.spec.js import and run,
   // and the settings that register them (test/noMcpRelease.spec.js).
-  [/^\.claude\/(hooks\/|settings\.json$)/, ['test']],
+  [/^\.claude\/(hooks\/|settings\.json$)/, ['test', 'lint']],
+  // Skill templates. .cursor and .agents link to .claude, and aren't linted again.
+  [/^\.claude\/.*\.[cm]?js$/, ['lint']],
   // Read by people and agents only. Markdown under src/ can ship, so it isn't here.
   [/^(docs|\.claude|\.cursor|\.agents)(\/|$)/, []],
   [/^(?!src\/).*\.md$/, []],
-  [/^(\.mcp\.json|\.editorconfig|\.gitignore|jsconfig\.json)$/, []],
+  [/^\.gitignore$/, ['lint']],
+  [/^(\.mcp\.json|\.editorconfig|jsconfig\.json)$/, []],
   // Validated by its own workflow.
   [/^(renovate\.json|\.github\/workflows\/renovate-config\.yml)$/, []]
 ];

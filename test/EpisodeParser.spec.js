@@ -122,6 +122,17 @@ describe('a response missing a field we depend on', () => {
 
     await expect(parser.parserContext()).rejects.toThrow('network down');
   });
+
+  // It used to run inside an async Promise executor, which swallowed the error and never settled.
+  test('rejects, without a request, when the client hash cannot be computed', async () => {
+    const parser = EpisodeParser.create(viewerUrl('70000001'));
+    const fetchFake = installFetch({ [contextUrl('70000001')]: episode });
+
+    vi.spyOn(crypto.subtle, 'digest').mockRejectedValueOnce(new Error('no digest'));
+
+    await expect(parser.parserContext()).rejects.toThrow('no digest');
+    expect(fetchFake).not.toHaveBeenCalled();
+  });
 });
 
 describe('the preview resolver', () => {

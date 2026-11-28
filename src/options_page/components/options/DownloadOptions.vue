@@ -130,7 +130,7 @@ export default {
       } else {
         this.downloadRelativeFieldErrorMessages = [];
 
-        if (!!this.downloadRelativeLocation) {
+        if (this.downloadRelativeLocation) {
           replaceStr = this.downloadRelativeLocation;
         }
       }

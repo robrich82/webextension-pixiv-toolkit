@@ -28,7 +28,7 @@ function dumpDatabase(name) {
       const db = open.result;
       const dump = { name, version: db.version, stores: {} };
 
-      for (const storeName of [...db.objectStoreNames]) {
+      for (const storeName of db.objectStoreNames) {
         const store = db.transaction(storeName).objectStore(storeName);
         const records = [];
 

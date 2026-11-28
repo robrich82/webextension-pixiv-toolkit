@@ -1,6 +1,4 @@
 import { RuntimeError } from "@/errors";
-import DateFormatter from "@/modules/Util/DateFormatter";
-import md5 from "md5";
 import moment from "moment";
 import Request from "@/modules/Net/Request";
 import { decrypteImage } from "./ImageDecrypte";
@@ -117,17 +115,17 @@ class EpisodeParser {
    * Load episode context
    * @return {Promise.<string,Error>}
    */
-   parserContext() {
+  async parserContext() {
     this.parseUrl(this.url);
 
-    return new Promise(async (resolve, reject) => {
-      let clientTime = moment().format('YYYY-MM-DDTHH:mm:ssZ');
-      const cryptedArrayBuffer = await crypto.subtle.digest(
-        'SHA-256',
-        new TextEncoder().encode(clientTime.concat(this.yek))
-      );
-      let clientHash = Array.from(new Uint8Array(cryptedArrayBuffer)).map(i => i.toString(16).padStart(2, '0')).join('');
+    let clientTime = moment().format('YYYY-MM-DDTHH:mm:ssZ');
+    const cryptedArrayBuffer = await crypto.subtle.digest(
+      'SHA-256',
+      new TextEncoder().encode(clientTime.concat(this.yek))
+    );
+    let clientHash = Array.from(new Uint8Array(cryptedArrayBuffer)).map(i => i.toString(16).padStart(2, '0')).join('');
 
+    return new Promise((resolve, reject) => {
       this.request = new Request(this.buildContextUrl(this.context.id), {
         method: 'GET',
         credentials: 'include',

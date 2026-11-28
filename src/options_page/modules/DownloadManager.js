@@ -1,4 +1,4 @@
-import AbstractDownloadTask from './DownloadTasks/AbstractDownloadTask';
+/** @import AbstractDownloadTask from './DownloadTasks/AbstractDownloadTask' */
 import DownloadTaskExistsError from '@/errors/DownloadTaskExistsError';
 import DownloadTaskNotFoundError from '@/errors/DownloadTaskNotFoundError';
 import Event from '@/modules/Event';

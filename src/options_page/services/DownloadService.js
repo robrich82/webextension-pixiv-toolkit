@@ -1,4 +1,3 @@
-import { RuntimeError } from "@/errors";
 import AbstractService from "./AbstractService";
 import browser from "@/modules/Extension/browser";
 import DownloadAdapter from "../modules/DownloadAdapter";

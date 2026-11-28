@@ -4,7 +4,6 @@ import defaultSettings from '@/config/default';
 import ServiceProvider from './services/ServiceProvider';
 import Updater from './modules/Updater';
 import updates from './updates';
-import updateSettings from '@/config/update';
 import versionCompare from '@/modules/Util/versionCompare';
 import AbstractPortService from './services/AbstractPortService';
 import { hasHostPermissions } from '@/modules/Extension/hostPermissions';

@@ -1,4 +1,3 @@
-import NotImplementedError from "@/errors/NotImplementedError";
 
 /**
  * @class

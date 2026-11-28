@@ -223,7 +223,7 @@ export default {
     /**
      * @type {ReturnType<typeof setTimeout>}
      */
-    this.noticeCloseTimeout;
+    this.noticeCloseTimeout = undefined;
 
     this.downloadTaskObserver = DownloadTaskObserver.getObserver();
     this.downloadTaskObserver.addListener('status', message => {
