@@ -37,7 +37,7 @@ There is no linter, formatter or type check. `eslint` and `eslint-plugin-compat`
 
 The pages and content scripts read `vue`, `vue-i18n` and `locales` (and Dexie, on the options pages) from globals that `lib/` scripts provide, rather than bundling them. The download manager also uses `JSZip` as a bare global; don't import `jszip`, or it gets bundled a second time. Give a new `lib/` `<script>` tag `vite-ignore`, like the existing ones, or Vite warns that it can't bundle it. The background bundles everything.
 
-Aliases: `@` → `src`, `@@` → `src/options_page`. Both are mirrored in `vitest.config.mjs`.
+Aliases: `@` → `src`, `@@` → `src/options_page`. Both are mirrored in `vite.config.mjs`.
 
 ### Download flow
 
@@ -80,7 +80,7 @@ UI strings are in `src/statics/_locales`. `src/statics/HISTORY_<locale>` (one pe
 - Vitest has two projects: `unit` (node environment, `test/**/*.spec.js`) and `components` (jsdom, `test/components/**`). Playwright files are named `*.e2e.js` so Vitest doesn't pick them up.
 - `@/modules/Extension/browser` is mapped to the in-memory fake in `test/doubles/browser.js`. Its test controls are under `browser._fake` (`reset`, `flush`, `addTab`, …), and it's reset before every test. Specs that open a port need `await browser._fake.flush()`.
 - Services are singletons that register listeners in their constructor. Clear `Service.instance = undefined` in `beforeEach` when a spec needs live listeners.
-- `coverage.thresholds` in `vitest.config.mjs` is a ratchet with per-directory floors. A new untested file can fail `mise run test`, so either cover it or lower the floor in the same PR and say why.
+- `coverage.thresholds` in `vite.config.mjs` is a ratchet with per-directory floors. A new untested file can fail `mise run test`, so either cover it or lower the floor in the same PR and say why.
 - A PostToolUse hook (`.claude/hooks/related-tests.js`) runs the related Vitest specs after each Edit or Write of a `.js`/`.mjs`/`.vue`/`.json` file under `src/`, `test/` or `scripts/`, or of a file its `READ_BY` table lists (a spec that starts reading a file with fs, rather than importing it, needs a row there), in whichever checkout the file is in, and skips until that checkout has had `pnpm install`. Its failures come back as hook feedback. Fix them rather than treating them as a stray run.
 
 Other docs: `docs/toolchain.md` (build toolchain). Track open work in GitHub issues, not in `docs/`.

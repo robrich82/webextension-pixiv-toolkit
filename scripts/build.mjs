@@ -13,7 +13,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import vue from '@vitejs/plugin-vue';
-import { build } from 'vite';
+import { build } from 'vite-plus';
 import { browserFloors, transformManifest } from './manifest.mjs';
 import { thirdPartyVersionsDefine } from './thirdPartyVersions.mjs';
 

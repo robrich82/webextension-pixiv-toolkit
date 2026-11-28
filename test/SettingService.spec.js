@@ -1,6 +1,6 @@
 /**
  * Drives the real background `SettingService` against the extension API fake,
- * which is what `vitest.config.mjs` resolves `@/modules/Extension/browser` to.
+ * which is what `vite.config.mjs` resolves `@/modules/Extension/browser` to.
  */
 import browser from './doubles/browser';
 import SettingService from '../src/background/services/SettingService';

@@ -3,7 +3,7 @@
  *
  * The real module hands back whatever `chrome`/`browser` global the extension
  * happens to be running against, so nothing that touches an extension API can
- * be tested without it. `vitest.config.mjs` aliases that module path
+ * be tested without it. `vite.config.mjs` aliases that module path
  * here, which means specs get this fake by importing the code under test — no
  * per-spec `vi.mock` call.
  *

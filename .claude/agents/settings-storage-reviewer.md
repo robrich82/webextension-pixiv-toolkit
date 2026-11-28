@@ -30,8 +30,8 @@ Get the diff you were pointed at (for example `git diff origin/main...HEAD`). Re
 
 ## Verify where you can
 
-- `pnpm exec vitest run --coverage.enabled=false test/update`, which matches `updates.spec.js` and every `update<version>.spec.js`
-- For a new fallback, run the related specs: `pnpm exec vitest related <files> --run --coverage.enabled=false`
+- `pnpm exec vp test run --coverage.enabled=false test/update`, which matches `updates.spec.js` and every `update<version>.spec.js`
+- For a new fallback, run the related specs: `pnpm exec vp test related <files> --run --coverage.enabled=false`
 
 ## Report
 

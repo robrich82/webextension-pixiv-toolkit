@@ -48,6 +48,13 @@ blockExoticSubdeps: true
 # Fail the install when a package's trust level drops relative to earlier
 # releases (a maintainer losing 2FA, a publish from an unattested source).
 trustPolicy: no-downgrade
+# A confirmed false positive, pinned to the version vite-plus pins exactly.
+# pnpm calls tsrs (vite-plus's tsc port) a "possible package takeover", but every
+# release since 0.12 is trusted-published with provenance from
+# oxc-project/tsrs's release.yml; the name's 2024 versions came from another
+# npm account. Remove it when vite-plus moves off this version.
+trustPolicyExclude:
+  - 'tsrs@7.1.0-beta.tsrs4'
 
 # Advisories `pnpm audit` should not report. Each entry needs a reason, and
 # comes out once a fixed version exists.
@@ -83,6 +90,9 @@ overrides:
   # multimatch (web-ext): not an advisory. 6.x default-imports minimatch, which
   # v11 no longer exports, so `web-ext build` crashes (see docs/toolchain.md).
   'multimatch@<8': ^8.0.0
+  # Not advisories: every vite and vitest resolves to the one Vite+ ships (catalog).
+  vite@*: 'catalog:'
+  vitest@*: 'catalog:'
 
 # multimatch 8 (web-ext) under minimatch 11 reads web-ext's Windows ignore
 # patterns' backslashes as escapes, so nothing is ignored and dotfiles/zips get
@@ -95,3 +105,11 @@ patchedDependencies:
 permissions:
   vue-virtual-scroller:
     skills: true
+
+# Vite+ pins its own Vite, Vitest and coverage provider, and the vite/vitest
+# overrides above point every dependency at them (docs/toolchain.md, "Vite+").
+catalog:
+  vite: npm:@voidzero-dev/vite-plus-core@8.3.8001
+  vitest: 5.1.1
+  vite-plus: 1.8.0
+  '@vitest/coverage-v8': 5.1.1

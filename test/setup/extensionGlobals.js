@@ -3,7 +3,7 @@
  * hands every test a clean copy of it.
  *
  * Most of the source imports `@/modules/Extension/browser`, which
- * `resolve.alias` in `vitest.config.mjs` already points at the fake. The rest reaches for the
+ * `resolve.alias` in `vite.config.mjs` already points at the fake. The rest reaches for the
  * globals directly — `chrome.i18n.getUILanguage()` in `UIApplication.js` and
  * `downloads.js`, `window.chrome` in `modules/Browser/Browser.js` — and the
  * real `browser.js` itself dereferences `self`. Under the `node` test

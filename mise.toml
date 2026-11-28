@@ -40,8 +40,8 @@ description = "Production build for Firefox into dist/firefox"
 run = "node scripts/build.mjs --platform=firefox"
 
 [tasks.test]
-description = "Vitest, unit and components projects, with coverage thresholds"
-run = "pnpm exec vitest run"
+description = "Vitest through Vite+, unit and components projects, with coverage thresholds"
+run = "pnpm exec vp test run"
 
 [tasks."test:e2e"]
 description = "Playwright against a fresh dist/chrome"

@@ -29,7 +29,7 @@ Get the diff you were pointed at (for example `git diff origin/main...HEAD`). Re
 ## Verify where you can
 
 - `mise run build` and `mise run build:firefox`. Check that both pass and inspect `dist/firefox/manifest.json` when the manifest, `scripts/manifest.mjs` or `scripts/build.mjs` changed. Each build empties `dist/<platform>` first, so skip it if a dev watch or e2e run may be using `dist/` in this checkout.
-- `pnpm exec vitest related <files> --run --coverage.enabled=false`
+- `pnpm exec vp test related <files> --run --coverage.enabled=false`
 
 ## Report
 

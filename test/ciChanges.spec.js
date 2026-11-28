@@ -27,7 +27,7 @@ describe('jobsFor', () => {
     ['nothing', [], []],
     ['a unit test', ['test/NameFormatter.spec.js'], ['test']],
     ['markdown among the unit tests', ['test/components/README.md'], ['test']],
-    ['the Vitest config', ['vitest.config.mjs'], ['test']],
+    ['the Vitest config', ['vite.config.mjs'], ['test']],
     ['the related-tests hook', ['.claude/hooks/related-tests.js'], ['test']],
     ['another hook', ['.claude/hooks/other.js'], ['test']],
     ['the Claude settings', ['.claude/settings.json'], ['test']],
@@ -102,7 +102,7 @@ function reachableFrom(start) {
 describe.each([
   ['the Chromium E2E suite', 'e2e_chrome', ['e2e/', 'playwright.config.js'], ['test/helpers/probeGif.mjs', 'test/fixtures/']],
   ['the Firefox E2E suite', 'e2e_firefox', ['e2e-firefox/'], ['e2e/fakePixivRoutes.js', 'test/helpers/probeVideo.mjs', 'test/fixtures/']],
-  ['the unit suite', 'test', ['test/', 'vitest.config.mjs'], ['src/', 'scripts/ciChanges.mjs']]
+  ['the unit suite', 'test', ['test/', 'vite.config.mjs'], ['src/', 'scripts/ciChanges.mjs']]
 ])('%s', (_, job, roots, expected) => {
   const start = TRACKED.filter((file) => roots.some((root) => root.endsWith('/') ? file.startsWith(root) : file === root));
   const reached = reachableFrom(start);

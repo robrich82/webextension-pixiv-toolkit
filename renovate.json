@@ -25,6 +25,11 @@
             "groupName": "pnpm"
         },
         {
+            "description": "The pnpm-workspace.yaml catalog pins vite-plus with the vite, vitest and coverage versions it ships; bump them in one PR.",
+            "matchPackageNames": ["vite-plus", "@voidzero-dev/vite-plus-core", "vitest", "@vitest/coverage-v8"],
+            "groupName": "Vite+"
+        },
+        {
             "description": "Renovate publishes several times a day; bump the validator image weekly.",
             "matchPackageNames": ["ghcr.io/renovatebot/renovate"],
             "schedule": ["* 0-5 * * 1"]

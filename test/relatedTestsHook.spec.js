@@ -63,15 +63,15 @@ describe('the hook', () => {
   });
 });
 
-// A checkout whose Vitest is a stub that records its arguments, and fails when told to.
+// A checkout whose vp is a stub that records its arguments, and fails when told to.
 describe('the hook on a stub checkout', () => {
   let root;
 
   beforeEach(() => {
     root = fs.mkdtempSync(path.join(os.tmpdir(), 'ptk-related-tests-'));
-    fs.writeFileSync(path.join(root, 'vitest.config.mjs'), '');
-    fs.mkdirSync(path.join(root, 'node_modules/vitest'), { recursive: true });
-    fs.writeFileSync(path.join(root, 'node_modules/vitest/vitest.mjs'), `
+    fs.writeFileSync(path.join(root, 'vite.config.mjs'), '');
+    fs.mkdirSync(path.join(root, 'node_modules/vite-plus/bin'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'node_modules/vite-plus/bin/vp'), `
       import fs from 'node:fs';
       fs.writeFileSync('argv.json', JSON.stringify(process.argv.slice(2)));
       if (fs.existsSync('fail')) {
@@ -97,7 +97,7 @@ describe('the hook on a stub checkout', () => {
 
     expect(result.status).toBe(0);
     expect(argv()).toEqual([
-      'related', 'src/statics/_locales/en/messages.json', 'test/i18nKeys.spec.js',
+      'test', 'related', 'src/statics/_locales/en/messages.json', 'test/i18nKeys.spec.js',
       '--run', '--coverage.enabled=false', '--passWithNoTests'
     ]);
   });
@@ -105,7 +105,7 @@ describe('the hook on a stub checkout', () => {
   test('passes only the specs for a file Vitest cannot trace', () => {
     hook('src/statics/HISTORY_en-US');
 
-    expect(argv().slice(0, 2)).toEqual(['related', 'test/components/ChangeLog.spec.js']);
+    expect(argv().slice(0, 3)).toEqual(['test', 'related', 'test/components/ChangeLog.spec.js']);
   });
 
   test('exits 2 with the output when a spec fails', () => {

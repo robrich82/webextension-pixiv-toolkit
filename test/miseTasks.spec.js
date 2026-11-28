@@ -77,7 +77,7 @@ describe('mise tasks', { timeout: 30000 }, () => {
     ['dev:firefox', ['dev:firefox: node scripts/build.mjs --platform=firefox --watch']],
     ['build', ['build: node scripts/build.mjs']],
     ['build:firefox', ['build:firefox: node scripts/build.mjs --platform=firefox']],
-    ['test', ['test: pnpm exec vitest run']],
+    ['test', ['test: pnpm exec vp test run']],
     // The E2E tasks build what they test first.
     ['test:e2e', ['build: node scripts/build.mjs', 'test:e2e: pnpm exec playwright test']],
     ['test:e2e:firefox', [
@@ -103,7 +103,7 @@ describe('mise tasks', { timeout: 30000 }, () => {
 
   test('arguments after the task name reach its command', () => {
     expect(dryRun('test', '--coverage.enabled=false', 'test/NameFormatter.spec.js')).toEqual([
-      'test: pnpm exec vitest run --coverage.enabled=false test/NameFormatter.spec.js'
+      'test: pnpm exec vp test run --coverage.enabled=false test/NameFormatter.spec.js'
     ]);
   });
 

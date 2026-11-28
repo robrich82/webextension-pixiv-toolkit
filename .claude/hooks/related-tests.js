@@ -67,7 +67,7 @@ function run(input) {
 
   let root = path.dirname(filePath);
 
-  while (!fs.existsSync(path.join(root, 'vitest.config.mjs'))) {
+  while (!fs.existsSync(path.join(root, 'vite.config.mjs'))) {
     let parent = path.dirname(root);
 
     if (parent === root) {
@@ -79,21 +79,21 @@ function run(input) {
 
   let relative = path.relative(root, filePath).split(path.sep).join('/');
   let args = relatedArgs(relative);
-  let vitest = path.join(root, 'node_modules', 'vitest', 'vitest.mjs');
+  let vp = path.join(root, 'node_modules', 'vite-plus', 'bin', 'vp');
 
   if (!args.length) {
     return 0;
   }
 
-  if (!fs.existsSync(vitest)) {
+  if (!fs.existsSync(vp)) {
     // Visible but non-blocking: a fresh worktree has no node_modules until `pnpm install`.
     console.log(JSON.stringify({ systemMessage: `related-tests: skipped, no node_modules in ${root} (run pnpm install)` }));
     return 0;
   }
 
   let result = spawnSync(process.execPath, [
-    vitest,
-    'related', ...args,
+    vp,
+    'test', 'related', ...args,
     '--run',
     '--coverage.enabled=false',
     '--passWithNoTests'

@@ -125,8 +125,12 @@ pinned so it survives a default flip.
 
 **`trustPolicy: no-downgrade`** — fail the install when a package's trust level
 drops relative to earlier releases, which is what a maintainer takeover tends to
-look like. There are no exclusions; add one only for a confirmed false positive,
-pinned to the exact version.
+look like. Add an exclusion only for a confirmed false positive, pinned to the
+exact version. The one there now is `tsrs`, the exact version vite-plus pins,
+which pnpm calls a possible takeover. Every tsrs release since 0.12 is
+trusted-published with provenance from oxc-project/tsrs, but the name's 2024
+versions came from another npm account. Remove the entry when vite-plus moves to
+another tsrs, and check that version's provenance before excluding it too.
 
 `namedRegistries` is not used: everything here comes from the public npm
 registry, so there is nothing to pin to a *different* one, and the setting is
@@ -171,9 +175,37 @@ decision.
 The commands are `[tasks]` in `mise.toml`, and `mise tasks` lists them.
 `test/miseTasks.spec.js` checks them through the real mise.
 
+## Vite+
+
+Builds and tests run on [Vite+](https://viteplus.dev) (`vite-plus`, the `vp`
+CLI). `vite.config.mjs` is its config, and holds the Vitest config. The
+`catalog` in `pnpm-workspace.yaml` pins `vite-plus` with the `vite`
+(`@voidzero-dev/vite-plus-core`), `vitest` and `@vitest/coverage-v8` versions
+it ships, and the `vite@*` and `vitest@*` overrides make every dependency
+resolve to those, so there is one copy of each. Renovate bumps the four in one
+PR. Code imports `vite-plus`, not `vite` or `vitest`.
+
+The `test` task is `vp test run`. The build stays a script: `vp build` builds
+one config, and `scripts/build.mjs` builds five targets with different
+externals into one directory, after copying the statics and the manifest. It
+calls Vite+'s `build()` the way it called Vite's.
+
+mise owns Node and pnpm, so `vp env` and `vp`'s package-manager commands go
+unused, and `vp migrate` ran with `--no-hooks --no-agent --no-editor`. It also
+added `minimumReleaseAgeExclude` entries for the Vite+, Oxc and Vitest
+packages; those were removed, so the one-day cooldown applies to them too.
+
+Vite+ has no telemetry. Its network use is the package registry, a preview
+registry used only for unreleased `0.0.0-*` builds, and a remote task cache
+that is off unless `VP_REMOTE_CACHE` is set.
+
+`eslint` and `eslint-plugin-compat` are not a source linter. They drive the
+bundle API floor check (`test/helpers/bundleApiFloor.js`) over the built
+bundles, which Vite+'s Oxlint doesn't replace.
+
 ## Build
 
-`scripts/build.mjs` builds each target with Vite. Vite lowers syntax to its
+`scripts/build.mjs` builds each target with Vite+. Vite lowers syntax to its
 `build.target`, in dependencies too, but adds no language polyfills (only its
 own modulepreload one).
 
