@@ -25,9 +25,9 @@
             "groupName": "pnpm"
         },
         {
-            "description": "The pnpm-workspace.yaml catalog pins vite-plus with the vite, vitest and coverage versions it ships; bump them in one PR.",
-            "matchPackageNames": ["vite-plus", "@voidzero-dev/vite-plus-core", "vitest", "@vitest/coverage-v8"],
-            "groupName": "Vite+"
+            "description": "vite-plus pins the vite and vitest it runs, and test/toolchainPins.spec.js fails until the pnpm-workspace.yaml catalog matches them. Renovate bumps vite-plus only; copy its versions into the catalog in that PR.",
+            "matchPackageNames": ["@voidzero-dev/vite-plus-core", "vitest", "@vitest/coverage-v8"],
+            "enabled": false
         },
         {
             "description": "Renovate publishes several times a day; bump the validator image weekly.",

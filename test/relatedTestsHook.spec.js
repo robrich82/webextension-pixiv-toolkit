@@ -25,7 +25,8 @@ describe('relatedArgs', () => {
     ['the manifest', 'src/statics/manifest.json', ['src/statics/manifest.json', 'test/manifest.spec.js', 'test/releaseFirefox.spec.js']],
     ['package.json', 'package.json', ['test/components/ChangeLog.spec.js', 'test/engines.spec.js', 'test/manifest.spec.js', 'test/onlyPnpm.spec.js', 'test/toolchainPins.spec.js']],
     ['the script onlyPnpm spawns', 'scripts/only-pnpm.js', ['scripts/only-pnpm.js', 'test/onlyPnpm.spec.js']],
-    ['the pnpm lockfile', 'pnpm-lock.yaml', ['test/engines.spec.js']],
+    ['the pnpm lockfile', 'pnpm-lock.yaml', ['test/engines.spec.js', 'test/toolchainPins.spec.js']],
+    ['the pnpm workspace', 'pnpm-workspace.yaml', ['test/toolchainPins.spec.js']],
     ['the mise config', 'mise.toml', ['test/miseTasks.spec.js', 'test/toolchainPins.spec.js']],
     ['the mise lockfile', 'mise.lock', ['test/toolchainPins.spec.js']],
     ['the CI workflow', '.github/workflows/ci.yml', ['test/ciChanges.spec.js']],
@@ -63,15 +64,20 @@ describe('the hook', () => {
   });
 });
 
-// A checkout whose vp is a stub that records its arguments, and fails when told to.
-describe('the hook on a stub checkout', () => {
+// A checkout whose Vitest is a stub that records its arguments, and fails when told to.
+// A Vite+ checkout runs the Vitest that vite-plus depends on; an older one, its own.
+describe.each([
+  ['a Vite+ checkout', 'vite.config.mjs', 'node_modules/vite-plus/node_modules/vitest'],
+  ['a checkout from before Vite+', 'vitest.config.mjs', 'node_modules/vitest']
+])('the hook on %s', (_, config, vitestDir) => {
   let root;
 
   beforeEach(() => {
     root = fs.mkdtempSync(path.join(os.tmpdir(), 'ptk-related-tests-'));
-    fs.writeFileSync(path.join(root, 'vite.config.mjs'), '');
-    fs.mkdirSync(path.join(root, 'node_modules/vite-plus/bin'), { recursive: true });
-    fs.writeFileSync(path.join(root, 'node_modules/vite-plus/bin/vp'), `
+    fs.writeFileSync(path.join(root, config), '');
+    fs.mkdirSync(path.join(root, vitestDir), { recursive: true });
+    fs.writeFileSync(path.join(root, vitestDir, 'package.json'), JSON.stringify({ name: 'vitest', bin: { vitest: './vitest.mjs' } }));
+    fs.writeFileSync(path.join(root, vitestDir, 'vitest.mjs'), `
       import fs from 'node:fs';
       fs.writeFileSync('argv.json', JSON.stringify(process.argv.slice(2)));
       if (fs.existsSync('fail')) {
@@ -97,7 +103,7 @@ describe('the hook on a stub checkout', () => {
 
     expect(result.status).toBe(0);
     expect(argv()).toEqual([
-      'test', 'related', 'src/statics/_locales/en/messages.json', 'test/i18nKeys.spec.js',
+      'related', 'src/statics/_locales/en/messages.json', 'test/i18nKeys.spec.js',
       '--run', '--coverage.enabled=false', '--passWithNoTests'
     ]);
   });
@@ -105,7 +111,7 @@ describe('the hook on a stub checkout', () => {
   test('passes only the specs for a file Vitest cannot trace', () => {
     hook('src/statics/HISTORY_en-US');
 
-    expect(argv().slice(0, 3)).toEqual(['test', 'related', 'test/components/ChangeLog.spec.js']);
+    expect(argv().slice(0, 2)).toEqual(['related', 'test/components/ChangeLog.spec.js']);
   });
 
   test('exits 2 with the output when a spec fails', () => {

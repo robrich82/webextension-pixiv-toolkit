@@ -128,8 +128,9 @@ drops relative to earlier releases, which is what a maintainer takeover tends to
 look like. Add an exclusion only for a confirmed false positive, pinned to the
 exact version. The one there now is `tsrs`, the exact version vite-plus pins,
 which pnpm calls a possible takeover. Every tsrs release since 0.12 is
-trusted-published with provenance from oxc-project/tsrs, but the name's 2024
-versions came from another npm account. Remove the entry when vite-plus moves to
+trusted-published with provenance (from maschwenk/tsrs up to 0.15, and
+oxc-project/tsrs since 0.16), but the name's 2024 versions came from another npm
+account. Remove the entry when vite-plus moves to
 another tsrs, and check that version's provenance before excluding it too.
 
 `namedRegistries` is not used: everything here comes from the public npm
@@ -182,8 +183,10 @@ CLI). `vite.config.mjs` is its config, and holds the Vitest config. The
 `catalog` in `pnpm-workspace.yaml` pins `vite-plus` with the `vite`
 (`@voidzero-dev/vite-plus-core`), `vitest` and `@vitest/coverage-v8` versions
 it ships, and the `vite@*` and `vitest@*` overrides make every dependency
-resolve to those, so there is one copy of each. Renovate bumps the four in one
-PR. Code imports `vite-plus`, not `vite` or `vitest`.
+resolve to those, so there is one copy of each. Renovate bumps only
+`vite-plus`; copy the versions it pins into the catalog in that PR, which
+`test/toolchainPins.spec.js` fails without. Code imports `vite-plus`, not `vite`
+or `vitest`.
 
 The `test` task is `vp test run`. The build stays a script: `vp build` builds
 one config, and `scripts/build.mjs` builds five targets with different
@@ -196,8 +199,9 @@ added `minimumReleaseAgeExclude` entries for the Vite+, Oxc and Vitest
 packages; those were removed, so the one-day cooldown applies to them too.
 
 Vite+ has no telemetry. Its network use is the package registry, a preview
-registry used only for unreleased `0.0.0-*` builds, and a remote task cache
-that is off unless `VP_REMOTE_CACHE` is set.
+registry used only for unreleased `0.0.0-*` builds, and `vp run`'s remote task
+cache, which is off unless `VP_REMOTE_CACHE`, `VP_REMOTE_CACHE_URL` or a
+`run.cache.remote.url` config sets it (`vp run` isn't used here).
 
 `eslint` and `eslint-plugin-compat` are not a source linter. They drive the
 bundle API floor check (`test/helpers/bundleApiFloor.js`) over the built

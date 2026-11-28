@@ -50,9 +50,9 @@ blockExoticSubdeps: true
 trustPolicy: no-downgrade
 # A confirmed false positive, pinned to the version vite-plus pins exactly.
 # pnpm calls tsrs (vite-plus's tsc port) a "possible package takeover", but every
-# release since 0.12 is trusted-published with provenance from
-# oxc-project/tsrs's release.yml; the name's 2024 versions came from another
-# npm account. Remove it when vite-plus moves off this version.
+# release since 0.12 is trusted-published with provenance, from maschwenk/tsrs up
+# to 0.15 and oxc-project/tsrs since 0.16; the name's 2024 versions came from
+# another npm account. Remove it when vite-plus moves off this version.
 trustPolicyExclude:
   - 'tsrs@7.1.0-beta.tsrs4'
 
