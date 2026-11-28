@@ -31,11 +31,16 @@ function mise(...args) {
   return result;
 }
 
-/** The commands a dry run of `args` would run, in order. */
+/**
+ * The commands a dry run of `args` would run, in order. mise on Linux
+ * single-quotes some task arguments in the echo (`'--a=b'`) and on Windows it
+ * doesn't, so the quotes are dropped.
+ */
 function dryRun(...args) {
   const { status, stderr } = mise('run', '-n', ...args);
   expect(status, stderr).toBe(0);
-  return [...stderr.matchAll(/^\[([^\]]+)\] \$ (.+)$/gm)].map(([, task, command]) => `${task}: ${command}`);
+  return [...stderr.matchAll(/^\[([^\]]+)\] \$ (.+)$/gm)]
+    .map(([, task, command]) => `${task}: ${command.replace(/'([^']*)'/g, '$1')}`);
 }
 
 const listed = mise('tasks', 'ls', '--json');
