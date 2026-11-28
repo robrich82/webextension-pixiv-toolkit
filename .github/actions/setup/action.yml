@@ -48,6 +48,10 @@ runs:
     # (see pnpm-workspace.yaml, where every such package is denied).
     # The same setting protects local installs.
     #
+    # `mise deps` runs mise.toml's `pnpm install --frozen-lockfile` and records
+    # that it did, so the `mise run` steps after it don't install again. Naming
+    # the provider fails the step without a lockfile, which a bare `mise deps`
+    # skips; --raw prints pnpm's output once rather than twice.
     # --frozen-lockfile is the `npm ci` equivalent: install exactly the
     # locked tree and fail if package.json and pnpm-lock.yaml disagree. It
     # also re-checks the locked versions against the supply-chain policies,
@@ -55,4 +59,4 @@ runs:
     # resolution happens here.
     - name: Install dependencies
       shell: bash
-      run: pnpm install --frozen-lockfile
+      run: mise deps --raw pnpm

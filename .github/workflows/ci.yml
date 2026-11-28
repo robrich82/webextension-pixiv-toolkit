@@ -59,10 +59,10 @@ jobs:
       # A red step still needs clearing -- see docs/toolchain.md.
       - name: Audit dependencies
         continue-on-error: true
-        run: pnpm audit --audit-level=moderate
+        run: mise run audit
 
       - name: Run tests
-        run: pnpm test
+        run: mise run test
 
   build:
     needs: changes
@@ -73,10 +73,10 @@ jobs:
       - uses: ./.github/actions/setup
 
       - name: Build extension for Chrome
-        run: pnpm run build
+        run: mise run build
 
       - name: Build extension for Firefox
-        run: pnpm run build:firefox
+        run: mise run build:firefox
 
       - name: Upload Chrome build
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -111,8 +111,9 @@ jobs:
       - name: Install Chromium
         run: pnpm exec playwright install --with-deps --no-shell chromium
 
+      # --skip-deps: test the downloaded build rather than rebuild it.
       - name: Run E2E tests
-        run: pnpm run test:e2e
+        run: mise run --skip-deps test:e2e
 
       - name: Upload E2E report
         if: failure()
@@ -148,7 +149,7 @@ jobs:
         timeout-minutes: 10
         run: |
           firefox --version
-          pnpm run test:e2e:firefox
+          mise run --skip-deps test:e2e:firefox
 
   # The one required check: it fails if a job in `needs` failed or was
   # cancelled. A skipped job passes; a skip means unchanged paths or a failure
